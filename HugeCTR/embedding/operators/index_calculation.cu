@@ -23,6 +23,10 @@
 #include <utils.cuh>
 #include <utils.hpp>
 
+#if CUB_VERSION >= 200200
+#include <cuda/std/tuple>
+#endif
+
 namespace embedding {
 
 namespace {
@@ -466,6 +470,20 @@ LocalReduceIndexCalculation::LocalReduceIndexCalculation(std::shared_ptr<CoreRes
 
 #if CUB_VERSION >= 200200
 
+template <typename T>
+struct ComposeTidKey {
+  int tid;
+  T key;
+} __attribute__((packed));
+
+template <typename T>
+struct Decomposr {
+  __host__ __device__ ::cuda::std::tuple<int &, T &> operator()(
+      ComposeTidKey<T> &compose_key) const {
+    return {compose_key.tid, compose_key.key};
+  }
+};
+
 template <typename key_t>
 __global__ void compose_tid_key_kernel(const key_t *keys, const int *table_range,
                                        const size_t num_keys, const int num_table_range,
@@ -486,6 +504,8 @@ __global__ void decompose_tid_key_kernel(const struct ComposeTidKey<key_t> *comp
   CUDA_1D_KERNEL_LOOP(idx, num_keys) { keys[idx] = compose_arr[idx].key; }
 }
 
+#endif
+
 SegmentedSortDevice::SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core,
                                          core23::Tensor sorted_table_ids, int max_num_keys,
                                          int batch_size, int num_lookup, int num_table,
@@ -494,28 +514,38 @@ SegmentedSortDevice::SegmentedSortDevice(const std::shared_ptr<CoreResourceManag
       num_lookup_(num_lookup),
       num_table_(num_table),
       batch_size_(batch_size) {
-  HugeCTR::CudaDeviceContext ctx(core->get_device_id());
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
 
   max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
+#if CUB_VERSION >= 200200
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     this->compose_tid_keys_input = core23::Tensor(
-        params.shape({static_cast<int64_t>(max_key_num_ * (sizeof(key_t) + sizeof(int)))})
+        params.shape({static_cast<int64_t>(max_key_num_ * (sizeof(ComposeTidKey<key_t>)))})
             .data_type(core23::ScalarType::Char));
     this->compose_tid_keys_output = core23::Tensor(
-        params.shape({static_cast<int64_t>(max_key_num_ * (sizeof(key_t) + sizeof(int)))})
+        params.shape({static_cast<int64_t>(max_key_num_ * (sizeof(ComposeTidKey<key_t>)))})
             .data_type(core23::ScalarType::Char));
     cub::DeviceRadixSort::SortPairs(nullptr, cub_sort_temp_bytes_, (ComposeTidKey<key_t> *)nullptr,
                                     (ComposeTidKey<key_t> *)nullptr, (uint32_t *)nullptr,
                                     (uint32_t *)nullptr, max_key_num_, Decomposr<key_t>{}, 0,
                                     sizeof(struct ComposeTidKey<key_t>) * 8);
-    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-    core23::TensorParams params = core23::TensorParams().device(device);
     cub_sort_temp_buffer_ =
         core23::Tensor(params.shape({static_cast<int64_t>(cub_sort_temp_bytes_)})
                            .data_type(core23::ScalarType::Char));
   });
+#else
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
+    cub::DeviceSegmentedRadixSort::SortPairs(
+        nullptr, cub_sort_temp_bytes_, (key_t *)nullptr, (key_t *)nullptr, (uint32_t *)nullptr,
+        (uint32_t *)nullptr, max_key_num_, num_table, (int *)nullptr, (int *)nullptr);
+    cub_sort_temp_buffer_ =
+        core23::Tensor(params.shape({static_cast<int64_t>(cub_sort_temp_bytes_)})
+                           .data_type(core23::ScalarType::Char));
+  });
+#endif
 
   this->partitioned_table_range =
       core23::Tensor(params.shape({num_table + 1}).data_type(core23::ScalarType::Int32));
@@ -555,6 +585,7 @@ void SegmentedSortDevice::operator()(embedding::SortInput &input, embedding::Sor
                         select_op, stream);
 
   // sort
+#if CUB_VERSION >= 200200
   DISPATCH_INTEGRAL_FUNCTION_CORE23(input.keys.data_type().type(), key_t, [&] {
     compose_tid_key_kernel<<<grid_size, block_size, 0, stream>>>(
         input.keys.data<key_t>(), partitioned_table_range.data<int>(), input.h_num_key,
@@ -569,71 +600,7 @@ void SegmentedSortDevice::operator()(embedding::SortInput &input, embedding::Sor
         static_cast<struct ComposeTidKey<key_t> *>(compose_tid_keys_output.data()), input.h_num_key,
         output.sorted_keys.data<key_t>());
   });
-}
 #else
-
-SegmentedSortDevice::SegmentedSortDevice(const std::shared_ptr<CoreResourceManager> &core,
-                                         core23::Tensor sorted_table_ids, int max_num_keys,
-                                         int batch_size, int num_lookup, int num_table,
-                                         core23::DataType key_type)
-    : sorted_table_ids_(sorted_table_ids),
-      num_lookup_(num_lookup),
-      num_table_(num_table),
-      batch_size_(batch_size) {
-  max_key_num_ = ((size_t)max_num_keys) * ((size_t)batch_size);
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
-    cub::DeviceSegmentedRadixSort::SortPairs(
-        nullptr, cub_sort_temp_bytes_, (key_t *)nullptr, (key_t *)nullptr, (uint32_t *)nullptr,
-        (uint32_t *)nullptr, max_key_num_, num_table, (int *)nullptr, (int *)nullptr);
-    core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-    core23::TensorParams params = core23::TensorParams().device(device);
-    cub_sort_temp_buffer_ =
-        core23::Tensor(params.shape({static_cast<int64_t>(cub_sort_temp_bytes_)})
-                           .data_type(core23::ScalarType::Char));
-  });
-
-  HugeCTR::CudaDeviceContext context(core->get_device_id());
-
-  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
-  core23::TensorParams params = core23::TensorParams().device(device);
-  this->partitioned_table_range =
-      core23::Tensor(params.shape({num_table + 1}).data_type(core23::ScalarType::Int32));
-
-  {
-    size_t temp_bytes = 0;
-    LessThan select_op(std::numeric_limits<int>::max());
-    cub::DeviceSelect::If(nullptr, temp_bytes, (int *)nullptr, (int *)nullptr, (int *)nullptr,
-                          num_lookup + 1, select_op);
-    this->temp_select_storage = core23::Tensor(
-        params.shape({static_cast<int64_t>(temp_bytes)}).data_type(core23::ScalarType::Char));
-  }
-  this->d_num_selected_table_range_ =
-      core23::Tensor(params.shape({1}).data_type(core23::ScalarType::Int32));
-  this->temp_lookup_range =
-      core23::Tensor(params.shape({num_lookup + 1}).data_type(core23::ScalarType::Int32));
-}
-
-void SegmentedSortDevice::operator()(embedding::SortInput &input, embedding::SortOutput &output,
-                                     std::shared_ptr<CoreResourceManager> core) {
-  auto stream = core->get_local_gpu()->get_stream();
-  auto &bucket_range = input.bucket_range;
-
-  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
-    const int block_size = 256;
-    const int grid_size = core->get_kernel_param().num_sms *
-                          core->get_kernel_param().max_thread_per_block / block_size;
-    cal_table_range_kernel<<<grid_size, block_size, 0, stream>>>(
-        bucket_range.data<offset_t>(), sorted_table_ids_.data<int>(), num_lookup_,
-        temp_lookup_range.data<int>(), batch_size_);
-  });
-  LessThan select_op(std::numeric_limits<int>::max());
-  size_t temp_storage_nbytes = temp_select_storage.num_bytes();
-  cub::DeviceSelect::If(temp_select_storage.data(), temp_storage_nbytes,
-                        temp_lookup_range.data<int>(), partitioned_table_range.data<int>(),
-                        d_num_selected_table_range_.data<int>(), temp_lookup_range.num_elements(),
-                        select_op, stream);
-
-  // sort
   DISPATCH_INTEGRAL_FUNCTION_CORE23(input.keys.data_type().type(), key_t, [&] {
     cub::DeviceSegmentedRadixSort::SortPairs(
         cub_sort_temp_buffer_.data(), cub_sort_temp_bytes_, input.keys.data<key_t>(),
@@ -642,8 +609,8 @@ void SegmentedSortDevice::operator()(embedding::SortInput &input, embedding::Sor
         partitioned_table_range.data<int>(), partitioned_table_range.data<int>() + 1, 0,
         sizeof(key_t) * 8, stream);
   });
-}
 #endif
+}
 
 IndicesSort::IndicesSort(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
                          int batch_size, core23::DataType key_type) {

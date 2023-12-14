@@ -145,11 +145,10 @@ class DNN(tf.keras.models.Model):
         return model.summary()
 
 
-def train(args):
+def train(args, strategy):
     init_tensors = np.ones(
         shape=[args["max_vocabulary_size"], args["embed_vec_size"]], dtype=args["np_vector_type"]
     )
-    strategy = tf.distribute.MirroredStrategy()
     with strategy.scope():
         model = DNN(
             init_tensors,
@@ -259,8 +258,7 @@ class PreTrainedEmbedding(tf.keras.models.Model):
         return model.summary()
 
 
-def train_with_pretrained_embeddings(args):
-    strategy = tf.distribute.MirroredStrategy()
+def train_with_pretrained_embeddings(args, strategy):
     with strategy.scope():
         hps.Init(global_batch_size=args["global_batch_size"], ps_config_file=args["ps_config_file"])
         model = PreTrainedEmbedding(
@@ -317,9 +315,10 @@ def train_with_pretrained_embeddings(args):
 
 
 def test_multi_gpu_hps():
-    trained_model = train(args)
+    strategy = tf.distribute.MirroredStrategy()
+    trained_model = train(args, strategy)
     weights_list = trained_model.get_weights()
     embedding_weights = weights_list[-1]
 
     convert_to_sparse_model(embedding_weights, args["embedding_table_path"], args["embed_vec_size"])
-    model = train_with_pretrained_embeddings(args)
+    model = train_with_pretrained_embeddings(args, strategy)
