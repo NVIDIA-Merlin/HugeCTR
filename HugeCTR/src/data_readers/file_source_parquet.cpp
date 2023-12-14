@@ -152,7 +152,7 @@ cudf_io::table_with_metadata ParquetFileSource::read_group(size_t row_group_id,
   std::vector<cudf::size_type> row_list = {curr_row_group_};
   std::vector<std::vector<cudf::size_type>> rgrps = {row_list};
   parquet_args_.set_row_groups(rgrps);
-  parquet_args_.set_num_rows(-1);
+  // parquet_args_.set_num_rows(-1);
   parquet_args_.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
   auto tbl_w_metadata = cudf_io::read_parquet(parquet_args_, mr);
 
