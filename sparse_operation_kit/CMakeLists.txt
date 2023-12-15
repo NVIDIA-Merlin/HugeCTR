@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.20)
 project(SparseOperationKit LANGUAGES CXX CUDA)
 
 message(STATUS "Building Sparse Operation Kit from source.")
@@ -74,20 +74,8 @@ if (USE_NVTX)
 endif()
 
 option(ENABLE_HCTR "Build core HCTR backend" ON)
-# whether make ops to be asynchronous
-option(SOK_ASYNC "Make Ops to be asynchronous" ON)
-if (SOK_ASYNC)
-    message(STATUS "Make Ops to be asynchronous")
-    add_definitions(-DSOK_ASYNC)
-endif()
 
-# whether build for DeepRec
-option(ENABLE_DEEPREC "Enable op support for deeprec" OFF)
-if (ENABLE_DEEPREC)
-set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
-endif()
+
 
 # setting compiler flags
 if (NOT CMAKE_BUILD_TYPE)
@@ -156,6 +144,53 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+# whether build for DeepRec
+# if build for DeepRec, need copy some third party library
+option(ENABLE_DEEPREC "Enable op support for deeprec" OFF)
+if (ENABLE_DEEPREC)
+set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DGOOGLE_CUDA -DTENSORFLOW_USE_GPU_EV")
+
+file(MAKE_DIRECTORY ${PROJECT_SOURCE_DIR}/external/third_party)
+
+execute_process (
+    COMMAND bash -c "rm -rf ${PROJECT_SOURCE_DIR}/external/third_party/*"
+    OUTPUT_VARIABLE CLEAN_EXTERNAL_REPO
+)
+message(STATUS CLEAN_EXTERNAL_REPO=${CLEAN_EXTERNAL_REPO})
+
+execute_process (
+    COMMAND bash -c "cp -r $ENV{DeepRecBuild}/external/com_github_google_leveldb ${PROJECT_SOURCE_DIR}/external/third_party/leveldb"
+    OUTPUT_VARIABLE COPY_LEVELDB
+)
+message(STATUS "COPY_LEVELDB=${COPY_LEVELDB}")
+
+execute_process (
+    COMMAND bash -c "cp -r $ENV{DeepRecBuild}/external/sparsehash_c11 ${PROJECT_SOURCE_DIR}/external/third_party/dense_hash_map"
+    OUTPUT_VARIABLE COPY_DENSE_HASH_MAP
+)
+message(STATUS "COPY_DENSE_HASH_MAP=${COPY_DENSE_HASH_MAP}")
+
+execute_process (
+    COMMAND bash -c "cp -r $ENV{DeepRecBuild}/external/cuCollections/include/ ${PROJECT_SOURCE_DIR}/external/third_party/cuco_hash_table"
+    OUTPUT_VARIABLE COPY_CUCO_HASH_MAP
+)
+message(STATUS "COPY_CUCO_HASH_MAP=${COPY_CUCO_HASH_MAP}")
+
+include_directories(
+    $ENV{DeepRecWorkdir}/addons/sparse_operation_kit/core/adapter/
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/third_party/dense_hash_map
+    ${CMAKE_CURRENT_SOURCE_DIR}/external/third_party/leveldb/include
+)
+
+list(APPEND files $ENV{DeepRecWorkdir}/addons/sparse_operation_kit/core/adapter/lookup_adapter.cpp)
+
+endif()
+
+
+
 # setting install folder
 if(SKBUILD)
     # if we're building with skbuild, then we shouldn't be installing to /usr/local/lib
@@ -172,12 +207,6 @@ if(SKBUILD)
 # so we use a workaround here: copy the content of parent folder into
 # sparse_operation_kit/ before making pip package.
 include_directories(
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/include/
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
-    ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
-    ${PROJECT_SOURCE_DIR}/kit_cc/
-    ${PROJECT_SOURCE_DIR}/kit_cc/common/
     ${PROJECT_SOURCE_DIR}/
     ${PROJECT_SOURCE_DIR}/../
     ${PROJECT_SOURCE_DIR}/HugeCTR/
@@ -193,12 +222,6 @@ include_directories(
 )
 else()
 include_directories(
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/include/
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/third_party/
-    ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/
-    ${PROJECT_SOURCE_DIR}/kit_cc/
-    ${PROJECT_SOURCE_DIR}/kit_cc/common/
     ${PROJECT_SOURCE_DIR}/../
     ${PROJECT_SOURCE_DIR}/../HugeCTR/
     ${PROJECT_SOURCE_DIR}/../HugeCTR/include
@@ -221,65 +244,26 @@ link_directories(
     /usr/local/cuda/lib64/
 )
 
-# code sources related to framework
-file(GLOB framework
-    ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/*.cpp
-    ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/framework/kernels/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/framework/ops/*.cpp
-    ${PROJECT_SOURCE_DIR}/kit_cc/framework/ops/*.cc
+include_directories(
+    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_SOURCE_DIR}/kit_src
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/impl/dynamic_embedding_table/
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/impl/dynamic_embedding_table/cuCollections/include
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/impl/dynamic_embedding_table/cudf
 )
 
-# code sources related to the kit infrastructure
-file(GLOB kit_infra
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/*.cpp
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/resources/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/parameters/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/parameters/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/hashtable/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/hashtable/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/embeddings/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/embeddings/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/tensor_buffer/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/dispatcher/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/dispatcher/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/initializer/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/initializer/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/operation/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/operation/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/optimizer/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc/kit_cc_infra/src/optimizer/*.cu
+file(GLOB files
+    ${PROJECT_SOURCE_DIR}/kit_src/lookup/ops/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_src/lookup/kernels/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_src/lookup/impl/*.cu
+    ${PROJECT_SOURCE_DIR}/kit_src/lookup/impl/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/ops/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/kernels/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/impl/*.cu
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/impl/*.cc
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/impl/dynamic_embedding_table/dynamic_embedding_table.cu
+    ${PROJECT_SOURCE_DIR}/kit_src/variable/impl/dynamic_embedding_table/hash_table.cu
 )
-
-# code sources for the concrete algorithm implementations of the kit
-file(GLOB kit_impl
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/common/src/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/common/src/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/dispatcher/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/dispatcher/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/lookuper/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/lookuper/*.cu
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/operation/*.cc
-    ${PROJECT_SOURCE_DIR}/kit_cc_impl/embedding/operation/*.cu
-)
-
-file(GLOB test_op
-    ${PROJECT_SOURCE_DIR}/Plugin/framework/kernels/test_op.cc
-    ${PROJECT_SOURCE_DIR}/Plugin/framework/ops/test_op.cc
-)
-
-
-# build dynamic lib
-add_library(sparse_operation_kit SHARED ${framework} ${kit_infra} ${kit_impl})
-target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl CUDA::cusparse ${MPI_CXX_LIBRARIES} CUDA::curand)
-
-
-get_property(SOK_CXX_STANDARD_FLAG GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY)
-get_property(SOK_CUDA_STANDARD_FLAG GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY)
-target_compile_features(sparse_operation_kit PRIVATE ${SOK_CXX_STANDARD_PROPERTY} ${SOK_CXX_STANDARD_PROPERTY})
-#target_compile_features(sparse_operation_kit PUBLIC cxx_std_14 cuda_std_14)
 
 if(SKBUILD)
 # We haven't found a proper way to maintain the directory structure of
@@ -295,19 +279,15 @@ add_subdirectory(../HugeCTR/embedding embedding.out)
 add_subdirectory(../HugeCTR/core23 hugectr_core23.out)
 endif()
 
+# build dynamic lib
+add_library(sparse_operation_kit SHARED ${files})
+target_link_libraries(sparse_operation_kit PUBLIC ${TF_LINK_FLAGS} nccl CUDA::cusparse ${MPI_CXX_LIBRARIES} CUDA::curand embedding hugectr_core23)
+
+get_property(SOK_CXX_STANDARD_FLAG GLOBAL PROPERTY SOK_CXX_STANDARD_PROPERTY)
+get_property(SOK_CUDA_STANDARD_FLAG GLOBAL PROPERTY SOK_CUDA_STANDARD_PROPERTY)
+target_compile_features(sparse_operation_kit PRIVATE ${SOK_CXX_STANDARD_FLAG} ${SOK_CXX_STANDARD_FLAG})
+#target_compile_features(sparse_operation_kit PUBLIC cxx_std_14 cuda_std_14)
+
 if (USE_NVTX)
     target_link_libraries(sparse_operation_kit PUBLIC ${NVTX_LIB})
 endif()
-
-
-# compile compat ops
-add_subdirectory(kit_cc_impl/operations)
-
-# compile ops for unit test
-option(SOK_UNIT_TEST "Compile SOK unit test" ON)
-if (SOK_UNIT_TEST)
-    message(STATUS "Compile SOK unit test")
-    add_subdirectory(unit_test)
-endif()
-
-add_subdirectory(${PROJECT_SOURCE_DIR}/experiment)

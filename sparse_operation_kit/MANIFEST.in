@@ -14,10 +14,7 @@
 
 # include files needed for compiling SOK
 graft cmakes
-graft kit_cc
-graft kit_cc_impl
-graft experiment
-graft unit_test
+graft kit_src
 graft HugeCTR
 graft third_party
 graft gpu_cache
