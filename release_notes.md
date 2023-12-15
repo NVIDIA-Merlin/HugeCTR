@@ -1,6 +1,6 @@
 # Release Notes
 
-## What's New in Version 23.09
+## What's New in Version 23.12
 
 + **Code Cleaning and Deprecation**
   + The offline inference has been deprecated from our documentation, notebook suite, and code. Please check out the HPS plugin for [TensorFlow](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_tf_user_guide.html) and [TensorRT](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_trt_user_guide.html). The multi-GPU inference is not illustrated in [this HPS TRT notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/hps_trt/notebooks/demo_for_tf_trained_model.ipynb).
@@ -212,7 +212,7 @@ In this release, we have fixed issues and enhanced the code.
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.3`.
-  Afterward, the library will use calendar versioning only, such as `v23.09`.
+  Afterward, the library will use calendar versioning only, such as `v23.12`.
   ```
 
 + **Support for BERT and Variants**:
@@ -294,7 +294,7 @@ The [HugeCTR Training and Inference with Remote File System Example](https://nvi
 
   ```{important}
   In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as `v4.2`.
-  Afterward, the library will use calendar versioning only, such as `v23.09`.
+  Afterward, the library will use calendar versioning only, such as `v23.12`.
   ```
 
 + **Change to HPS with Redis or Kafka**:

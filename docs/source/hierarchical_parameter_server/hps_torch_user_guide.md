@@ -38,7 +38,7 @@ The following sample commands pull and start the Merlin PyTorch container:
 Merlin PyTorch
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-pytorch:23.09
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-pytorch:23.12
 ```
 
 You can check the existence of the HPS plugin for Torch after launching the container by running the following Python statements:

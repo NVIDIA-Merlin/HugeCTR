@@ -83,7 +83,7 @@ The following sample command pulls and starts the Merlin Training container:
 
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:23.09
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:23.12
 ```
 
 ### Building HugeCTR from Scratch
