@@ -5,7 +5,6 @@ SparseOperationKit API
    :maxdepth: 2
 
    Initialize <init>
-   Embeddings <embeddings/index>
-   Optimizers <optimizers/opts>
-   Utilities <utils/index>
-   Experiment <experiment>
+   Lookup <lookup>
+   DynamicVariable <dynamic_variable>
+   Utilities <utils>

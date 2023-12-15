@@ -40,7 +40,7 @@ author = "NVIDIA"
 
 # version
 def _GetSOKVersion():
-    _version_path = os.path.join(os.getcwd(), "../../sparse_operation_kit/core/")
+    _version_path = os.path.join(os.getcwd(), "../../sparse_operation_kit/")
     sys.path.append(_version_path)
     from _version import __version__
 

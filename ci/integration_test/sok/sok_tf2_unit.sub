@@ -2,13 +2,13 @@
 set -e
 
 srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /workdir/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test && \
+    cd /workdir/sparse_operation_kit/sparse_operation_kit/test/function_test && \
     bash run_function_test.sh"
 
 srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /workdir/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test && \
+    cd /workdir/sparse_operation_kit/sparse_operation_kit/test/function_test && \
     bash run_function_test_multi_process.sh 1"
 
 srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /workdir/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test && \
+    cd /workdir/sparse_operation_kit/sparse_operation_kit/test/function_test && \
     bash run_dump_load_test_multi_process.sh 1"

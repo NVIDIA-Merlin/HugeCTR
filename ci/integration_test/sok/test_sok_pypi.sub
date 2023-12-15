@@ -6,6 +6,6 @@ srun --ntasks=1 --container-image="${CONT}" bash -cx " \
     python setup.py sdist && \
     cd dist && \
     pip install *.tar.gz --no-build-isolation && \
-    cd /workdir/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test/
+    cd /workdir/sparse_operation_kit/sparse_operation_kit/test/function_test && \
     bash run_function_test.sh"
 

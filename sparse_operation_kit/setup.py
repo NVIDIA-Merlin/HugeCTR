@@ -30,7 +30,7 @@ REQUIRED_PACKAGES = [
 
 def _GetSOKVersion():
     _version_path = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "sparse_operation_kit/core/"
+        os.path.dirname(os.path.abspath(__file__)), "sparse_operation_kit/"
     )
     sys.path.append(_version_path)
     from _version import __version__

@@ -2,5 +2,5 @@
 set -e
 
 srun --ntasks=8 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    cd /workdir/sparse_operation_kit/sparse_operation_kit/experiment/test/function_test && \
+    cd /workdir/sparse_operation_kit/sparse_operation_kit/test/function_test && \
     bash run_function_test.sh"

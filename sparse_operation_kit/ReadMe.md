@@ -14,29 +14,16 @@ SOK provides multiple types of MP embedding layers, optimized for different appl
 SOK is compatible with DP training provided by common synchronized training frameworks, such as [Horovod](https://horovod.ai). Because the input data fed to these embedding layers can take advantage of DP, additional DP from/to MP transformations are needed when SOK is used to scale up your DNN model from single GPU to multiple GPUs. The following picture illustrates the workflow of these embedding layers.
 ![WorkFlowOfEmbeddingLayer](documents/source/images/workflow_of_embeddinglayer.png)
 
-**Experiment Features** <br>
-To provide better flexibility and performance, we are making a major upgrade to SOK. We put the updates under `sok.experiment` namespace for now, you can import these new functions with the following commands.
-
-```python
-from sparse_operation_kit import experiment as sok
-```
-
-With this experimental module, we provide new distributed embedding operations and dynamic variables whose size can grow dynamically. More importantly, they do not need to be used together (although they can be), they can be used separately with native tensorflow.
-
-Note that the components under `sok.experiment` are not compatible with components outside of `sok.experiment`. They are all redesigned and in the future, when the components in `sok.experiment` are stable enough, we will replace other components in SOK with this new version SOK (things under `sok.experiment`) and deprecate the old version.
-
-You can find the experiment api at `API Docs` section and find the examples at `Examples` section.
-
 ## Installation ##
 There are several ways to install this package. <br>
 
 ### Obtaining SOK and HugeCTR via Docker ###
 This is the quickest way to get started with SOK.
-We provide containers with pre-compiled binaries of the latest HugeCTR and SOK versions.
+We provide containers with pre-compiled binaries of the latest HugeCTR and SOK versions(also can manually install SOK into `nvcr.io/nvidia/tensorflow series` images).
 To get started quickly with container on your machine, run the following command:
 
 ```bash
-docker run nvcr.io/nvidia/merlin/merlin-tensorflow:23.09
+docker run nvcr.io/nvidia/merlin/merlin-tensorflow:23.11
 ```
 
 > In production, replace the `latest` tag with a specific version.
@@ -56,21 +43,7 @@ You can install SOK using the following command:
 pip install sparse_operation_kit --no-build-isolation
 ```
 
-### Pre-requisites ###
-CUDA Version:>= 11.2
-
-TF2 Version:2.6.0~2.12.0
-
-TF1 Version:1.15
-
-Cmake Version:>= 3.20
-
-GCC Version:>=9.3.0
-
-Build requires: scikit-build>=0.13.1, ninja
-
-
-### Building SOK from source ###
+### Installing SOK from source ###
 You can also build the SOK module from source code. Here are the steps to follow: <br>
 + **Download the source code**
     ```shell
@@ -95,9 +68,18 @@ You can also build the SOK module from source code. Here are the steps to follow
     $ cp -r ../sparse_operation_kit {image python dist-packages folder, for example:/usr/local/lib/python3.10/dist-packages/}
     ```
 
-### Building SOK from source ###
-We recommend using nvcr.io/nvidia/tensorflow as the base image for installing SOK.
-You can also use nvcr.io/nvidia/merlin/merlin-tensorflow to run SOK. The series of images will pre-installed with SOK, but the base software is not updated as frequently, which may forbid some SOK optimizations from being used.
+### Pre-requisites ###
+CUDA Version:>= 11.2
+
+TF2 Version:2.6.0~2.14.0
+
+TF1 Version:1.15
+
+Cmake Version:>= 3.20
+
+GCC Version:>=9.3.0
+
+Build requires: scikit-build>=0.13.1, ninja
 
 ## Documents ##
 Want to find more about SparseOperationKit? Take a look at the [SparseOperationKit documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html)!
