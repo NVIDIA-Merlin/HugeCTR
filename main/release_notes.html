@@ -94,8 +94,57 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this heading"></a></h1>
-<section id="what-s-new-in-version-23-09">
-<h2>What’s New in Version 23.09<a class="headerlink" href="#what-s-new-in-version-23-09" title="Permalink to this heading"></a></h2>
+<section id="what-s-new-in-version-23-12">
+<h2>What’s New in Version 23.12<a class="headerlink" href="#what-s-new-in-version-23-12" title="Permalink to this heading"></a></h2>
+<ul>
+<li><p><strong>Official SOK Release</strong></p>
+<ul class="simple">
+<li><p>The SOK is not an <code class="docutils literal notranslate"><span class="pre">experiment</span></code> package anymore but is now officially supported by HugeCTR. Do <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">sparse_operation_kit</span> <span class="pre">as</span> <span class="pre">sok</span></code> instead of <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">sparse_operation_kit</span> <span class="pre">import</span> <span class="pre">experiment</span> <span class="pre">as</span> <span class="pre">sok</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sok.DynamicVariable</span></code> supports Merlin-HKV as its backend</p></li>
+<li><p>The parallel dump and load functions are added</p></li>
+</ul>
+</li>
+<li><p><strong>Code Cleaning and Deprecation</strong></p>
+<ul class="simple">
+<li><p>Deprecated the <code class="docutils literal notranslate"><span class="pre">Model::export_predictions</span></code> function. Use the  <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#check-out-tensor-method">Model::check_out_tensor</a> function instead.</p></li>
+<li><p>We have deprecated the <code class="docutils literal notranslate"><span class="pre">Norm</span></code> and legacy <code class="docutils literal notranslate"><span class="pre">Raw</span></code> DataReaders. Use <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.RawAsync</span></code> or <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code> as their alternatives.</p></li>
+</ul>
+</li>
+<li><p><strong>Issues Fixed</strong>:</p>
+<ul class="simple">
+<li><p>Improved the performance of the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HierarchicalKV">HKV</a> lookup via the SOK</p></li>
+<li><p>Fix an illegal memory access issue from the SOK backward pass, occurring in a corner case</p></li>
+<li><p>Resolved the mean combiner returning zeroes, when the pooling factor is zero, which can make the SOK lookup return NaN.</p></li>
+<li><p>Fixed some dependency related build issues</p></li>
+<li><p>Optimized the performance of the dynamic embedding table (DET) in the SOK.</p></li>
+<li><p>Fixed the crash when a user specifies negative keys in using the DET via the SOK.</p></li>
+<li><p>Resolved the occasional correctness issue which becomes visible during the backward propagation phase of the SOK, in handling thousands of embedding tables.</p></li>
+<li><p>Removed the runtime errors happening in the Tensorflow &gt;= 2.13.</p></li>
+</ul>
+</li>
+<li><p><strong>Known Issues</strong>:</p>
+<ul>
+<li><p>If we set <code class="docutils literal notranslate"><span class="pre">max_eval_batches</span></code> and <code class="docutils literal notranslate"><span class="pre">batchsize_eval</span></code> to some large values such as 5000 and 12000 respectively, the training process leads to the illegal memory access error. <a class="reference external" href="https://github.com/NVIDIA/cccl/issues/293">The issue</a> is from the CUB, and is fixed in its latest version. However, because it is only included in CUDA 12.3, which is not used by our NGC container yet, until we update our NGC container to rely upon that version of CUDA, please rebuild HugeCTR with the newest CUB as a workaround. Otherwise, please try to avoid such large <code class="docutils literal notranslate"><span class="pre">max_eval_batches</span></code> and <code class="docutils literal notranslate"><span class="pre">batchsize_eval</span></code>.</p></li>
+<li><p>HugeCTR can lead to a runtime error if client code calls RMM’s <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code> or  <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code> because HugeCTR’s Parquet Data Reader also calls <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code>, and it becomes visible to other libraries in the same process. Refer to [this issue] (<a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/356">https://github.com/NVIDIA-Merlin/HugeCTR/issues/356</a>) . As a workaround, a user can set an environment variable <code class="docutils literal notranslate"><span class="pre">HCTR_RMM_SETTABLE</span></code> to 0 to disable HugeCTR to set a custom RMM device resource, if they know <code class="docutils literal notranslate"><span class="pre">rmm::mr::set_current_device_resource()</span></code>  is called outside HugeCTR. But be cautious, as it could affect the performance of parquet reading.</p></li>
+<li><p>HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="w">  </span>-shm-size<span class="o">=</span>1g<span class="w"> </span>-ulimit<span class="w"> </span><span class="nv">memlock</span><span class="o">=</span>-1
+</pre></div>
+</div>
+<p>See also <a class="reference external" href="https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data">this NCCL known issue</a> and this GitHub issue](<a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/issues/243">https://github.com/NVIDIA-Merlin/HugeCTR/issues/243</a>).</p>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">KafkaProducers</span></code> startup succeeds even if the target Kafka broker is unresponsive.
+To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and reachable from the node where you run HugeCTR.</p></li>
+<li><p>The number of data files in the file list should be greater than or equal to the number of data reader workers.
+Otherwise, different workers are mapped to the same file and data loading does not progress as expected.</p></li>
+<li><p>Joint loss training with a regularizer is not supported.</p></li>
+<li><p>Dumping Adam optimizer states to AWS S3 is not supported.</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="what-s-new-in-version-23-11">
+<h2>What’s New in Version 23.11<a class="headerlink" href="#what-s-new-in-version-23-11" title="Permalink to this heading"></a></h2>
 <ul>
 <li><p><strong>Code Cleaning and Deprecation</strong></p>
 <ul class="simple">
@@ -359,7 +408,7 @@ Otherwise, different workers are mapped to the same file and data loading does n
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as <code class="docutils literal notranslate"><span class="pre">v4.3</span></code>.
-Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.09</span></code>.</p>
+Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.12</span></code>.</p>
 </div>
 <ul>
 <li><p><strong>Support for BERT and Variants</strong>:
@@ -447,7 +496,7 @@ Otherwise, different workers are mapped to the same file and data loading does n
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>In January 2023, the HugeCTR team plans to deprecate semantic versioning, such as <code class="docutils literal notranslate"><span class="pre">v4.2</span></code>.
-Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.09</span></code>.</p>
+Afterward, the library will use calendar versioning only, such as <code class="docutils literal notranslate"><span class="pre">v23.12</span></code>.</p>
 </div>
 <ul>
 <li><p><strong>Change to HPS with Redis or Kafka</strong>:

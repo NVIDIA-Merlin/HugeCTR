@@ -150,7 +150,7 @@
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
 <section id="get-hps-from-ngc">
 <h3>Get HPS from NGC<a class="headerlink" href="#get-hps-from-ngc" title="Permalink to this heading"></a></h3>
-<p>The HPS Python module is preinstalled in the 23.09 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.09</span></code>.</p>
+<p>The HPS Python module is preinstalled in the 23.12 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-tensorflow">Merlin TensorFlow Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-tensorflow:23.12</span></code>.</p>
 <p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
 </pre></div>
@@ -785,9 +785,9 @@ INFO:tensorflow:Clearing prior device assignments in loaded saved model
 <div class="output stderr highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>INFO:tensorflow:Automatic mixed precision has been deactivated.
 2022-11-23 01:37:23.028482: I tensorflow/core/grappler/devices.cc:66] Number of eligible GPUs (core count &gt;= 8, compute capability &gt;= 0.0): 1
 2022-11-23 01:37:23.028568: I tensorflow/core/grappler/clusters/single_machine.cc:358] Starting new session
-2022-11-23 01:37:23.091909: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1532] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30991 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
-2022-11-23 01:37:23.098593: W tensorflow/compiler/tf2tensorrt/convert/trt_optimization_pass.cc:198] Calibration with FP32 or FP16 is not implemented. Falling back to use_calibration = False.Note that the default value of use_calibration is True.
-2022-11-23 01:37:23.099761: W tensorflow/compiler/tf2tensorrt/segment/segment.cc:952] 
+2022-11-23 01:37:23.121909: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1532] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 30991 MB memory:  -&gt; device: 0, name: Tesla V100-SXM2-32GB, pci bus id: 0000:06:00.0, compute capability: 7.0
+2022-11-23 01:37:23.128593: W tensorflow/compiler/tf2tensorrt/convert/trt_optimization_pass.cc:198] Calibration with FP32 or FP16 is not implemented. Falling back to use_calibration = False.Note that the default value of use_calibration is True.
+2022-11-23 01:37:23.129761: W tensorflow/compiler/tf2tensorrt/segment/segment.cc:952] 
 
 ################################################################################
 TensorRT unsupported/non-converted OP Report:
@@ -803,9 +803,9 @@ TensorRT unsupported/non-converted OP Report:
 For more information see https://docs.nvidia.com/deeplearning/frameworks/tf-trt-user-guide/index.html#supported-ops.
 ################################################################################
 
-2022-11-23 01:37:23.099860: W tensorflow/compiler/tf2tensorrt/segment/segment.cc:1280] The environment variable TF_TRT_MAX_ALLOWED_ENGINES=20 has no effect since there are only 1 TRT Engines with  at least minimum_segment_size=3 nodes.
-2022-11-23 01:37:23.099893: I tensorflow/compiler/tf2tensorrt/convert/convert_graph.cc:799] Number of TensorRT candidate segments: 1
-2022-11-23 01:37:23.090667: I tensorflow/compiler/tf2tensorrt/convert/convert_graph.cc:916] Replaced segment 0 consisting of 9 nodes by TRTEngineOp_000_000.
+2022-11-23 01:37:23.129860: W tensorflow/compiler/tf2tensorrt/segment/segment.cc:1280] The environment variable TF_TRT_MAX_ALLOWED_ENGINES=20 has no effect since there are only 1 TRT Engines with  at least minimum_segment_size=3 nodes.
+2022-11-23 01:37:23.129893: I tensorflow/compiler/tf2tensorrt/convert/convert_graph.cc:799] Number of TensorRT candidate segments: 1
+2022-11-23 01:37:23.120667: I tensorflow/compiler/tf2tensorrt/convert/convert_graph.cc:916] Replaced segment 0 consisting of 9 nodes by TRTEngineOp_000_000.
 </pre></div>
 </div>
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>TRTEngineOP Name                 Device        # Nodes # Inputs      # Outputs     Input DTypes       Output Dtypes      Input Shapes       Output Shapes     
