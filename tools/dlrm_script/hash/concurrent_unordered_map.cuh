@@ -37,7 +37,7 @@
 // cudf 22.06 moved the namespace of default_hash to cudf::detail
 // and renamed CUDA_TRY to CUDF_CUDA_TRY. Handle both of these
 // so that we can compile against both cudf 22.04 and cudf 22.06+
-// CUDF_GE_2306: from cudf 23.09 moves the new file and the `hash_functions.cuh`
+// CUDF_GE_2306: from cudf 23.12 moves the new file and the `hash_functions.cuh`
 // from `cpp/include/cudf/detail/utilities/` to `cpp/include/cudf/hashing/detail`
 // The hash functions were redeclared from the `cudf::detail` namespace
 // to the `cudf::hashing::detail` namespace
