@@ -2,6 +2,43 @@
 
 ## What's New in Version 23.12
 
++ **Official SOK Release**
+  + The SOK is not an `experiment` package anymore but is now officially supported by HugeCTR. Do `import sparse_operation_kit as sok` instead of `from sparse_operation_kit import experiment as sok`
+  + `sok.DynamicVariable` supports Merlin-HKV as its backend
+  + The parallel dump and load functions are added
++ **Code Cleaning and Deprecation**
+  + Deprecated the `Model::export_predictions` function. Use the  [Model::check_out_tensor](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#check-out-tensor-method) function instead.
+  + We have deprecated the `Norm` and legacy `Raw` DataReaders. Use `hugectr.DataReaderType_t.RawAsync` or `hugectr.DataReaderType_t.Parquet` as their alternatives.
++ **Issues Fixed**:
+  + Improved the performance of the [HKV](https://github.com/NVIDIA-Merlin/HierarchicalKV) lookup via the SOK
+  + Fix an illegal memory access issue from the SOK backward pass, occurring in a corner case
+  + Resolved the mean combiner returning zeroes, when the pooling factor is zero, which can make the SOK lookup return NaN. 
+  + Fixed some dependency related build issues
+  + Optimized the performance of the dynamic embedding table (DET) in the SOK.
+  + Fixed the crash when a user specifies negative keys in using the DET via the SOK.
+  + Resolved the occasional correctness issue which becomes visible during the backward propagation phase of the SOK, in handling thousands of embedding tables.
+  + Removed the runtime errors happening in the Tensorflow >= 2.13.
+
++ **Known Issues**:
+  + If we set `max_eval_batches` and `batchsize_eval` to some large values such as 5000 and 12000 respectively, the training process leads to the illegal memory access error. [The issue](https://github.com/NVIDIA/cccl/issues/293) is from the CUB, and is fixed in its latest version. However, because it is only included in CUDA 12.3, which is not used by our NGC container yet, until we update our NGC container to rely upon that version of CUDA, please rebuild HugeCTR with the newest CUB as a workaround. Otherwise, please try to avoid such large `max_eval_batches` and `batchsize_eval`.
+  + HugeCTR can lead to a runtime error if client code calls RMM’s `rmm::mr::set_current_device_resource()` or  `rmm::mr::set_current_device_resource()` because HugeCTR’s Parquet Data Reader also calls `rmm::mr::set_current_device_resource()`, and it becomes visible to other libraries in the same process. Refer to [this issue] (https://github.com/NVIDIA-Merlin/HugeCTR/issues/356) . As a workaround, a user can set an environment variable `HCTR_RMM_SETTABLE` to 0 to disable HugeCTR to set a custom RMM device resource, if they know `rmm::mr::set_current_device_resource()`  is called outside HugeCTR. But be cautious, as it could affect the performance of parquet reading.
+  + HugeCTR uses NCCL to share data between ranks and NCCL can require shared system memory for IPC and pinned (page-locked) system memory resources.
+    If you use NCCL inside a container, increase these resources by specifying the following arguments when you start the container:
+
+    ```shell
+      -shm-size=1g -ulimit memlock=-1
+    ```
+
+    See also [this NCCL known issue](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting.html#sharing-data) and this GitHub issue](https://github.com/NVIDIA-Merlin/HugeCTR/issues/243).
+  + `KafkaProducers` startup succeeds even if the target Kafka broker is unresponsive.
+    To avoid data loss in conjunction with streaming-model updates from Kafka, you have to make sure that a sufficient number of Kafka brokers are running, operating properly, and reachable from the node where you run HugeCTR.
+  + The number of data files in the file list should be greater than or equal to the number of data reader workers.
+    Otherwise, different workers are mapped to the same file and data loading does not progress as expected.
+  + Joint loss training with a regularizer is not supported.
+  + Dumping Adam optimizer states to AWS S3 is not supported.
+
+## What's New in Version 23.11
+
 + **Code Cleaning and Deprecation**
   + The offline inference has been deprecated from our documentation, notebook suite, and code. Please check out the HPS plugin for [TensorFlow](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_tf_user_guide.html) and [TensorRT](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_trt_user_guide.html). The multi-GPU inference is not illustrated in [this HPS TRT notebook](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/hps_trt/notebooks/demo_for_tf_trained_model.ipynb).
   + We are working on deprecating the [Embedding Training Cache (ETC)](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_embedding_training_cache.html). If you trying using that feature, it still works but omits a deprecation warning message. In a near-futre release, they will be removed from the API and code level. Please refer to the NVIDIA [HierarchicalKV](https://github.com/NVIDIA-Merlin/HierarchicalKV) as an alternative.
