@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SparseOperationKit Utilities &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SparseOperationKit Release Notes" href="../release_notes/release_notes.html" />
+    <link rel="prev" title="SparseOperationKit Dynamic Variable" href="dynamic_variable.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SparseOperationKit
+          </a>
+              <div class="version">
+                2.0.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../get_started/get_started.html">Get Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/examples.html">Examples</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">API Docs</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="init.html">Initialize</a></li>
+<li class="toctree-l2"><a class="reference internal" href="lookup.html">Lookup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="dynamic_variable.html">DynamicVariable</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sparse_operation_kit.dump_load.dump"><code class="docutils literal notranslate"><span class="pre">dump()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sparse_operation_kit.dump_load.load"><code class="docutils literal notranslate"><span class="pre">load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sparse_operation_kit.filter_variables"><code class="docutils literal notranslate"><span class="pre">filter_variables()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../env_vars/env_vars.html">Environment Variables</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">SparseOperationKit API</a></li>
+      <li class="breadcrumb-item active">SparseOperationKit Utilities</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/api/utils.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="sparseoperationkit-utilities">
+<h1>SparseOperationKit Utilities<a class="headerlink" href="#sparseoperationkit-utilities" title="Link to this heading"></a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.dump_load.dump">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.dump_load.</span></span><span class="sig-name descname"><span class="pre">dump</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dump_vars</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/dump_load.html#dump"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.dump_load.dump" title="Link to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.dump</span></code>.</p>
+<p>Dump the embedding tables into one folder , will generate key and value file per table.</p>
+<p>Table name prefix is same as variable name in tensorflow.</p>
+<p>Now is only support <code class="docutils literal notranslate"><span class="pre">SGD,Adamax,Adadelta,Adagrad,Ftrl,Adam</span></code> optimizers.</p>
+<p>Note: for <code class="docutils literal notranslate"><span class="pre">Adam</span></code> optimizers , it functions in the same way as <code class="docutils literal notranslate"><span class="pre">LazyAdam</span></code> in SOK, rather than TensorFlow’s <code class="docutils literal notranslate"><span class="pre">Adam</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>string</em>) – weight file folder</p></li>
+<li><p><strong>dump_vars</strong> (<em>List</em><em>,</em><em>Tuple</em><em>,</em><em>SOK Variable</em>) – Can be a single or list of sok.Variable and sok.DynamicVariable</p></li>
+<li><p><strong>optimizer</strong> (<em>SOK.OptimizerWrapper</em><em>,</em><em>optional</em><em>,</em><em>default is None</em>) – when model train , need to dump optimizer state,input <code class="docutils literal notranslate"><span class="pre">sok.OptimizerWrapper</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">import</span> <span class="nn">sparse_operation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+
+<span class="n">v</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">DynamicVariable</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">initializer</span><span class="o">=</span><span class="s2">&quot;13&quot;</span><span class="p">)</span>
+
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">OptimizerWrapper</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;your weight path , weight is dumped by sok.dump&quot;</span>
+
+<span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">:</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;embedding:&quot;</span><span class="p">,</span> <span class="n">embedding</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">embedding</span><span class="p">)</span>
+
+<span class="n">grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">])</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">]))</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">v</span><span class="p">,</span><span class="n">optimizer</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.dump_load.load">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.dump_load.</span></span><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_vars</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">optimizer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit/dump_load.html#load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.dump_load.load" title="Link to this definition"></a></dt>
+<dd><p>Abbreviated as <code class="docutils literal notranslate"><span class="pre">sok.load</span></code>.</p>
+<p>Load the embedding tables from sok weight folder.
+The sok table name must be the same with the weight file prefix.</p>
+<p>Now is only support <code class="docutils literal notranslate"><span class="pre">SGD,Adamax,Adadelta,Adagrad,Ftrl,Adam</span></code> optimizers.</p>
+<p>Note: for <code class="docutils literal notranslate"><span class="pre">Adam</span></code> optimizers , it functions in the same way as <code class="docutils literal notranslate"><span class="pre">LazyAdam</span></code> in SOK, rather than TensorFlow’s <code class="docutils literal notranslate"><span class="pre">Adam</span></code></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> (<em>string</em>) – weight file folder</p></li>
+<li><p><strong>load_vars</strong> (<em>List</em><em>,</em><em>Tuple</em><em>,</em><em>SOK Variable</em>) – Can be a single or list of sok.Variable and sok.DynamicVariable</p></li>
+<li><p><strong>optimizer</strong> (<em>SOK.OptimizerWrapper</em><em>,</em><em>optional</em><em>,</em><em>default is None</em>) – when model train , need to load optimizer state,input <code class="docutils literal notranslate"><span class="pre">sok.OptimizerWrapper</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">import</span> <span class="nn">sparse_operation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+
+<span class="n">v</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">DynamicVariable</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">initializer</span><span class="o">=</span><span class="s2">&quot;13&quot;</span><span class="p">)</span>
+
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">OptimizerWrapper</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+<span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;your weight path , weight is dumped by sok.dump&quot;</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">v</span><span class="p">,</span><span class="n">optimizer</span><span class="p">)</span>
+
+<span class="n">indices</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">40</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+
+<span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">:</span>
+    <span class="n">embedding</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">embedding_lookup</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;embedding:&quot;</span><span class="p">,</span> <span class="n">embedding</span><span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">embedding</span><span class="p">)</span>
+
+<span class="n">grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">])</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="p">[</span><span class="n">v</span><span class="p">]))</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="sparse_operation_kit.filter_variables">
+<span class="sig-prename descclassname"><span class="pre">sparse_operation_kit.</span></span><span class="sig-name descname"><span class="pre">filter_variables</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vars</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/sparse_operation_kit.html#filter_variables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sparse_operation_kit.filter_variables" title="Link to this definition"></a></dt>
+<dd><p>When using dynamic variables, it is necessary to use sok.OptimizerWrapper to update these variables. Therefore, this API can filter out SOK variables from all TensorFlow variables.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>vars</strong> (<em>A list</em><em> of </em><em>TensorFlow training variables.</em>) – </p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>sok_vars</strong> (<em>A list of SOK variables.</em>)</p></li>
+<li><p><strong>other_vars</strong> (<em>A list of variables that don’t belongs to SOK.</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">import</span> <span class="nn">sparse_operation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">gpus</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpus</span><span class="p">:</span>
+        <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+    <span class="n">sok</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+
+    <span class="n">v1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Variable</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]])</span>
+    <span class="n">v2</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">([[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">]])</span>
+    <span class="n">v3</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">([[</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">]],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;localized:0&quot;</span><span class="p">)</span>
+    <span class="n">v4</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">DynamicVariable</span><span class="p">(</span><span class="n">dimension</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">initializer</span><span class="o">=</span><span class="s2">&quot;13&quot;</span><span class="p">)</span>
+
+    <span class="n">sok_vars</span><span class="p">,</span> <span class="n">other_vars</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">filter_variables</span><span class="p">([</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">,</span> <span class="n">v3</span><span class="p">,</span> <span class="n">v4</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">sok_vars</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">other_vars</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;[SOK INFO] filter_variables test passed&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="dynamic_variable.html" class="btn btn-neutral float-left" title="SparseOperationKit Dynamic Variable" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../release_notes/release_notes.html" class="btn btn-neutral float-right" title="SparseOperationKit Release Notes" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v2.0.0
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../sok_v1.0.0/index.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../sok_v1.1.0/index.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../sok_v1.1.1/index.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../sok_v1.1.2/index.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../sok_v1.1.4/index.html">sok_v1.1.4</a></dd>
+      <dd><a href="utils.html">sok_v2.0.0</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

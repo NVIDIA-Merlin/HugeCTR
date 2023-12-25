@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Get Started With SparseOperationKit &mdash; SparseOperationKit  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Examples and Tutorials of SOK Feature" href="../examples/examples.html" />
+    <link rel="prev" title="SparseOperationKit" href="../intro_link.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SparseOperationKit
+          </a>
+              <div class="version">
+                2.0.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Get Started</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#import-sparseoperationkit">Import SparseOperationKit</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#use-sok-with-tensorflow">Use SOK with TensorFLow</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Docs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../release_notes/release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../env_vars/env_vars.html">Environment Variables</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SparseOperationKit</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Get Started With SparseOperationKit</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/get_started/get_started.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section class="tex2jax_ignore mathjax_ignore" id="get-started-with-sparseoperationkit">
+<h1>Get Started With SparseOperationKit<a class="headerlink" href="#get-started-with-sparseoperationkit" title="Link to this heading"></a></h1>
+<p>This document will walk you through simple demos to get you familiar with SparseOperationKit.</p>
+<div class="admonition note">
+<p class="admonition-title">See also</p>
+<p>For experts or more examples, please refer to Examples section</p>
+</div>
+<p>Refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/intro_link.html#installation"><em>Installation</em> section</a> to install SparseOperationKit on your system.</p>
+<section id="import-sparseoperationkit">
+<h2>Import SparseOperationKit<a class="headerlink" href="#import-sparseoperationkit" title="Link to this heading"></a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sparse_operation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+</pre></div>
+</div>
+<p>The SOK supports the TensorFlow 1.15 and &gt;=2.6. It automatically detects the TensorFlow version in use on behalf of users. The SOK interface is identical regardless of which TensorFlow version is used.</p>
+</section>
+<section id="use-sok-with-tensorflow">
+<h2>Use SOK with TensorFLow<a class="headerlink" href="#use-sok-with-tensorflow" title="Link to this heading"></a></h2>
+<p>Currently, we use horovod for communication. So in the beginning, you need to import horovod and correctly bind a GPU to each process like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+
+<span class="kn">import</span> <span class="nn">sparse_operation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+
+
+<span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">gpus</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_visible_devices</span><span class="p">(</span><span class="n">gpus</span><span class="p">[</span><span class="n">hvd</span><span class="o">.</span><span class="n">local_rank</span><span class="p">()],</span> <span class="s2">&quot;GPU&quot;</span><span class="p">)</span>  <span class="c1"># nopep8</span>
+
+<span class="n">sok</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Next, in order to use the distributed embedding op, you need to create a variable on each process that represents a portion of the entire embedding table, whose shape is also a subset of the full embedding table. We provide a tensorflow variable wrapper to help you simplify this process.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Default mode of sok.Variable is Distributed mode</span>
+<span class="c1"># If there are 2 GPUs in total, the shape of v1 on GPU0 will be [9, 3] and the shape</span>
+<span class="c1"># on GPU1 will be [8, 3]</span>
+<span class="n">v1</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">17</span> <span class="o">*</span> <span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">17</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="n">v2</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">Variable</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">7</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v1:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v2:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then, create the indices for the embedding lookup. This step is no different from the normal tensorflow.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">indices1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">(</span>
+    <span class="n">indices</span><span class="o">=</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span> <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">],</span> <span class="n">dense_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;indices1:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">indices1</span><span class="p">)</span>
+<span class="c1"># indices1: batch_size=2, max_hotness=3</span>
+<span class="c1"># [[1, 1]</span>
+<span class="c1">#  [3, 4, 5]]</span>
+
+<span class="n">indices2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">SparseTensor</span><span class="p">(</span>
+    <span class="n">indices</span><span class="o">=</span><span class="p">[[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]],</span> <span class="n">values</span><span class="o">=</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">],</span> <span class="n">dense_shape</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;indices2:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">indices2</span><span class="p">)</span>
+<span class="c1"># indices2: batch_size=2, max_hotness=2</span>
+<span class="c1"># [[1]</span>
+<span class="c1">#  [2, 3]]</span>
+</pre></div>
+</div>
+<p>Then, use sok’s embedding op to do the lookup. Note that here we pass two embedding variables and two indices into the lookup at the same time through a list, this fused operation will bring performance gain for us.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">:</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">lookup_sparse</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">],</span> <span class="p">[</span><span class="n">indices1</span><span class="p">,</span> <span class="n">indices2</span><span class="p">],</span> <span class="n">combiners</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;sum&quot;</span><span class="p">,</span> <span class="s2">&quot;sum&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">loss</span> <span class="o">=</span> <span class="mf">0.0</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">embedding</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">embeddings</span><span class="p">):</span>
+        <span class="n">loss</span> <span class="o">+=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">embedding</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;embedding</span><span class="si">%d</span><span class="s2">:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">embedding</span><span class="p">)</span>
+    <span class="c1"># embedding1: [[6,  8,  10]</span>
+    <span class="c1">#              [36, 39, 42]]</span>
+    <span class="c1"># embedding2: [[5,  6,  7,  8,  9</span>
+    <span class="c1">#              [25, 27, 29, 31, 33]]</span>
+</pre></div>
+</div>
+<p>Finally, update the variable like normal tensorflow.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># If there are 2 GPUs in total</span>
+<span class="c1"># GPU0:</span>
+<span class="c1">#   In Distributed mode: shape of grad of v1 will be [1, 3], shape of grad of v2 will be [1, 5]</span>
+<span class="c1">#   In Localized mode: shape of grad of v1 will be [4, 3], grad of v2 will None</span>
+<span class="c1"># GPU1:</span>
+<span class="c1">#   In Distributed mode: shape of grad of v1 will be [3, 3], shape of grad of v2 will be [2, 5]</span>
+<span class="c1">#   In Localized mode: grad of v1 will be None, shape of grad of v2 will be [3, 5]</span>
+<span class="n">grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="p">[</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">grad</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">grads</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;grad</span><span class="si">%d</span><span class="s2">:</span><span class="se">\n</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">grad</span><span class="p">)</span>
+
+<span class="c1"># Use tf.keras.optimizer to optimize the sok.Variable</span>
+<span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">SGD</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+<span class="n">optimizer</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">grads</span><span class="p">,</span> <span class="p">[</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">]))</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v1:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v1</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;v2:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For more examples and API descriptions see the Example section and API section.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="../intro_link.html" class="btn btn-neutral float-left" title="SparseOperationKit" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../examples/examples.html" class="btn btn-neutral float-right" title="Examples and Tutorials of SOK Feature" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    master: sok_v2.0.0
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../sok_v1.0.0/get_started/get_started.html">sok_v1.0.0</a></dd>
+      <dd><a href="../../sok_v1.1.0/get_started/get_started.html">sok_v1.1.0</a></dd>
+      <dd><a href="../../sok_v1.1.1/get_started/get_started.html">sok_v1.1.1</a></dd>
+      <dd><a href="../../sok_v1.1.2/get_started/get_started.html">sok_v1.1.2</a></dd>
+      <dd><a href="../../sok_v1.1.4/get_started/get_started.html">sok_v1.1.4</a></dd>
+      <dd><a href="get_started.html">sok_v2.0.0</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
