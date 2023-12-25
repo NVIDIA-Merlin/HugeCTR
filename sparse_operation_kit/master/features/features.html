@@ -1,22 +1,23 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Features in SparseOperationKit &mdash; SparseOperationKit  documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+
+  
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+        <script src="../_static/doctools.js?v=888ff710"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
@@ -27,14 +28,18 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="../index.html" class="icon icon-home"> SparseOperationKit
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            SparseOperationKit
           </a>
               <div class="version">
-                1.1.4
+                2.0.0
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -43,8 +48,7 @@
               <ul>
 <li class="toctree-l1"><a class="reference internal" href="../intro_link.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../get_started/get_started.html">Get Started</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../examples/index.html">Examples</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../performance/index.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../examples/examples.html">Examples</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/index.html">API Docs</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../release_notes/release_notes.html">Release Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../env_vars/env_vars.html">Environment Variables</a></li>
@@ -63,8 +67,8 @@
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
-      <li>Features in SparseOperationKit</li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Features in SparseOperationKit</li>
       <li class="wy-breadcrumbs-aside">
             <a href="../_sources/features/features.md.txt" rel="nofollow"> View page source</a>
       </li>
@@ -75,18 +79,18 @@
            <div itemprop="articleBody">
              
   <section class="tex2jax_ignore mathjax_ignore" id="features-in-sparseoperationkit">
-<h1>Features in SparseOperationKit<a class="headerlink" href="#features-in-sparseoperationkit" title="Permalink to this heading"></a></h1>
+<h1>Features in SparseOperationKit<a class="headerlink" href="#features-in-sparseoperationkit" title="Link to this heading"></a></h1>
 <section id="model-parallelism-gpu-embedding-layer">
-<h2>Model-Parallelism GPU Embedding Layer<a class="headerlink" href="#model-parallelism-gpu-embedding-layer" title="Permalink to this heading"></a></h2>
+<h2>Model-Parallelism GPU Embedding Layer<a class="headerlink" href="#model-parallelism-gpu-embedding-layer" title="Link to this heading"></a></h2>
 <p>SOK provides GPU embedding layers that take advantage of model-parallelism. No further data transformation from model-parallelism to data-parallism is required.</p>
 <p>SOK implements several different GPU embedding layers. The layers use different algorithms to provide maximum performance in different application scenarios. SOK supports single machine and multi-machine cluster deployment.
 <img alt="avatar" src="../_images/workflow_of_embeddinglayer.png" /></p>
 </section>
 <section id="sparse-embedding-layer">
-<h2>Sparse Embedding Layer<a class="headerlink" href="#sparse-embedding-layer" title="Permalink to this heading"></a></h2>
+<h2>Sparse Embedding Layer<a class="headerlink" href="#sparse-embedding-layer" title="Link to this heading"></a></h2>
 <p>The sparse embedding layer is equivalent to <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup_sparse</span></code>, except the sparse embedding layers in SOK operates in a MP manner. The sparse embedding layer supports the <code class="docutils literal notranslate"><span class="pre">Mean</span></code> and <code class="docutils literal notranslate"><span class="pre">Sum</span></code> combiners.</p>
 <section id="distributed-sparse-embedding">
-<h3>Distributed Sparse Embedding<a class="headerlink" href="#distributed-sparse-embedding" title="Permalink to this heading"></a></h3>
+<h3>Distributed Sparse Embedding<a class="headerlink" href="#distributed-sparse-embedding" title="Link to this heading"></a></h3>
 <p>The distributed sparse embedding scatters keys across GPUSs by computing <code class="docutils literal notranslate"><span class="pre">gpu_id</span> <span class="pre">=</span> <span class="pre">key</span> <span class="pre">%</span> <span class="pre">number_of_gpus</span></code>. For example, if there are 8 GPUs, then <code class="docutils literal notranslate"><span class="pre">key=1000</span></code> will be deployed to GPU-0, <code class="docutils literal notranslate"><span class="pre">key=1001</span></code> will be deployed to GPU-1. The following picture depicts its forward propagation process.</p>
 <a class="bg-primary reference internal image-reference" href="../_images/distributed_sparse_embedding.png"><img alt="../_images/distributed_sparse_embedding.png" class="bg-primary align-center" src="../_images/distributed_sparse_embedding.png" style="width: 50%;" /></a>
 <p>To reduce the overhead when looking up multiple embedding tables with identical embedding vector sizes, the distributed sparse embedding combines them as one huge embedding table. Each sub-embedding-table is called slot, which is also known as feature-field. To avoid ambiguity, the input keys for across embedding tables should be represented using a unified encoding.</p>
@@ -94,10 +98,10 @@
 </section>
 </section>
 <section id="dense-embedding-layer">
-<h2>Dense Embedding Layer<a class="headerlink" href="#dense-embedding-layer" title="Permalink to this heading"></a></h2>
+<h2>Dense Embedding Layer<a class="headerlink" href="#dense-embedding-layer" title="Link to this heading"></a></h2>
 <p>SOK’s dense embedding layer is equivalent to <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code>, except that it works in a MP manner.</p>
 <section id="all2all-dense-embedding">
-<h3>All2All Dense Embedding<a class="headerlink" href="#all2all-dense-embedding" title="Permalink to this heading"></a></h3>
+<h3>All2All Dense Embedding<a class="headerlink" href="#all2all-dense-embedding" title="Link to this heading"></a></h3>
 <p>The all-2-all dense embedding will distribute each key based on <code class="docutils literal notranslate"><span class="pre">gpu_id</span> <span class="pre">=</span> <span class="pre">key</span> <span class="pre">%</span> <span class="pre">gpu_num</span></code>. For example, if there are 8 GPUs, then <code class="docutils literal notranslate"><span class="pre">key=1000</span></code> will be deployed to GPU-0, <code class="docutils literal notranslate"><span class="pre">key=1001</span></code> will be deployed to GPU-1. The following picture illustrates the forward propagation process.</p>
 <a class="bg-primary reference internal image-reference" href="../_images/all2all_dense_embedding.png"><img alt="../_images/all2all_dense_embedding.png" class="bg-primary align-center" src="../_images/all2all_dense_embedding.png" style="width: 50%;" /></a>
 <p>To reduce the overhead when looking up multiple embedding tables with identical embedding vector sizes, the all-2-all dense embedding combines them as one huge embedding table. Each sub-embedding-table is called slot, which is also known as feature-field. To avoid ambiguity, the input keys for across embedding tables should be represented using a unified encoding.</p>
@@ -131,7 +135,7 @@
 <div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
   <span class="rst-current-version" data-toggle="rst-current-version">
     <span class="fa fa-book"> Other Versions</span>
-    master: sok_v1.1.4
+    master: sok_v2.0.0
     <span class="fa fa-caret-down"></span>
   </span>
   <div class="rst-other-versions">
@@ -141,7 +145,8 @@
       <dd><a href="../../sok_v1.1.0/features/features.html">sok_v1.1.0</a></dd>
       <dd><a href="../../sok_v1.1.1/features/features.html">sok_v1.1.1</a></dd>
       <dd><a href="../../sok_v1.1.2/features/features.html">sok_v1.1.2</a></dd>
-      <dd><a href="features.html">sok_v1.1.4</a></dd>
+      <dd><a href="../../sok_v1.1.4/features/features.html">sok_v1.1.4</a></dd>
+      <dd><a href="features.html">sok_v2.0.0</a></dd>
     </dl>
   </div>
 </div><script>

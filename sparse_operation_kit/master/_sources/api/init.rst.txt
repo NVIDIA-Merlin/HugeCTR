@@ -1,5 +1,4 @@
 SparseOperationKit Initialize
 =============================
 
-.. automodule:: sparse_operation_kit.core.initialize
-   :members:
+.. autofunction:: sparse_operation_kit.init

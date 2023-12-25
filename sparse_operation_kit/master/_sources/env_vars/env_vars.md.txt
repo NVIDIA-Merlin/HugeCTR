@@ -34,15 +34,12 @@ This variable is used to indicate whether the building is in `Release` or `Debug
 $ export SOK_COMPILE_BUILD_TYPE="DEBUG"
 ```
 
-## Runtime Variables ##
-These variable are available at runtime.
-
-### SOK_EVENT_SYNC ###
-This variable is available only if SOK used dedicated CUDA stream, which means `SOK_COMPILE_ASYNC=ON` at compiling. It can be used to specify how SOK synchronizs with TensorFlow.
-
-By default, `SOK_EVENT_SYNC=1`, it means SOK will use `cudaEventSynchronize` to wait for the completion of TensorFLow's comput stream, otherwise, SOK will use `cudaStreamWaitEvent` to create dependencies between SOK's CUDA stream and TF's.
+### SOK_COMPILE_WITH_DEEPREC ###
+This variable is used to indicate whether the building is with DEEPREC. By default, it will be built at `OFF` mode. If switched to `ON` mode, that means need to build SOK with DEEPREC, for example, assertion.
 #### values accepted ####
-Any value except "1" can be used to make SOK use `cudaStreamWaitEvent` to synchronize with TensorFlow. For example,
+"1", "ON", "On", "on": these values indicates SOK will compile with DEEPREC. For example,
 ```shell
-$ export SOK_EVENT_SYNC=0
+$ export ENABLE_DEEPREC="ON"
 ```
+
+
