@@ -310,7 +310,8 @@ class MPIEnvironment : public ::testing::Environment {
 }  // namespace
 
 ::testing::Environment* const mpi_env = ::testing::AddGlobalTestEnvironment(new MPIEnvironment);
-TEST(auc_test, large) { metric_test<float>({0}, 12000, 5000 * 12000, gen_random<float>, 1); }
+// auc_test.large is supported on cuda 12.3.
+// TEST(auc_test, large) { metric_test<float>({0}, 12000, 5000 * 12000, gen_random<float>, 1); }
 TEST(auc_test, fp32_1gpu) { metric_test<float>({0}, 10, 200, gen_random<float>, 1); }
 TEST(auc_test, fp32_1gpu_odd) { metric_test<float>({0}, 10, 182, gen_random<float>, 1); }
 TEST(auc_test, fp32_2gpu) { metric_test<float>({0, 1}, 10, 440, gen_random<float>, 1); }
