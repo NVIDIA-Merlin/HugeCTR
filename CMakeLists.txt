@@ -331,7 +331,6 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference_benchmark DEST
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION hugectr)
 
 add_subdirectory(gpu_cache/src)
-add_subdirectory(gpu_cache/test)
 
 option(ENABLE_HDFS "Enable HDFS" OFF)
 if(ENABLE_HDFS)

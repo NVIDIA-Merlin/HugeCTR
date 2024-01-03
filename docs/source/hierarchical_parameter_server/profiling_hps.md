@@ -128,7 +128,7 @@ Optional arguments:
 -h --help                       shows help message and exits [default: false]
 -v --version                    prints version information and exits [default: false]
 --config                        The path of the HPS json configuration file [required]
---powerlaw                      Generate the queried key that  in each iteration based on the power distribution [default: false]
+--distribution                      The distribution of the generated query key in each iteration. Can be 'powerlaw', 'hotkey', or 'histogram' [default: "powerlaw"]
 --table_size                    The number of keys in the embedded table [default: 100000]
 --alpha                         Alpha of power distribution [default: 1.2]
 --hot_key_percentage            Percentage of hot keys in embedding tables [default: 0.2]
