@@ -95,6 +95,7 @@ class DummyVarAdapter : public ::embedding::ILookup {
   std::vector<OffsetType> id_space_offset_;
   std::vector<int> id_space_;
   std::vector<std::shared_ptr<VariableBase<KeyType, DType>>> vars_;
+  std::vector<int> same_table_;
   cudaStream_t stream_;
 };
 

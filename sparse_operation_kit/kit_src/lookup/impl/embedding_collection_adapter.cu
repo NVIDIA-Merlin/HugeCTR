@@ -263,6 +263,7 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::set(
     std::vector<int>& scale, cudaStream_t stream) {
   tf_backend_ = tf_backend;
   vars_.resize(vars.size());
+  same_table_.resize(vars.size());
   // id_space_to_local_index_.resize(vars.size());
   for (int i = 0; i < vars.size(); ++i) {
     std::shared_ptr<VariableBase<KeyType, DType>> var = vars[i]->get_var();
@@ -277,6 +278,17 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::set(
       tensorflow::tf_shared_lock lock(*vars[i]->mu());
       locks.push_back(std::move(lock));
     }
+
+    if (i == 0) {
+      same_table_[i] = i;
+    } else {
+      if (var == vars_[i - 1]) {
+        same_table_[i] = same_table_[i - 1];
+      } else {
+        same_table_[i] = i;
+      }
+    }
+
     vars_[i] = var;
     // id_space_to_local_index_[i] = i;
   }
@@ -287,6 +299,8 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
     const core23::Tensor& keys, size_t num_keys, const core23::Tensor& id_space_offset,
     size_t num_id_space_offset, const core23::Tensor& id_space, core23::Tensor& embedding_vec) {
   // clang-format off
+  id_space_offset_.clear();
+  id_space_.clear();
   id_space_offset_.resize(num_id_space_offset);
   CUDACHECK(cudaMemcpyAsync(id_space_offset_.data(),
                             id_space_offset.data<OffsetType>(),
@@ -312,9 +326,23 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
   core23::TensorParams params = core23::TensorParams().device(device).buffer_params(buffer_params);
   core23::TensorParams params_cpu =
       core23::TensorParams().device(device_cpu).buffer_params(buffer_params);
+
+  int start_index = 0;
+  size_t num = 0;
+  bool is_lookup = false;
   for (int i = 0; i < num_id_space_offset - 1; ++i) {
-    size_t num = id_space_offset_[i + 1] - id_space_offset_[i];
-    if (num != 0) {
+    if (i == num_id_space_offset - 2) {
+      num += id_space_offset_[i + 1] - id_space_offset_[i];
+      is_lookup = true;
+    } else {
+      if (same_table_[i + 1] != same_table_[i]) {
+        num += id_space_offset_[i + 1] - id_space_offset_[i];
+        is_lookup = true;
+      } else {
+        num += id_space_offset_[i + 1] - id_space_offset_[i];
+      }
+    }
+    if (num != 0 && is_lookup) {
       core23::Tensor unique_keys =
           core23::Tensor(params.shape({static_cast<int64_t>(num)})
                              .data_type(core23::ToScalarType<KeyType>::value));
@@ -335,17 +363,20 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
                     num_unique_keys.data<uint64_t>(), stream_);
 
       CUDACHECK(cudaStreamSynchronize(stream_));
-      auto var = vars_[id_space_[i]];
+      auto var = vars_[id_space_[start_index]];
       // var->lookup(input, output, num, stream_);
       DType** unique_output_ptr = static_cast<DType**>(unique_output.data());
       var->lookup(unique_keys.data<KeyType>(), unique_output_ptr,
                   static_cast<size_t>(*(num_unique_keys.data<uint64_t>())), stream_);
       UniqueReverseKernel<<<((num - 1) / 1024) + 1, 1024, 0, stream_>>>(
           unique_output_ptr, unique_reverse_idxs.data<uint64_t>(), num, output);
+      CUDACHECK(cudaStreamSynchronize(stream_));
+      input += num;
+      output += num;
+      num = 0;
+      is_lookup = false;
+      start_index = i + 1;
     }
-    CUDACHECK(cudaStreamSynchronize(stream_));
-    input += num;
-    output += num;
   }
 }
 
