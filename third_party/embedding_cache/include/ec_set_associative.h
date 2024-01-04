@@ -22,6 +22,7 @@
 #include <memory>
 #include <assert.h>
 #include <mutex>
+#include <algorithm>
 namespace ecache {
 
 template<typename IndexT, typename TagT>
@@ -40,7 +41,13 @@ void callCacheQueryUVM(const IndexT* d_keys, const size_t len,
     CacheDataT data, cudaStream_t stream, uint32_t currTable, size_t stride);
 
 template<typename IndexT, typename TagT>
-void callModifyKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, uint32_t rowSizeInBytes, cudaStream_t stream);
+void callMemUpdateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, uint32_t rowSizeInBytes, cudaStream_t stream);
+
+template<typename IndexT, typename TagT>
+void callTagUpdateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, TagT* pTags, cudaStream_t stream);
+
+template<typename IndexT, typename TagT>
+void callTagInvalidateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, TagT* pTags, cudaStream_t stream);
 
 template<typename IndexT, typename TagT>
 class EmbedCache : public EmbedCacheBase<IndexT>
@@ -48,14 +55,14 @@ class EmbedCache : public EmbedCacheBase<IndexT>
 
 public:
     using CounterT = uint32_t;
-    using MissT = uint32_t;
+    using MissT = uint64_t;
 
     struct CacheData
     {
         int8_t* pCache; 
         const int8_t* pTags;
         uint32_t nSets;
-        uint32_t rowSizeInBytes;
+        uint64_t rowSizeInBytes;
         bool bCountMisses;
         MissT* misses;
     };
@@ -70,15 +77,17 @@ public:
     struct CacheConfig
     {
         size_t cacheSzInBytes = 0;
-        uint32_t embedWidth = 0;
-        uint32_t maxUpdateSampleSz = 0;
-        uint32_t numTables = 1;
+        uint64_t embedWidth = 0;
+        uint64_t numTables = 1;
     };
 
     struct ModifyEntry
     {
         const int8_t* pSrc;
         int8_t* pDst;
+        uint32_t set;
+        uint32_t way;
+        TagT tag;
     };
 
     struct ModifyContext
@@ -102,7 +111,7 @@ public:
 
     ECError CalcAllocationSize(CacheAllocationSize& outAllocationSz) const
     {
-        int32_t nSets = CalcNumSets();
+        uint64_t nSets = CalcNumSets();
         
         if (nSets <= 0)
         {
@@ -171,9 +180,9 @@ public:
             {
             case MERTIC_COUNT_MISSES:
             {
-                CHECK_ERR_AND_THROW(this->m_pAllocator->deviceAllocate((void**)&outMetric.p_dVal, sizeof(uint32_t)), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
+                CHECK_ERR_AND_THROW(this->m_pAllocator->deviceAllocate((void**)&outMetric.p_dVal, sizeof(uint64_t)), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
                 outMetric.type = type;
-                CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemset(outMetric.p_dVal, 0, sizeof(uint32_t)));
+                CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemset(outMetric.p_dVal, 0, sizeof(uint64_t)));
                 return ECERROR_SUCCESS;
             }
             default:
@@ -211,7 +220,7 @@ public:
         
     }
 
-    ECError PerformanceMetricGetValue(const PerformanceMetric& metric, uint32_t* pOutValue) const override
+    ECError PerformanceMetricGetValue(const PerformanceMetric& metric, uint64_t* pOutValue, cudaStream_t stream) const override
     {
         try
         {
@@ -223,7 +232,7 @@ public:
                 {
                     throw ECExcption(ECERROR_INVALID_ARGUMENT);
                 }
-                CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpy(pOutValue, metric.p_dVal, sizeof(uint32_t), cudaMemcpyDefault));
+                CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpyAsync(pOutValue, metric.p_dVal, sizeof(uint64_t), cudaMemcpyDefault, stream));
                 return ECERROR_SUCCESS;
             }
             default:
@@ -237,11 +246,11 @@ public:
         
     }
 
-    ECError PerformanceMetricReset(PerformanceMetric& pMetric) const override
+    ECError PerformanceMetricReset(PerformanceMetric& pMetric, cudaStream_t stream) const override
     {
         try
         {
-            CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemset(pMetric.p_dVal, 0, sizeof(uint32_t)));
+            CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemsetAsync(pMetric.p_dVal, 0, sizeof(uint32_t), stream));
             return ECERROR_SUCCESS;
         }
         catch(const ECExcption& e)
@@ -261,18 +270,18 @@ public:
             // check erros
             ModifyContext* pContext = nullptr;
             CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext, sizeof(ModifyContext)), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
-            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pTags, m_nSets * szTagsPerSet * m_config.numTables), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
-            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pWayUpdateMask, m_nSets * szWayUpdateMaskPerSet * m_config.numTables), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
-            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pCounters, m_nSets * szCounterPerSet * m_config.numTables), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
-            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pIndexMap, m_nSets * sizeof(IndexT) * NUM_WAYS * m_config.numTables), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
+            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pTags, m_nSets * szTagsPerSet), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
+            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pWayUpdateMask, m_nSets * szWayUpdateMaskPerSet), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
+            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pCounters, m_nSets * szCounterPerSet), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
+            CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pIndexMap, m_nSets * sizeof(IndexT) * NUM_WAYS), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
             CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&pContext->pEntries, maxUpdateSize * sizeof(ModifyEntry)), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
             CHECK_ERR_AND_THROW(this->m_pAllocator->deviceAllocate((void**)&pContext->pdEntries, maxUpdateSize * sizeof(ModifyEntry)), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
             pContext->maxUpdateSz = maxUpdateSize;
             pContext->nEntriesToUpdate = 0;
             pContext->magicNumber = (uint64_t)pContext;
             // Initialzie tags to invalid value
-            std::fill(pContext->pTags, pContext->pTags + m_nSets * NUM_WAYS * m_config.numTables, -1);
-            std::fill(pContext->pCounters, pContext->pCounters + m_nSets * NUM_WAYS * m_config.numTables, 0);
+            std::fill(pContext->pTags, pContext->pTags + m_nSets * NUM_WAYS, -1);
+            std::fill(pContext->pCounters, pContext->pCounters + m_nSets * NUM_WAYS, 0);
 
             outHandle.handle = (uint64_t)pContext;
             return ECERROR_SUCCESS;
@@ -346,6 +355,10 @@ public:
             const size_t szTagsPerSet = CACHE_ALIGN(sizeof(TagT) * NUM_WAYS, 16); // this already aligned to 16
 
             m_nSets = CalcNumSets();
+            if (m_nSets == 0)
+            {
+                throw ECExcption(ECERROR_MEMORY_ALLOCATED_TO_CACHE_TOO_SMALL);
+            }
             // allocating pointer in device memory pool
             CHECK_ERR_AND_THROW(this->m_pAllocator->deviceAllocate((void**)&m_dpPool, allocSz.deviceAllocationSize), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
             int8_t* p = m_dpPool;
@@ -359,6 +372,7 @@ public:
             CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&m_hpTags, m_nSets * szTagsPerSet * m_config.numTables), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
             CHECK_ERR_AND_THROW(this->m_pAllocator->hostAllocate((void**)&m_pMagicNumber, sizeof(m_pMagicNumber[0]) * m_config.numTables), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
             std::fill(m_hpTags, m_hpTags + m_nSets * NUM_WAYS * m_config.numTables, -1);
+            std::fill(m_pMagicNumber, m_pMagicNumber + m_config.numTables, 0);
             return ECERROR_SUCCESS;
         }
         catch(const ECExcption& e)
@@ -375,155 +389,27 @@ public:
         return *cd;
     }
 
-
-    // assuming indices is host accessiable
-    ECError ModifyContextSetReplaceData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const override
+    ECError ModifyContextSetReplaceDataSparseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
     {
-        try
-        {
-            ModifyContext* pContext = (ModifyContext*)modifyContextHandle.handle;
-            if (!pContext)
-            {
-                throw ECExcption(ECERROR_INVALID_ARGUMENT);
-            }
-            pContext->op = MODIFY_REPLACE;
-            auto pCurrTags = pContext->pTags + tableIndex * m_nSets * NUM_WAYS;
-            auto pCurrWayUpdateMask = pContext->pWayUpdateMask + tableIndex * m_nSets;
-            auto pCurrCounters = pContext->pCounters + tableIndex * m_nSets * NUM_WAYS;
-            // critical section copying state to local context
-            {
-                std::lock_guard<std::mutex> l(m_mutex);
-                if (m_pMagicNumber[tableIndex] != pContext->magicNumber)
-                {
-                    // someone else updated the state need copy latest version to local context
-                    memcpy(pCurrTags, m_hpTags + tableIndex * m_nSets * NUM_WAYS, sizeof(TagT)*m_nSets*NUM_WAYS);
-                }
-                pContext->currentMagicNumber = m_pMagicNumber[tableIndex];
-            }
-            
-            memset(pCurrWayUpdateMask, 0, sizeof(uint32_t)*m_nSets);
-            for (uint32_t i = 0; i < updateSz; i++)
-            {
-                auto index = indices[i];
-                uint32_t set = index % m_nSets;
-                TagT* pSetWays = pCurrTags + set * NUM_WAYS;
-                bool bFound = false;
-                for (uint32_t j = 0; j < NUM_WAYS; j++)
-                {
-                    auto tag = pSetWays[j];
-                    uint32_t key = tag * m_nSets + set;
-                    if (key == index)
-                    {
-                        //hit
-                        bFound = true;
-                        pCurrCounters[set*NUM_WAYS + j]++;
-                        break;
-                    }
-                }
-
-                if (!bFound)
-                {
-                    uint32_t* pSetCounters = pCurrCounters + set*NUM_WAYS;
-                    auto pSetIndexMap = pContext->pIndexMap + tableIndex * m_nSets * NUM_WAYS + set*NUM_WAYS;
-                    auto candidate = std::min_element( pSetCounters, pSetCounters + NUM_WAYS );
-                    auto candidateIndex = std::distance(pSetCounters, candidate);
-                    *candidate = 1;
-                    pSetWays[candidateIndex] = index / m_nSets;
-                    pCurrWayUpdateMask[set] |= 1 << candidateIndex;
-                    pSetIndexMap[candidateIndex] = bLinearTable ? index : i;
-                }
-            }
-            int8_t* pCurrCache = m_dpCache + tableIndex * m_nSets * NUM_WAYS * m_config.embedWidth;
-            pContext->nEntriesToUpdate = 0;
-            
-            for (uint32_t i = 0; i < m_nSets; i++)
-            {
-                if (pCurrWayUpdateMask[i] == 0)
-                {
-                    continue;
-                }
-                auto pSetIndexMap = pContext->pIndexMap + tableIndex * m_nSets * NUM_WAYS + i*NUM_WAYS;
-                for (uint32_t j = 0; j < NUM_WAYS; j++)
-                {
-                    if ((pCurrWayUpdateMask[i] & (1 << j)) == 0)
-                    {
-                        continue;
-                    }
-
-                    assert(pContext->nEntriesToUpdate < pContext->maxUpdateSz);
-                    int8_t* dst = pCurrCache + ( i * NUM_WAYS + j ) * m_config.embedWidth;
-                    const int8_t* src = data + pSetIndexMap[j] * stride;
-                    pContext->pEntries[pContext->nEntriesToUpdate++] = {src, dst};
-                }
-            }
-            pContext->tableIndex = tableIndex;
-            return ECERROR_SUCCESS;
-        }
-        catch(const ECExcption& e)
-        {
-            return e.m_err;
-        }
+        return ModifyContextSetReplaceData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, true);
     }
 
-    // assuming indices is host accessiable
-    ECError ModifyContextSetUpdateData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const override
+    ECError ModifyContextSetReplaceDataDenseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
     {
-        try
-        {
-            ModifyContext* pContext = (ModifyContext*)modifyContextHandle.handle;
-            if (!pContext)
-            {
-                throw ECExcption(ECERROR_INVALID_ARGUMENT);
-            }
-            pContext->op = MODIFY_UPDATE;
-            auto pCurrTags = pContext->pTags + tableIndex * m_nSets * NUM_WAYS;
-            // critical section copying state to local context
-            {
-                std::lock_guard<std::mutex> l(m_mutex);
-                if (m_pMagicNumber[tableIndex] != pContext->magicNumber)
-                {
-                    // someone else updated the state need copy latest version to local context
-                    memcpy(pCurrTags, m_hpTags + tableIndex * m_nSets * NUM_WAYS, sizeof(TagT)*m_nSets*NUM_WAYS);
-                }
-                pContext->currentMagicNumber = m_pMagicNumber[tableIndex];
-            }
-
-            int8_t* pCurrCache = m_dpCache + tableIndex * m_nSets * NUM_WAYS * m_config.embedWidth;
-            pContext->nEntriesToUpdate = 0;
-
-            for (uint32_t i = 0; i < updateSz; i++)
-            {
-                auto index = indices[i];
-                uint32_t set = index % m_nSets;
-                TagT* pSetWays = pCurrTags + set * NUM_WAYS;
-                for (uint32_t j = 0; j < NUM_WAYS; j++)
-                {
-                    auto tag = pSetWays[j];
-                    uint32_t key = tag * m_nSets + set;
-                    if (key == index)
-                    {
-                        //hit
-                        assert(pContext->nEntriesToUpdate < pContext->maxUpdateSz);
-                        int8_t* dst = pCurrCache + ( set * NUM_WAYS + j ) * m_config.embedWidth;
-                        const int8_t* src = data + ((bLinearTable) ? index : i) * stride;
-                        pContext->pEntries[pContext->nEntriesToUpdate++] = {src, dst};
-                        break;
-                    }
-                }
-            }
-
-            pContext->tableIndex = tableIndex;
-            return ECERROR_SUCCESS;
-        }
-        catch(const ECExcption& e)
-        {
-            return e.m_err;
-        }
+        return ModifyContextSetReplaceData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, false);
+    }
+    ECError ModifyContextSetUpdateDataSparseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
+    {
+        return ModifyContextSetUpdateData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, true);
+    }
+    ECError ModifyContextSetUpdateDataDenseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
+    {
+        return ModifyContextSetUpdateData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, false);
     }
 
     // this function require synchronization with other worker threads needs to be atomic i.e no work that uses this cache can be called untill this function is returned and the event is waited
     // this code is non re-enternet
-    ECError Modify(const ModifyContextHandle& modifyContextHandle, cudaStream_t stream) override
+    ECError Modify(const ModifyContextHandle& modifyContextHandle, IECEvent* syncEvent, cudaStream_t stream) override
     {
         try
         {
@@ -532,9 +418,9 @@ public:
             {
                 throw ECExcption(ECERROR_INVALID_ARGUMENT);
             }
-            uint32_t tableIndex = pContext->tableIndex;
-
-            // the checking the magic number of the cache context that this modify context was based on
+            uint64_t tableIndex = pContext->tableIndex;
+            std::lock_guard<std::mutex> modLock(m_modifyLock);
+            // checking the magic number of the cache context that this modify context was based on
             // if it is different it means we looked at stale context and should not procedd with updating
             if (pContext->currentMagicNumber != m_pMagicNumber[tableIndex])
             {
@@ -542,31 +428,35 @@ public:
                 return ECERROR_STALE_MODIFY_CONTEXT;
             }
 
-            // critical section, preventing Analyze functions from copying ill posed state
+            CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpyAsync(pContext->pdEntries, pContext->pEntries, sizeof(ModifyEntry)*pContext->nEntriesToUpdate, cudaMemcpyHostToDevice, stream));
+            auto pDstDeviceCurrTags = m_dpTags + tableIndex * m_nSets * NUM_WAYS;
+            callTagInvalidateKernel<IndexT, TagT>(pContext->pdEntries, pContext->nEntriesToUpdate, pDstDeviceCurrTags, stream);
+
+            // update doesn't change state
+            if (pContext->op != MODIFY_UPDATE)
             {
+                // critical section, preventing Analyze functions from copying ill posed state
                 std::lock_guard<std::mutex> l(m_mutex);
-                CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpyAsync(pContext->pdEntries, pContext->pEntries, sizeof(ModifyEntry)*pContext->nEntriesToUpdate, cudaMemcpyHostToDevice, stream));
-                if (pContext->op != MODIFY_UPDATE)
-                {
-                    // update doesn't change state
-                    auto pSrcCurrTags = pContext->pTags + tableIndex * m_nSets * NUM_WAYS;
-                    auto pDstDeviceCurrTags = m_dpTags + tableIndex * m_nSets * NUM_WAYS;
-                    auto pDstHostCurrTags = m_hpTags + tableIndex * m_nSets * NUM_WAYS;
+                auto pSrcCurrTags = pContext->pTags;
+                
+                auto pDstHostCurrTags = m_hpTags + tableIndex * m_nSets * NUM_WAYS;
 
-                    CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpyAsync(pDstDeviceCurrTags, pSrcCurrTags, sizeof(TagT)*NUM_WAYS*m_nSets, cudaMemcpyHostToDevice, stream));
-                    memcpy(pDstHostCurrTags, pSrcCurrTags, sizeof(TagT)*NUM_WAYS *m_nSets);
-                }
-                // memcpy to cache tags
-                // update magic number
-                m_pMagicNumber[tableIndex] = pContext->magicNumber;
+                //CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpyAsync(pDstDeviceCurrTags, pSrcCurrTags, sizeof(TagT)*NUM_WAYS*m_nSets, cudaMemcpyHostToDevice, stream));
+                // dispatch invalidateKernel
+                // synchronize modifyContext Tags and cacheContext Tags
+                memcpy(pDstHostCurrTags, pSrcCurrTags, sizeof(TagT)*NUM_WAYS *m_nSets);
+
             }
 
-            /// call updater function
-            // can be optimized but nEntriesToUpdate = 0 should be an edge case
-            if (pContext->nEntriesToUpdate > 0)
-            {
-                callModifyKernel<IndexT, TagT>(pContext->pdEntries, pContext->nEntriesToUpdate, m_config.embedWidth, stream);
-            }
+            CACHE_CUDA_ERR_CHK_AND_THROW(cudaStreamSynchronize(stream));
+            CHECK_ERR_AND_THROW(syncEvent->EventRecord(), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
+            CHECK_ERR_AND_THROW(syncEvent->EventWaitStream(stream), ECERROR_NOT_ENOUGH_MEMORY_REQUESTED);
+            callMemUpdateKernel<IndexT, TagT>(pContext->pdEntries, pContext->nEntriesToUpdate, m_config.embedWidth, stream);
+            callTagUpdateKernel<IndexT, TagT>(pContext->pdEntries, pContext->nEntriesToUpdate, pDstDeviceCurrTags, stream);
+
+            // update magic number
+            m_pMagicNumber[tableIndex] = pContext->magicNumber;
+            
             return ECERROR_SUCCESS;
         }
         catch(const ECExcption& e)
@@ -601,6 +491,184 @@ public:
         return ECERROR_SUCCESS;
     }
 
+    size_t GetMaxNumEmbeddingVectorsInCache() const override
+    {
+        return m_nSets * NUM_WAYS;
+    }
+    
+    CacheAllocationSize GetLookupContextSize() const override
+    {
+        CacheAllocationSize ret = {0};
+        ret.hostAllocationSize = sizeof(CacheData);
+        return ret;
+    }
+
+    CacheAllocationSize GetModifyContextSize(uint32_t maxUpdateSize) const override
+    {
+        constexpr size_t szTagsPerSet = CACHE_ALIGN(sizeof(TagT) * NUM_WAYS, 16); // this already aligned to 16
+        constexpr size_t szCounterPerSet = sizeof(CounterT) * NUM_WAYS;
+        constexpr size_t szWayUpdateMaskPerSet = sizeof(uint32_t);
+
+        CacheAllocationSize ret = {0};
+        size_t hostSize = 0;
+        hostSize += sizeof(ModifyContext);
+        hostSize += m_nSets * szTagsPerSet;
+        hostSize += m_nSets * szWayUpdateMaskPerSet;
+        hostSize += m_nSets * szCounterPerSet;
+        hostSize += m_nSets * sizeof(IndexT) * NUM_WAYS;
+        hostSize += maxUpdateSize * sizeof(ModifyEntry);
+        ret.hostAllocationSize = hostSize;
+        ret.deviceAllocationSize = maxUpdateSize * sizeof(ModifyEntry);
+        return ret;
+    }
+
+protected:
+    // assuming indices is host accessiable
+    ECError ModifyContextSetReplaceData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const
+    {
+        try
+        {
+            ModifyContext* pContext = (ModifyContext*)modifyContextHandle.handle;
+            if (!pContext)
+            {
+                throw ECExcption(ECERROR_INVALID_ARGUMENT);
+            }
+            pContext->op = MODIFY_REPLACE;
+            auto pCurrTags = pContext->pTags;
+            auto pCurrWayUpdateMask = pContext->pWayUpdateMask;
+            auto pCurrCounters = pContext->pCounters;
+            // critical section copying state to local context
+            {
+                std::lock_guard<std::mutex> l(m_mutex);
+                if (m_pMagicNumber[tableIndex] != pContext->magicNumber)
+                {
+                    // someone else updated the state need copy latest version to local context
+                    memcpy(pCurrTags, m_hpTags + tableIndex * m_nSets * NUM_WAYS, sizeof(TagT)*m_nSets*NUM_WAYS);
+                }
+                pContext->currentMagicNumber = m_pMagicNumber[tableIndex];
+            }
+            
+            memset(pCurrWayUpdateMask, 0, sizeof(uint32_t)*m_nSets);
+            for (uint32_t i = 0; i < updateSz; i++)
+            {
+                auto index = indices[i];
+                uint32_t set = index % m_nSets;
+                TagT* pSetWays = pCurrTags + set * NUM_WAYS;
+                bool bFound = false;
+                for (uint32_t j = 0; j < NUM_WAYS; j++)
+                {
+                    auto tag = pSetWays[j];
+                    uint32_t key = tag * m_nSets + set;
+                    if (key == index)
+                    {
+                        //hit
+                        bFound = true;
+                        pCurrCounters[set*NUM_WAYS + j]++;
+                        break;
+                    }
+                }
+
+                if (!bFound)
+                {
+                    uint32_t* pSetCounters = pCurrCounters + set*NUM_WAYS;
+                    auto pSetIndexMap = pContext->pIndexMap  + set*NUM_WAYS;
+                    auto candidate = std::min_element( pSetCounters, pSetCounters + NUM_WAYS );
+                    auto candidateIndex = std::distance(pSetCounters, candidate);
+                    *candidate = 1;
+                    pSetWays[candidateIndex] = index / m_nSets;
+                    pCurrWayUpdateMask[set] |= 1 << candidateIndex;
+                    pSetIndexMap[candidateIndex] = bLinearTable ? index : i;
+                }
+            }
+            int8_t* pCurrCache = m_dpCache + uint64_t(tableIndex) * m_nSets * NUM_WAYS * m_config.embedWidth;
+            pContext->nEntriesToUpdate = 0;
+            
+            for (uint32_t i = 0; i < m_nSets; i++)
+            {
+                if (pCurrWayUpdateMask[i] == 0)
+                {
+                    continue;
+                }
+                auto pSetIndexMap = pContext->pIndexMap + i*NUM_WAYS;
+                for (uint32_t j = 0; j < NUM_WAYS; j++)
+                {
+                    if ((pCurrWayUpdateMask[i] & (1 << j)) == 0)
+                    {
+                        continue;
+                    }
+
+                    assert(pContext->nEntriesToUpdate <= pContext->maxUpdateSz);
+                    int8_t* dst = pCurrCache + ( i * NUM_WAYS + j ) * m_config.embedWidth;
+                    const int8_t* src = data + pSetIndexMap[j] * stride;
+                    TagT tag = *(pCurrTags + i * NUM_WAYS + j);
+                    pContext->pEntries[pContext->nEntriesToUpdate++] = {src, dst, i, j, tag};
+                }
+            }
+            pContext->tableIndex = tableIndex;
+            return ECERROR_SUCCESS;
+        }
+        catch(const ECExcption& e)
+        {
+            return e.m_err;
+        }
+    }
+
+    // assuming indices is host accessiable
+    ECError ModifyContextSetUpdateData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint64_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const
+    {
+        try
+        {
+            ModifyContext* pContext = (ModifyContext*)modifyContextHandle.handle;
+            if (!pContext)
+            {
+                throw ECExcption(ECERROR_INVALID_ARGUMENT);
+            }
+            pContext->op = MODIFY_UPDATE;
+            auto pCurrTags = pContext->pTags;
+            // critical section copying state to local context
+            {
+                std::lock_guard<std::mutex> l(m_mutex);
+                if (m_pMagicNumber[tableIndex] != pContext->magicNumber)
+                {
+                    // someone else updated the state need copy latest version to local context
+                    memcpy(pCurrTags, m_hpTags + tableIndex * m_nSets * NUM_WAYS, sizeof(TagT)*m_nSets*NUM_WAYS);
+                }
+                pContext->currentMagicNumber = m_pMagicNumber[tableIndex];
+            }
+
+            int8_t* pCurrCache = m_dpCache + tableIndex * m_nSets * NUM_WAYS * m_config.embedWidth;
+            pContext->nEntriesToUpdate = 0;
+
+            for (uint32_t i = 0; i < updateSz; i++)
+            {
+                auto index = indices[i];
+                uint32_t set = index % m_nSets;
+                TagT* pSetWays = pCurrTags + set * NUM_WAYS;
+                for (uint32_t j = 0; j < NUM_WAYS; j++)
+                {
+                    auto tag = pSetWays[j];
+                    uint32_t key = tag * m_nSets + set;
+                    if (key == index)
+                    {
+                        //hit
+                        assert(pContext->nEntriesToUpdate <= pContext->maxUpdateSz);
+                        int8_t* dst = pCurrCache + ( set * NUM_WAYS + j ) * m_config.embedWidth;
+                        const int8_t* src = data + ((bLinearTable) ? index : i) * stride;
+                        TagT tag = *(pCurrTags + i * NUM_WAYS + j);
+                        pContext->pEntries[pContext->nEntriesToUpdate++] = {src, dst, i, j, tag};
+                        break;
+                    }
+                }
+            }
+
+            pContext->tableIndex = tableIndex;
+            return ECERROR_SUCCESS;
+        }
+        catch(const ECExcption& e)
+        {
+            return e.m_err;
+        }
+    }
 
 private:
     void Log(VERBOSITY_LEVEL verbosity, const char* format, ...) const
@@ -627,10 +695,10 @@ private:
         return szTagsPerSet;
     }
 
-    int32_t CalcNumSets() const
+    uint64_t CalcNumSets() const
     {
         size_t szPerSet = GetDeviceSzPerSet();
-        int32_t nSets = (m_config.cacheSzInBytes / m_config.numTables ) / (szPerSet);
+        uint64_t nSets = (m_config.cacheSzInBytes / m_config.numTables ) / (szPerSet);
         return nSets;
     }
 
@@ -668,13 +736,14 @@ private:
 
 private:
     CacheConfig m_config;
-    uint32_t m_nSets;
+    uint64_t m_nSets;
     int8_t* m_dpPool; // pointer to mem pool for cache internal buffers - one free to rule them all
     int8_t* m_dpCache; // cache storage
     TagT* m_dpTags; // device tags
     TagT* m_hpTags; // host copy of tags
     uint64_t* m_pMagicNumber; // per table magic number of last updated context
     mutable std::mutex m_mutex; // this should be per table
+    mutable std::mutex m_modifyLock;
 
 public:
     static const uint32_t NUM_WAYS = 8;

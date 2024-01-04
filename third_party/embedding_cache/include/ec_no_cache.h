@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <memory>
 #include <numeric>
+#include <vector>
 
 namespace ecache {
 
@@ -34,7 +35,7 @@ template<typename IndexT>
 class ECNoCache : public EmbedCacheBase<IndexT>
 {
 public:
-    using MissT = uint32_t;
+    using MissT = uint64_t;
     static constexpr CACHE_IMPLEMENTATION_TYPE TYPE = CACHE_IMPLEMENTATION_TYPE::API;
 public:
     struct CacheConfig
@@ -142,7 +143,7 @@ public:
         
     }
 
-    ECError PerformanceMetricGetValue(const PerformanceMetric& metric, uint32_t* pOutValue) const override
+    ECError PerformanceMetricGetValue(const PerformanceMetric& metric, uint64_t* pOutValue, cudaStream_t stream) const override
     {
         try
         {
@@ -154,7 +155,7 @@ public:
                 {
                     throw ECExcption(ECERROR_INVALID_ARGUMENT);
                 }
-                CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpy(pOutValue, metric.p_dVal, sizeof(uint32_t), cudaMemcpyDefault));
+                CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemcpyAsync(pOutValue, metric.p_dVal, sizeof(uint64_t), cudaMemcpyDefault, stream));
                 return ECERROR_SUCCESS;
             }
             default:
@@ -168,11 +169,11 @@ public:
         
     }
 
-    ECError PerformanceMetricReset(PerformanceMetric& pMetric) const override
+    ECError PerformanceMetricReset(PerformanceMetric& pMetric, cudaStream_t stream) const override
     {
         try
         {
-            CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemset(pMetric.p_dVal, 0, sizeof(uint32_t)));
+            CACHE_CUDA_ERR_CHK_AND_THROW(cudaMemsetAsync(pMetric.p_dVal, 0, sizeof(uint32_t), stream));
             return ECERROR_SUCCESS;
         }
         catch(const ECExcption& e)
@@ -235,22 +236,27 @@ public:
         return *cd;
     }
 
-
-    // assuming indices is host accessiable
-    ECError ModifyContextSetReplaceData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const override
+    ECError ModifyContextSetReplaceDataSparseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
     {
-        return ECERROR_SUCCESS;
+        return ModifyContextSetReplaceData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, true);
     }
 
-    // assuming indices is host accessiable
-    ECError ModifyContextSetUpdateData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const override
+    ECError ModifyContextSetReplaceDataDenseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
     {
-        return ECERROR_SUCCESS;
+        return ModifyContextSetReplaceData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, false);
+    }
+    ECError ModifyContextSetUpdateDataSparseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
+    {
+        return ModifyContextSetUpdateData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, true);
+    }
+    ECError ModifyContextSetUpdateDataDenseData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride) const override
+    {
+        return ModifyContextSetUpdateData(modifyContextHandle, indices, updateSz, data, tableIndex, stride, false);
     }
 
     // this function require synchronization with other worker threads needs to be atomic i.e no work that uses this cache can be called untill this function is returned and the event is waited
     // this code is non re-enternet
-    ECError Modify(const ModifyContextHandle& modifyContextHandle, cudaStream_t stream) override
+    ECError Modify(const ModifyContextHandle& modifyContextHandle, IECEvent* syncEvent, cudaStream_t stream) override
     {
         return ECERROR_SUCCESS;
     }
@@ -284,6 +290,37 @@ public:
         {
             callCacheQueryUVM<IndexT>(d_keys, len, d_values, d_table, data, stream, currTable, stride);
         }
+        return ECERROR_SUCCESS;
+    }
+
+    size_t GetMaxNumEmbeddingVectorsInCache() const override
+    {
+        return 0;
+    }
+    
+    CacheAllocationSize GetLookupContextSize() const override
+    {
+        CacheAllocationSize ret = {0};
+        ret.hostAllocationSize = sizeof(CacheData);
+        return ret;
+    }
+
+    CacheAllocationSize GetModifyContextSize(uint32_t maxUpdateSize) const override
+    {
+        CacheAllocationSize ret = {0};
+        return ret;
+    }
+
+protected:
+    // assuming indices is host accessiable
+    ECError ModifyContextSetReplaceData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const
+    {
+        return ECERROR_SUCCESS;
+    }
+
+    // assuming indices is host accessiable
+    ECError ModifyContextSetUpdateData(ModifyContextHandle& modifyContextHandle, const IndexT* indices, uint32_t updateSz, const int8_t* data, uint32_t tableIndex, size_t stride, bool bLinearTable) const
+    {
         return ECERROR_SUCCESS;
     }
 

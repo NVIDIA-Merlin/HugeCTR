@@ -54,6 +54,8 @@ class EmbeddingCacheBase {
                        cudaStream_t stream) = 0;
   virtual void finalize() = 0;
 
+  virtual void insert_stream_for_sync(std::vector<cudaStream_t> lookup_streams_) = 0;
+
   virtual EmbeddingCacheWorkspace create_workspace() = 0;
   virtual void destroy_workspace(EmbeddingCacheWorkspace&) = 0;
   virtual EmbeddingCacheRefreshspace create_refreshspace() = 0;

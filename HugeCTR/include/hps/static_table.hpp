@@ -61,6 +61,7 @@ class StaticTable : public EmbeddingCacheBase,
   virtual const std::vector<cudaStream_t>& get_refresh_streams() override {
     return refresh_streams_;
   }
+  virtual void insert_stream_for_sync(std::vector<cudaStream_t> lookup_streams_) override {}
   virtual int get_device_id() override { return cache_config_.cuda_dev_id_; }
   virtual bool use_gpu_embedding_cache() override { return cache_config_.use_gpu_embedding_cache_; }
   virtual void profiler_print() { ec_profiler_->print(); };
