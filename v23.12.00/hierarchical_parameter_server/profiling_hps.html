@@ -235,7 +235,7 @@ Optional arguments:
 -h --help                       shows help message and exits [default: false]
 -v --version                    prints version information and exits [default: false]
 --config                        The path of the HPS json configuration file [required]
---powerlaw                      Generate the queried key that  in each iteration based on the power distribution [default: false]
+--distribution                      The distribution of the generated query key in each iteration. Can be &#39;powerlaw&#39;, &#39;hotkey&#39;, or &#39;histogram&#39; [default: &quot;powerlaw&quot;]
 --table_size                    The number of keys in the embedded table [default: 100000]
 --alpha                         Alpha of power distribution [default: 1.2]
 --hot_key_percentage            Percentage of hot keys in embedding tables [default: 0.2]
@@ -377,10 +377,6 @@ For example <code class="docutils literal notranslate"><span class="pre">--hot_k
       <dd><a href="../../v23.08.00/hierarchical_parameter_server/profiling_hps.html">v23.08.00</a></dd>
       <dd><a href="../../v23.09.00/hierarchical_parameter_server/profiling_hps.html">v23.09.00</a></dd>
       <dd><a href="profiling_hps.html">v23.12.00</a></dd>
-    </dl>
-    <dl>
-      <dt>Branches</dt>
-      <dd><a href="../../main/hierarchical_parameter_server/profiling_hps.html">main</a></dd>
     </dl>
   </div>
 </div><script>
