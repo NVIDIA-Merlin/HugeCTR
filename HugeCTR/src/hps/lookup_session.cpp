@@ -77,6 +77,7 @@ LookupSession::LookupSession(const InferenceParams& inference_params,
       cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
       lookup_streams_.push_back(stream);
     }
+    embedding_cache_->insert_stream_for_sync(lookup_streams_);
     if (inference_params_.fuse_embedding_table) {
       size_t key_size_in_byte =
           inference_params_.i64_input_key ? sizeof(long long) : sizeof(unsigned int);

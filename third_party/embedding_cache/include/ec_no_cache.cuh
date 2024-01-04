@@ -26,7 +26,7 @@ public:
     {
         if (data.bCountMisses)
         {
-            atomicAdd(data.misses, 1);
+            atomicAdd((unsigned long long*)data.misses, 1llu);
         }
 
         return (uint64_t)pTable + laneIdx * (uint64_t)data.rowSizeInBytes;

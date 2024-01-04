@@ -16,7 +16,7 @@
 
 #include <algorithm>
 #include <hps/embedding_cache.hpp>
-#include <hps/embedding_cache_stoch.hpp>
+//#include <hps/embedding_cache_stoch.hpp>
 #include <hps/hier_parameter_server.hpp>
 #include <hps/memory_pool.hpp>
 #include <hps/static_table.hpp>
@@ -93,15 +93,17 @@ std::shared_ptr<EmbeddingCacheBase> EmbeddingCacheBase::create(
       return std::make_shared<UvmTable<unsigned int>>(inference_params, ps_config,
                                                       parameter_server);
     }
-  } else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Stochastic) {
-    if (inference_params.i64_input_key) {
-      return std::make_shared<EmbeddingCacheStoch<long long>>(inference_params, ps_config,
-                                                              parameter_server);
-    } else {
-      return std::make_shared<EmbeddingCacheStoch<unsigned int>>(inference_params, ps_config,
-                                                                 parameter_server);
-    }
-  } else {
+  }
+  /*   else if (inference_params.embedding_cache_type == EmbeddingCacheType_t::Stochastic) {
+      if (inference_params.i64_input_key) {
+        return std::make_shared<EmbeddingCacheStoch<long long>>(inference_params, ps_config,
+                                                                parameter_server);
+      } else {
+        return std::make_shared<EmbeddingCacheStoch<unsigned int>>(inference_params, ps_config,
+                                                                   parameter_server);
+      }
+    }  */
+  else {
     if (inference_params.i64_input_key) {
       return std::make_shared<EmbeddingCache<long long>>(inference_params, ps_config,
                                                          parameter_server);
@@ -393,7 +395,6 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
           1.0 - (static_cast<double>(workspace_handler.h_missing_length_[table_id]) /
                  static_cast<double>(workspace_handler.h_unique_length_[table_id]));
     }
-
     bool async_insert_flag{workspace_handler.h_hit_rate_[table_id] >= hit_rate_threshold};
     start = profiler::start(workspace_handler.h_hit_rate_[table_id], ProfilerType_t::Occupancy);
     ec_profiler_->end(start, "The hit rate of Embedding Cache", ProfilerType_t::Occupancy);
@@ -404,7 +405,7 @@ void EmbeddingCache<TypeHashKey>::lookup_from_device(size_t const table_id, floa
       parameter_server_->insert_embedding_cache(table_id, this->shared_from_this(),
                                                 workspace_handler, stream);
       // Wait for memory copy to complete
-      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+      // HCTR_LIB_THROW(cudaStreamSynchronize(stream));
       ec_profiler_->end(start, "Missing key synchronization insert into Embedding Cache");
       start = profiler::start();
       merge_emb_vec_async(workspace_handler.d_hit_emb_vec_[table_id],
@@ -468,6 +469,7 @@ void EmbeddingCache<TypeHashKey>::insert(const size_t table_id,
         workspace_handler.h_missing_length_[table_id],
         workspace_handler.d_missing_emb_vec_[table_id], stream);
   }
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 }
 
 template <typename TypeHashKey>
@@ -544,6 +546,18 @@ void EmbeddingCache<TypeHashKey>::finalize() {
 
     // Join insert threads
     insert_workers_.await_idle();
+  }
+}
+
+template <typename TypeHashKey>
+void EmbeddingCache<TypeHashKey>::insert_stream_for_sync(
+    std::vector<cudaStream_t> lookup_streams_) {
+  if (lookup_streams_.size() != gpu_emb_caches_.size()) {
+    HCTR_OWN_THROW(Error_t::WrongInput,
+                   "The number of lookup streams is not equal to the number of embedding tables.");
+  }
+  for (size_t idx = 0; idx < lookup_streams_.size(); ++idx) {
+    gpu_emb_caches_[idx]->Record(lookup_streams_[idx]);
   }
 }
 

@@ -18,6 +18,7 @@
 #include <embedding_cache_combined.h>
 
 #include <gpu_cache_api.hpp>
+#include <hps/cache_event.hpp>
 #include <map>
 #include <shared_mutex>
 #include <vector>
@@ -53,6 +54,8 @@ class EmbeddingCacheWrapper : public gpu_cache::gpu_cache_api<key_type> {
   void Dump(key_type* d_keys, size_t* d_dump_counter, const size_t start_set_index,
             const size_t end_set_index, cudaStream_t stream) override;
 
+  void Record(cudaStream_t stream) override;
+
  private:
   struct PerStreamLookupData {
     LookupContextHandle hLookup;
@@ -86,6 +89,9 @@ class EmbeddingCacheWrapper : public gpu_cache::gpu_cache_api<key_type> {
 
   PerStreamLookupData m_gLData;
   typename EmbedCache<key_type, key_type>::CacheConfig config_;
+  uint32_t maxUpdateSampleSz = 0;
+  // Record the lookup event for update/insert sync
+  ECEvent ecevent_;
   using WriteLock = std::unique_lock<std::shared_mutex>;
   using ReadLock = std::shared_lock<std::shared_mutex>;
 };

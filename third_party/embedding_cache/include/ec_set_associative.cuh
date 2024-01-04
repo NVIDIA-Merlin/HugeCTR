@@ -48,7 +48,7 @@ static __device__ inline uint64_t EmbedCacheGetAddress(IndexT laneIdx, const int
 
     if (out == 0 && data.bCountMisses)
     {
-        atomicAdd(data.misses, 1);
+        atomicAdd((unsigned long long*)data.misses, 1);
     }
 
     return lanePtr;
@@ -78,7 +78,7 @@ public:
 
         if (out == 0 && data.bCountMisses)
         {
-            atomicAdd(data.misses, 1);
+            atomicAdd((unsigned long long*)data.misses, 1llu);
         }
 
         return lanePtr;
@@ -129,10 +129,34 @@ public:
 };
 
 template<typename IndexT, typename TagT, typename DataType>
-__global__ void GPUModify(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t sz)
+__global__ void MemUpdateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t sz)
 {
     typename EmbedCache<IndexT, TagT>::ModifyEntry e = pEntries[blockIdx.x];
     MemcpyWarp<32, DataType>(e.pDst, e.pSrc, sz);
+}
+
+template<typename IndexT, typename TagT>
+__global__ void InvalidateTagKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, TagT* pTags)
+{
+    auto tid = blockIdx.x*blockDim.x + threadIdx.x;
+    if (tid < nEntries)
+    {
+        typename EmbedCache<IndexT, TagT>::ModifyEntry e = pEntries[tid];
+        TagT* pToModTag = pTags + e.set * EmbedCache<IndexT, TagT>::NUM_WAYS + e.way;
+        *pToModTag = (TagT)-1;
+    }
+}
+
+template<typename IndexT, typename TagT>
+__global__ void TagUpdateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, TagT* pTags)
+{
+    auto tid = blockIdx.x*blockDim.x + threadIdx.x;
+    if (tid < nEntries)
+    {
+        typename EmbedCache<IndexT, TagT>::ModifyEntry e = pEntries[tid];
+        TagT* pToModTag = pTags + e.set * EmbedCache<IndexT, TagT>::NUM_WAYS + e.way;
+        *pToModTag = e.tag;
+    }
 }
 
 template<typename IndexT, typename TagT, uint32_t SUBWARP_WIDTH, typename DataType>
@@ -196,45 +220,42 @@ __global__ void Query(const IndexT* d_keys, const size_t len,
     }
 }
 
-// update values in cache not replacement
+// need to have an argument explicity depend on IndexT type or the compiler gets confused
 template<typename IndexT, typename TagT>
-__global__ void DumpKeys(IndexT* d_keys, size_t* len,
-    const size_t start_set_index, const size_t end_set_index, typename EmbedCache<IndexT, TagT>::CacheData data, uint32_t currTable)
+void callTagInvalidateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, TagT* pTags, cudaStream_t stream)
 {
-    uint32_t cacheOffset = currTable * data.nSets * EmbedCache<IndexT, TagT>::NUM_WAYS;
-    uint32_t tid = blockIdx.x * 32 + threadIdx.x; // each tid search for one index, and then we do a "transpose" and copy them out if needed
-    uint32_t setIdx = start_set_index + tid;
-    if (setIdx >= end_set_index)
-    {
-        return;
-    }
-
-    for (uint32_t i = 0; i < EmbedCache<IndexT, TagT>::NUM_WAYS; i++)
-    {
-        TagT way = *(data.pTags + (cacheOffset + setIdx * EmbedCache<IndexT, TagT>::NUM_WAYS) + i * sizeof(TagT));
-        auto old = atomicAdd((unsigned long long*)len, 1llu);
-        d_keys[old] = way * data.nSets + setIdx;
-    }
+    dim3 gridSize((nEntries + 32 - 1)/32,1);
+    dim3 blockSize(32, 1); 
+    InvalidateTagKernel<IndexT, TagT><<<gridSize, blockSize, 0, stream>>>(pEntries, nEntries, pTags);
 }
 
 // need to have an argument explicity depend on IndexT type or the compiler gets confused
 template<typename IndexT, typename TagT>
-void callModifyKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, uint32_t rowSizeInBytes, cudaStream_t stream)
+void callMemUpdateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, uint32_t rowSizeInBytes, cudaStream_t stream)
 {
     dim3 gridSize(nEntries,1);
     dim3 blockSize(32, 1); 
     if (rowSizeInBytes % sizeof(uint4) == 0)
     {
-        GPUModify<IndexT, TagT, uint4><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
+        MemUpdateKernel<IndexT, TagT, uint4><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
     }
     else if (rowSizeInBytes % sizeof(uint32_t) == 0)
     {
-        GPUModify<IndexT, TagT, uint32_t><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
+        MemUpdateKernel<IndexT, TagT, uint32_t><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
     }
     else
     {
-        GPUModify<IndexT, TagT, int8_t><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
+        MemUpdateKernel<IndexT, TagT, int8_t><<<gridSize, blockSize, 0, stream>>>(pEntries, rowSizeInBytes);
     }
+}
+
+// need to have an argument explicity depend on IndexT type or the compiler gets confused
+template<typename IndexT, typename TagT>
+void callTagUpdateKernel(typename EmbedCache<IndexT, TagT>::ModifyEntry* pEntries, uint32_t nEntries, TagT* pTags, cudaStream_t stream)
+{
+    dim3 gridSize((nEntries + 32 - 1)/32,1);
+    dim3 blockSize(32, 1); 
+    TagUpdateKernel<IndexT, TagT><<<gridSize, blockSize, 0, stream>>>(pEntries, nEntries, pTags);
 }
 
 template<typename IndexT, typename TagT>
@@ -266,17 +287,5 @@ void callCacheQuery(const IndexT* d_keys, const size_t len,
     {
         Query<IndexT, TagT, blockX, uint8_t><<<gridDims, blockDims, 0, stream>>>(d_keys, len, d_values, d_missing_index, d_missing_keys, d_missing_len, data, currTable, stride);
     }
-}
-
-template<typename IndexT>
-void callCacheDump(IndexT* d_keys, size_t* d_len, const size_t start_set_index, const size_t end_set_index, uint32_t currTable, typename EmbedCache<IndexT, uint16_t>::CacheData data, cudaStream_t stream)
-{
-    const uint32_t blockSize = 32;
-    size_t len = end_set_index - start_set_index;
-    const uint32_t nBlock = len / blockSize + std::min(len % blockSize, (size_t)1);
-    dim3 gridDims(nBlock);
-    dim3 blockDims(blockSize);
-
-    DumpKeys<IndexT, uint16_t><<<gridDims, blockDims, 0, stream>>>(d_keys, d_len, start_set_index, end_set_index, data, currTable);
 }
 }

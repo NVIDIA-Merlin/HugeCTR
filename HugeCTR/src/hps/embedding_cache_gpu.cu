@@ -27,7 +27,7 @@ EmbeddingCacheWrapper<key_type>::EmbeddingCacheWrapper(const size_t capacity_in_
   config_.cacheSzInBytes =
       SLAB_SIZE * SET_ASSOCIATIVITY * capacity_in_set * embedding_vec_size * sizeof(float);
   config_.embedWidth = embedding_vec_size * sizeof(float);
-  config_.maxUpdateSampleSz = capacity_in_set * EmbedCache<key_type, key_type>::NUM_WAYS;
+  maxUpdateSampleSz = capacity_in_set * EmbedCache<key_type, key_type>::NUM_WAYS;
   config_.numTables = 1;
   cache_ptr_ = std::make_shared<EmbedCache<key_type, key_type>>(&allocator_, &logger_, config_);
   cache_ptr_->Init();
@@ -70,7 +70,7 @@ void EmbeddingCacheWrapper<key_type>::Query(const key_type* d_keys, const size_t
                                             float* d_values, uint64_t* d_missing_index,
                                             key_type* d_missing_keys, size_t* d_missing_len,
                                             cudaStream_t stream, const size_t task_per_warp_tile) {
-  ReadLock l(read_write_lock_);
+  // ReadLock l(read_write_lock_);
   auto hLookup = GetLookupData(stream);
   // call cache Query
   cache_ptr_->Lookup(hLookup.hLookup, d_keys, len, (int8_t*)d_values, d_missing_index,
@@ -83,6 +83,9 @@ template <typename key_type>
 void EmbeddingCacheWrapper<key_type>::Replace(const key_type* d_keys, const size_t len,
                                               const float* d_values, cudaStream_t stream,
                                               const size_t task_per_warp_tile) {
+  if (len == 0) {
+    return;
+  }
   ModifyInternal(d_keys, len, d_values, stream, ModifyOp::MODIFY_REPLACE);
 }
 
@@ -149,8 +152,8 @@ EmbeddingCacheWrapper<key_type>::PerStreamModifyData EmbeddingCacheWrapper<key_t
     WriteLock l(update_map_read_write_lock_);
     // search again if things were changed between locks
     if (update_handle_map_.find(stream) == update_handle_map_.end()) {
-      cache_ptr_->ModifyContextCreate(ret.hUpdate, config_.maxUpdateSampleSz);
-      CUDA_CHECK(cudaMallocHost(&ret.hIndices, config_.maxUpdateSampleSz * sizeof(key_type)));
+      cache_ptr_->ModifyContextCreate(ret.hUpdate, maxUpdateSampleSz);
+      CUDA_CHECK(cudaMallocHost(&ret.hIndices, maxUpdateSampleSz * sizeof(key_type)));
       CUDA_CHECK(cudaEventCreate(&ret.wait_token));
       update_handle_map_[stream] = ret;
     }
@@ -166,29 +169,31 @@ void EmbeddingCacheWrapper<key_type>::ModifyInternal(const key_type* d_keys, con
                                                      const float* d_values, cudaStream_t stream,
                                                      ModifyOp op) {
   auto hUpdate = GetModifyData(stream);
-  auto modifiedLen = std::min(len, (size_t)config_.maxUpdateSampleSz);
+  auto modifiedLen = std::min(len, (size_t)maxUpdateSampleSz);
   CUDA_CHECK(cudaMemcpyAsync(hUpdate.hIndices, d_keys, sizeof(key_type) * modifiedLen,
                              cudaMemcpyDefault, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   switch (op) {
     case ModifyOp::MODIFY_UPDATE:
-      cache_ptr_->ModifyContextSetUpdateData(hUpdate.hUpdate, hUpdate.hIndices, modifiedLen,
-                                             (const int8_t*)d_values, 0, config_.embedWidth, false);
+      cache_ptr_->ModifyContextSetUpdateDataDenseData(hUpdate.hUpdate, hUpdate.hIndices,
+                                                      modifiedLen, (const int8_t*)d_values, 0,
+                                                      config_.embedWidth);
       break;
     case ModifyOp::MODIFY_REPLACE:
-      cache_ptr_->ModifyContextSetReplaceData(hUpdate.hUpdate, hUpdate.hIndices, modifiedLen,
-                                              (const int8_t*)d_values, 0, config_.embedWidth,
-                                              false);
+      cache_ptr_->ModifyContextSetReplaceDataDenseData(hUpdate.hUpdate, hUpdate.hIndices,
+                                                       modifiedLen, (const int8_t*)d_values, 0,
+                                                       config_.embedWidth);
       break;
     default:
       assert(0);
   }
 
-  WriteLock l(read_write_lock_);
-  SyncForModify();
-  cache_ptr_->Modify(hUpdate.hUpdate, stream);
-  CUDA_CHECK(cudaEventRecord(hUpdate.wait_token, stream));
-  CUDA_CHECK(cudaEventSynchronize(hUpdate.wait_token));
+  // WriteLock l(read_write_lock_);
+  // SyncForModify();
+  cache_ptr_->Modify(hUpdate.hUpdate, &ecevent_, stream);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  // CUDA_CHECK(cudaEventRecord(hUpdate.wait_token, stream));
+  // CUDA_CHECK(cudaEventSynchronize(hUpdate.wait_token));
 }
 
 template <typename key_type>
@@ -206,6 +211,10 @@ template <typename key_type>
 void EmbeddingCacheWrapper<key_type>::Dump(key_type* d_keys, size_t* d_dump_counter,
                                            const size_t start_set_index, const size_t end_set_index,
                                            cudaStream_t stream) {}
+template <typename key_type>
+void EmbeddingCacheWrapper<key_type>::Record(cudaStream_t stream) {
+  ecevent_.RecordStream(stream);
+}
 
 template class EmbeddingCacheWrapper<unsigned int>;
 template class EmbeddingCacheWrapper<uint64_t>;
@@ -214,10 +223,10 @@ template class EmbeddingCacheWrapper<long long>;
 }  // namespace HugeCTR
 
 template class ecache::EmbedCache<long long, long long>;
-template void ecache::callModifyKernel<long long, long long>(
+template void ecache::callMemUpdateKernel<long long, long long>(
     typename ecache::EmbedCache<long long, long long>::ModifyEntry* pEntries, uint32_t nEntries,
     uint32_t rowSizeInBytes, cudaStream_t stream);
-template void ecache::callModifyKernel<unsigned int, unsigned int>(
+template void ecache::callMemUpdateKernel<unsigned int, unsigned int>(
     typename ecache::EmbedCache<unsigned int, unsigned int>::ModifyEntry* pEntries,
     uint32_t nEntries, uint32_t rowSizeInBytes, cudaStream_t stream);
 

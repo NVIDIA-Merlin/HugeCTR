@@ -151,7 +151,6 @@ void unique_op<KeyType, CounterType, empty_key, empty_val, hasher>::clear(cudaSt
   CudaDeviceContext dev_restorer;
   // Check device
   dev_restorer.check_device(dev_);
-
   // Initialization kernel, set all entry to unused <K,V>, set counter to init value
   init_kernel<KeyType, CounterType, TableEntry<KeyType>>
       <<<((capacity_ - 1) / BLOCK_SIZE_) + 1, BLOCK_SIZE_, 0, stream>>>(

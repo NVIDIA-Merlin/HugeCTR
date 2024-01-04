@@ -59,6 +59,7 @@ class EmbeddingCache : public EmbeddingCacheBase,
   virtual void refresh(size_t table_id, const void* d_keys, const void* d_vectors, size_t length,
                        cudaStream_t stream);
   virtual void finalize();
+  virtual void insert_stream_for_sync(std::vector<cudaStream_t> lookup_streams_);
 
   virtual EmbeddingCacheWorkspace create_workspace();
   virtual void destroy_workspace(EmbeddingCacheWorkspace&);
