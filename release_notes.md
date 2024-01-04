@@ -2,6 +2,9 @@
 
 ## What's New in Version 23.12
 
+
++ **Lock-free Inference Cache in HPS**
+  + We have added a new lock-free GPU embedding cache for the hierarhical parameter server, which can further improve the performance of embedding table lookup in inference. It also doesn't lead to data inconsistency even if concurrent model updates or missing key insertions are in use. That is because we ensure the cache consistency through the asynchronous stream synchronization mechanism. To enable lock-free GPU embedding cache, a user only needs to set ["embedding_cache_type"](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/hps_database_backend.html#configuration) to `dynamic` and `"use_hctr_cache_implementation"` to `false`.
 + **Official SOK Release**
   + The SOK is not an `experiment` package anymore but is now officially supported by HugeCTR. Do `import sparse_operation_kit as sok` instead of `from sparse_operation_kit import experiment as sok`
   + `sok.DynamicVariable` supports Merlin-HKV as its backend
