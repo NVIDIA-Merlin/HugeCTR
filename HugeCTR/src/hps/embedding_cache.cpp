@@ -296,7 +296,7 @@ void EmbeddingCache<TypeHashKey>::lookup(size_t const table_id, float* const d_v
     HCTR_LIB_THROW(
         cudaMemcpyAsync(d_vectors, workspace_handler.h_missing_emb_vec_[table_id],
                         num_keys * cache_config_.embedding_vec_size_[table_id] * sizeof(float),
-                        cudaMemcpyHostToDevice, stream));
+                        cudaMemcpyDefault, stream));
     HCTR_LIB_THROW(cudaStreamSynchronize(stream));
     parameter_server_->free_buffer(memory_block);
   }
@@ -552,12 +552,15 @@ void EmbeddingCache<TypeHashKey>::finalize() {
 template <typename TypeHashKey>
 void EmbeddingCache<TypeHashKey>::insert_stream_for_sync(
     std::vector<cudaStream_t> lookup_streams_) {
-  if (lookup_streams_.size() != gpu_emb_caches_.size()) {
-    HCTR_OWN_THROW(Error_t::WrongInput,
-                   "The number of lookup streams is not equal to the number of embedding tables.");
-  }
-  for (size_t idx = 0; idx < lookup_streams_.size(); ++idx) {
-    gpu_emb_caches_[idx]->Record(lookup_streams_[idx]);
+  if (cache_config_.use_gpu_embedding_cache_) {
+    if (lookup_streams_.size() != gpu_emb_caches_.size()) {
+      HCTR_OWN_THROW(
+          Error_t::WrongInput,
+          "The number of lookup streams is not equal to the number of embedding tables.");
+    }
+    for (size_t idx = 0; idx < lookup_streams_.size(); ++idx) {
+      gpu_emb_caches_[idx]->Record(lookup_streams_[idx]);
+    }
   }
 }
 
