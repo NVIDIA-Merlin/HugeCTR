@@ -146,6 +146,13 @@ if __name__ == "__main__":
         True,
         hugectr.inference.EmbeddingCacheType_t.Dynamic,
     )
+    h1, h2 = hps_dlpack(
+        model_name,
+        embedding_file_list,
+        data_file,
+        False,
+        hugectr.inference.EmbeddingCacheType_t.Dynamic,
+    )
     u1, u2 = hps_dlpack(
         model_name, embedding_file_list, data_file, True, hugectr.inference.EmbeddingCacheType_t.UVM
     )
@@ -173,15 +180,28 @@ if __name__ == "__main__":
     diff = u2.reshape(1, 26 * 16) - d2.reshape(1, 26 * 16)
     if diff.mean() > 1e-3:
         raise RuntimeError(
-            "The lookup results of UVM cache are consistent with Dynamic cache: {}".format(
+            "The lookup results of UVM cache are not consistent with Dynamic cache: {}".format(
                 diff.mean()
             )
         )
         sys.exit(1)
     else:
         print(
-            "Pytorch dlpack on cpu  results are consistent with native HPS lookup api, mse: {}".format(
+            "The lookup results on UVM are consistent with Dynamic cache, mse: {}".format(
                 diff.mean()
             )
         )
-    # hps_dlpack(model_name, network_file, dense_file, embedding_file_list, data_file, False)
+    diff = h2.reshape(1, 26 * 16) - d2.reshape(1, 26 * 16)
+    if diff.mean() > 1e-3:
+        raise RuntimeError(
+            "The lookup results of Database backend are not consistent with Dynamic cache: {}".format(
+                diff.mean()
+            )
+        )
+        sys.exit(1)
+    else:
+        print(
+            "The lookup results on Database backend are consistent with Dynamic cache, mse: {}".format(
+                diff.mean()
+            )
+        )
