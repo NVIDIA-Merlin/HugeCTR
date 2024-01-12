@@ -384,6 +384,14 @@ stages:
     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
   stage: post_test
 
+.dracorno_post_test_job:
+  extends:
+    - .dracorno_test_job
+    - .hugectr:rules:test_in_child
+  variables:
+    WALLTIME: "00:30:00"
+  stage: post_test
+
 .cluster_post_test_job_daily:
   extends:
     - .cluster_test_job
