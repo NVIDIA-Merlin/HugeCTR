@@ -151,7 +151,7 @@ py_single_node:
   variables:
     GPFSFOLDER: $DRACO_LOGDIR/py_single_node
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DRACO_WDL_PARQUET_DATASET}:${NEW_CRITEO_MOUNT}
+    MOUNTS: ${DRACO_DATASET}:${DATASET_MOUNT},${DRACO_DATASET_NEW_CRITEO}:${NEW_CRITEO_MOUNT}
     TEST_CMD: ./ci/integration_test/py_interface/py_single_node.sub
 
 hugectr2onnx:
@@ -175,7 +175,7 @@ ebc_multi_node:
     GPFSFOLDER: $DRACO_LOGDIR/ebc_multi_node
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
     MOUNTS: ${DRACO_DATASET_NEW_CRITEO}:${DATASET_MOUNT}
-    WALLTIME: "00:45:00"
+    WALLTIME: "01:00:00"
     DGXNNODES: 2
     TEST_CMD: ./ci/integration_test/ebc/ebc.sub
 
@@ -213,6 +213,30 @@ s3_backend_test:
     CONT: $TRAIN_IMAGE_VERSIONED_WITH_S3
     DGXNNODES: 1
     TEST_CMD: ./ci/integration_test/s3/s3_backend_test.sub
+
+hps_plugin_benchmark:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_tf_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/hps_plugin_benchmark
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    MOUNTS: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/hps_tf_benchmark/hps_plugin_ci_model_repo:/model_repo,${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/hps_tf_benchmark/perf_data:/perf_data
+    WALLTIME: "00:45:00"
+    TEST_CMD: ./ci/benchmark/hps_plugin_benchmark/run.sub
+
+147gb_model_benchmark:
+  extends: .dracorno_test_job
+  needs:
+    - pipeline: $PARENT_PIPELINE_ID
+      job: build_tf_hps_trt_plugin
+  variables:
+    GPFSFOLDER: $DRACO_LOGDIR/147gb_model_benchmark
+    CONT: $TF_TRT_IMAGE_VERSIONED
+    MOUNTS: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/hpc-hugectr/hps_tf_benchmark/147gb_ci_model_repo:/model_repo
+    WALLTIME: "00:45:00"
+    TEST_CMD: ./ci/benchmark/147gb_model_benchmark/run.sub
 
 #SOK ut tests
 sparse_operation_kit_ut-TF1:
