@@ -16,9 +16,7 @@
 
 #include <core23_helper.hpp>
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
-#include <embeddings/hybrid_sparse_embedding.hpp>
 #include <embeddings/localized_slot_sparse_embedding_hash.hpp>
-#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 #include <loss.hpp>
 #include <optimizer.hpp>
 #include <pybind/model.hpp>
@@ -142,35 +140,9 @@ SparseEmbedding get_sparse_embedding_from_json(const nlohmann::json& j_sparse_em
       }
     }
   }
-  HybridEmbeddingParam hybrid_embedding_param;
-  hybrid_embedding_param.max_num_frequent_categories =
-      get_value_from_json_soft<size_t>(j_hparam, "max_num_frequent_categories", 1);
-  hybrid_embedding_param.max_num_infrequent_samples =
-      get_value_from_json_soft<int64_t>(j_hparam, "max_num_infrequent_samples", -1);
-  hybrid_embedding_param.p_dup_max =
-      get_value_from_json_soft<double>(j_hparam, "p_dup_max", 1. / 100);
-  hybrid_embedding_param.max_all_reduce_bandwidth =
-      get_value_from_json_soft<double>(j_hparam, "max_all_reduce_bandwidth", 1.3e11);
-  hybrid_embedding_param.max_all_to_all_bandwidth =
-      get_value_from_json_soft<double>(j_hparam, "max_all_to_all_bandwidth", 1.9e11);
-  hybrid_embedding_param.efficiency_bandwidth_ratio =
-      get_value_from_json_soft<double>(j_hparam, "efficiency_bandwidth_ratio", 1.0);
-  std::string communication_type_string =
-      get_value_from_json_soft<std::string>(j_hparam, "communication_type", "IB_NVLink");
-  std::string hybrid_embedding_type_string =
-      get_value_from_json_soft<std::string>(j_hparam, "hybrid_embedding_type", "Distributed");
-  if (!find_item_in_map(hybrid_embedding_param.communication_type, communication_type_string,
-                        COMMUNICATION_TYPE_MAP)) {
-    HCTR_OWN_THROW(Error_t::WrongInput, "No such communication type: " + communication_type_string);
-  }
-  if (!find_item_in_map(hybrid_embedding_param.hybrid_embedding_type, hybrid_embedding_type_string,
-                        HYBRID_EMBEDDING_TYPE_MAP)) {
-    HCTR_OWN_THROW(Error_t::WrongInput,
-                   "No such hybrid embedding type: " + hybrid_embedding_type_string);
-  }
-  SparseEmbedding sparse_embedding = SparseEmbedding(
-      embedding_type, workspace_size_per_gpu_in_mb, embedding_vec_size, combiner_str, top_name,
-      bottom_name, slot_size_array, embedding_opt_params, hybrid_embedding_param);
+  SparseEmbedding sparse_embedding =
+      SparseEmbedding(embedding_type, workspace_size_per_gpu_in_mb, embedding_vec_size,
+                      combiner_str, top_name, bottom_name, slot_size_array, embedding_opt_params);
   return sparse_embedding;
 }
 
@@ -181,6 +153,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::vector<std::vector<TensorEntity>>& evaluate_tensor_entries_list,
                           std::vector<std::shared_ptr<IEmbedding>>& embeddings,
                           const std::shared_ptr<ResourceManager>& resource_manager,
+                          const std::shared_ptr<CollectiveManager>& collective_manager,
                           size_t batch_size, size_t batch_size_eval,
                           OptParams& embedding_opt_params,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
@@ -235,57 +208,6 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
           embedding_params, resource_manager));
       break;
     }
-    case Embedding_t::LocalizedSlotSparseEmbeddingOneHot: {
-      const SparseEmbeddingHashParams embedding_params = {batch_size,
-                                                          batch_size_eval,
-                                                          0,
-                                                          sparse_embedding.slot_size_array,
-                                                          embedding_vec_size,
-                                                          sparse_input.max_feature_num_per_sample,
-                                                          sparse_input.slot_num,
-                                                          combiner,  // combiner: 0-sum, 1-mean
-                                                          embedding_opt_params};
-      embeddings.emplace_back(new LocalizedSlotSparseEmbeddingOneHot<TypeKey, TypeFP>(
-          core_helper::convert_sparse_tensors23_to_sparse_tensors<TypeKey>(
-              sparse_input.train_sparse_tensors),
-          core_helper::convert_sparse_tensors23_to_sparse_tensors<TypeKey>(
-              sparse_input.evaluate_sparse_tensors),
-          embedding_params, resource_manager));
-      break;
-    }
-    case Embedding_t::HybridSparseEmbedding: {
-      auto& embed_wgrad_buff =
-          (grouped_all_reduce)
-              ? std::dynamic_pointer_cast<GroupedExchangeWgrad<TypeFP>>(exchange_wgrad)
-                    ->get_embed_wgrad_buffs()
-              : std::dynamic_pointer_cast<NetworkExchangeWgrad<TypeFP>>(exchange_wgrad)
-                    ->get_embed_wgrad_buffs();
-
-      const HybridSparseEmbeddingParams embedding_params = {
-          batch_size,
-          batch_size_eval,
-          num_iterations_statistics,  // TBD
-          sparse_embedding.hybrid_embedding_param.max_num_frequent_categories *
-              std::max(batch_size, batch_size_eval),                           // TBD
-          sparse_embedding.hybrid_embedding_param.max_num_infrequent_samples,  // TBD
-          sparse_embedding.hybrid_embedding_param.p_dup_max,
-          embedding_vec_size,
-          sparse_input.slot_num,
-          sparse_embedding.slot_size_array,
-          sparse_embedding.hybrid_embedding_param.communication_type,
-          sparse_embedding.hybrid_embedding_param.max_all_reduce_bandwidth,
-          sparse_embedding.hybrid_embedding_param.max_all_to_all_bandwidth,  // TBD
-          sparse_embedding.hybrid_embedding_param.efficiency_bandwidth_ratio,
-          sparse_embedding.hybrid_embedding_param.hybrid_embedding_type,
-          embedding_opt_params};
-      embeddings.emplace_back(new HybridSparseEmbedding<TypeKey, TypeFP>(
-          core_helper::convert_sparse_tensors23_to_sparse_tensors<TypeKey>(
-              sparse_input.train_sparse_tensors),
-          core_helper::convert_sparse_tensors23_to_sparse_tensors<TypeKey>(
-              sparse_input.evaluate_sparse_tensors),
-          embedding_params, embed_wgrad_buff, gpu_lr_sches, use_cuda_graph, resource_manager));
-      break;
-    }
     default:
       HCTR_OWN_THROW(Error_t::UnspecificError,
                      "add_sparse_embedding with no specified embedding type.");
@@ -306,25 +228,25 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
 template void add_sparse_embedding<long long, float>(
     SparseEmbedding&, std::map<std::string, SparseInput<long long>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
-    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
-    size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,
-    GpuLearningRateSchedulers&);
+    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&,
+    const std::shared_ptr<CollectiveManager>&, size_t, size_t, OptParams&,
+    std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t, GpuLearningRateSchedulers&);
 template void add_sparse_embedding<long long, __half>(
     SparseEmbedding&, std::map<std::string, SparseInput<long long>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
-    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
-    size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,
-    GpuLearningRateSchedulers&);
+    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&,
+    const std::shared_ptr<CollectiveManager>&, size_t, size_t, OptParams&,
+    std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t, GpuLearningRateSchedulers&);
 template void add_sparse_embedding<unsigned int, float>(
     SparseEmbedding&, std::map<std::string, SparseInput<unsigned int>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
-    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
-    size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,
-    GpuLearningRateSchedulers&);
+    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&,
+    const std::shared_ptr<CollectiveManager>&, size_t, size_t, OptParams&,
+    std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t, GpuLearningRateSchedulers&);
 template void add_sparse_embedding<unsigned int, __half>(
     SparseEmbedding&, std::map<std::string, SparseInput<unsigned int>>&,
     std::vector<std::vector<TensorEntity>>&, std::vector<std::vector<TensorEntity>>&,
-    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&, size_t,
-    size_t, OptParams&, std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t,
-    GpuLearningRateSchedulers&);
+    std::vector<std::shared_ptr<IEmbedding>>&, const std::shared_ptr<ResourceManager>&,
+    const std::shared_ptr<CollectiveManager>&, size_t, size_t, OptParams&,
+    std::shared_ptr<ExchangeWgrad>&, bool, bool, size_t, GpuLearningRateSchedulers&);
 }  // namespace HugeCTR

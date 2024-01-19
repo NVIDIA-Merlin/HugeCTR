@@ -17,7 +17,7 @@
 #include <condition_variable>
 #include <data_readers/dataframe_container.hpp>
 #include <data_readers/file_source_parquet.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/device_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>

@@ -23,7 +23,7 @@
 
 namespace HugeCTR {
 
-std::shared_ptr<ResourceManager> ResourceManager::create(
+std::shared_ptr<ResourceManager> ResourceManagerCore::create(
     const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,
     DeviceMap::Layout layout) {
   const int size{core23::MpiInitService::get().world_size()};

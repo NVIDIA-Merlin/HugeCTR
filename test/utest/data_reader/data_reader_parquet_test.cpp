@@ -21,7 +21,7 @@
 #include <data_readers/file_list.hpp>
 #include <data_readers/parquet_data_reader_worker.hpp>
 #include <fstream>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utest/test_utils.hpp>
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -334,7 +334,7 @@ void data_reader_group_iter_strided_batch_test_impl(int num_files, long long sam
   ASSERT_TRUE(num_files % device_list.size() == 0);
   int files_per_worker = num_files / device_list.size();
 
-  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerCore::create(vvgpu, 0);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -506,7 +506,7 @@ void data_reader_group_iter_squential_batch_test_impl(int num_files, long long s
     vvgpu.push_back(device_list);
   }
 
-  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerCore::create(vvgpu, 0);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -645,7 +645,7 @@ void data_reader_group_epoch_strided_batch_test_impl(int num_files, long long sa
     vvgpu.push_back(device_list);
   }
 
-  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerCore::create(vvgpu, 0);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -862,7 +862,7 @@ void data_reader_group_epoch_squential_batch_test_impl(int num_files, long long 
     vvgpu.push_back(device_list);
   }
 
-  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerCore::create(vvgpu, 0);
   const DataReaderSparseParam param = {"distributed", std::vector<int>(slot_num, max_nnz), false,
                                        slot_num};
   std::vector<DataReaderSparseParam> params;
@@ -1020,7 +1020,7 @@ void data_reader_worker_test_impl(const int num_files, const long long sample_pe
   for (int i = 0; i < numprocs; i++) {
     vvgpu.push_back(device_list);
   }
-  auto gpu_resource_group = ResourceManagerExt::create(vvgpu, 0);
+  auto gpu_resource_group = ResourceManagerCore::create(vvgpu, 0);
   // const int num_devices = 1;
   const DataReaderSparseParam param = {"localized", std::vector<int>(slot_num, max_nnz), true,
                                        slot_num};

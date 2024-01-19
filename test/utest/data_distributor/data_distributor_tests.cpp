@@ -19,7 +19,7 @@
 #include <core/hctr_impl/hctr_backend.hpp>
 #include <embedding/data_distributor/data_distributor.hpp>
 #include <iostream>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 
 using namespace HugeCTR;
 using namespace embedding;
@@ -87,7 +87,7 @@ void test_data_distributor(const std::vector<int>& device_list,
   auto emb_type = core23::ToScalarType<float>::value;             // doesn't matter
   auto wgrad_type = HugeCTR::core23::ToScalarType<float>::value;  // doesn't matter
 
-  auto resource_manager = ResourceManagerExt::create({device_list}, 424242);
+  auto resource_manager = ResourceManagerCore::create({device_list}, 424242);
   auto core_list = get_core_resource_managers(resource_manager);
   int num_gpus = device_list.size();
   int num_lookup = lookup_params.size();

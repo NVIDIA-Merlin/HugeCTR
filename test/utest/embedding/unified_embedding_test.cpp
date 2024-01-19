@@ -15,7 +15,7 @@
  */
 
 #include <core23/mpi_init_service.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utest/embedding/unified_embedding.hpp>
 
 using namespace HugeCTR;
@@ -33,7 +33,7 @@ void unified_embedding_forward(const TestParams &test_param, const std::vector<i
   for (int i = 0; i < numprocs; ++i) {
     vvgpu.push_back(device_list);
   }
-  const auto &resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto &resource_manager = ResourceManagerCore::create(vvgpu, 0);
   size_t total_gpu_count = resource_manager->get_global_gpu_count();
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
 

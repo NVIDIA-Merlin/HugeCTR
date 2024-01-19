@@ -18,12 +18,13 @@
 
 #include <gtest/gtest.h>
 
+#include <collectives/collective.hpp>
 #include <collectives/ib_comm.hpp>
 #include <common.hpp>
 #include <core23/mpi_init_service.hpp>
 #include <general_buffer2.hpp>
 #include <random>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <tensor2.hpp>
 #include <type_traits>
 #include <utest/test_utils.hpp>
@@ -115,9 +116,10 @@ struct IbCommsTest {
     for (int i = 0; i < num_procs_; i++) {
       vvgpu.push_back(device_list);
     }
-    resource_manager_ = ResourceManagerExt::create(vvgpu, 0, DeviceMap::LOCAL_FIRST);
-    resource_manager_->init_ib_comm();
-    ib_comm_ = resource_manager_->get_ib_comm();
+    resource_manager_ = ResourceManagerCore::create(vvgpu, 0, DeviceMap::LOCAL_FIRST);
+    collective_manager_ = std::make_shared<CollectiveManager>(resource_manager_);
+    collective_manager_->init_ib_comm();
+    ib_comm_ = collective_manager_->get_ib_comm();
 
     init_buffers();
   }
@@ -129,6 +131,7 @@ struct IbCommsTest {
   int num_procs_;
 
   std::shared_ptr<ResourceManager> resource_manager_;
+  std::shared_ptr<CollectiveManager> collective_manager_;
   IbComm* ib_comm_;  // TODO: Make it shared so we have only one instance of ibcomm
 
   std::vector<Tensor2<TypeEmbeddingComp>> h_ar_buff_;

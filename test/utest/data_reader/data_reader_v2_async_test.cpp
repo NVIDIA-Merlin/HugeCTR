@@ -24,7 +24,7 @@
 #include <functional>
 #include <general_buffer2.hpp>
 #include <iostream>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <sstream>
 #include <utest/test_utils.hpp>
 #include <vector>
@@ -41,7 +41,7 @@ void reader_test(std::vector<int> device_list, size_t file_size, size_t batch_si
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
+  const auto resource_manager = ResourceManagerCore::create(vvgpu, 424242);
 
   HCTR_LIB_THROW(cudaMallocHost(&ref_data, file_size));
   HCTR_LIB_THROW(cudaMallocHost(&read_data, file_size));

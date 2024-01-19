@@ -21,7 +21,6 @@
 #include <collectives/all_reduce_comm.hpp>
 #include <common.hpp>
 #include <device_map.hpp>
-#include <embeddings/hybrid_embedding/utils.hpp>
 #include <hps/inference_utils.hpp>
 #include <io/filesystem.hpp>
 #include <metrics.hpp>
@@ -59,10 +58,6 @@ void CommonPybind(pybind11::module& m) {
       .value("Sum", HugeCTR::Check_t::Sum)
       .value("Non", HugeCTR::Check_t::None)
       .export_values();
-  pybind11::enum_<HugeCTR::DataReaderSparse_t>(m, "DataReaderSparse_t")
-      .value("Distributed", HugeCTR::DataReaderSparse_t::Distributed)
-      .value("Localized", HugeCTR::DataReaderSparse_t::Localized)
-      .export_values();
   pybind11::enum_<HugeCTR::DataReaderType_t>(m, "DataReaderType_t")
       .value("Norm", HugeCTR::DataReaderType_t::Norm)
       .value("Raw", HugeCTR::DataReaderType_t::Raw)
@@ -90,9 +85,6 @@ void CommonPybind(pybind11::module& m) {
              HugeCTR::Embedding_t::DistributedSlotSparseEmbeddingHash)
       .value("LocalizedSlotSparseEmbeddingHash",
              HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingHash)
-      .value("LocalizedSlotSparseEmbeddingOneHot",
-             HugeCTR::Embedding_t::LocalizedSlotSparseEmbeddingOneHot)
-      .value("HybridSparseEmbedding", HugeCTR::Embedding_t::HybridSparseEmbedding)
       .export_values();
   pybind11::enum_<HugeCTR::Initializer_t>(m, "Initializer_t")
       .value("Default", HugeCTR::Initializer_t::Default)
@@ -157,15 +149,6 @@ void CommonPybind(pybind11::module& m) {
            pybind11::arg("io_alignment") = 0, pybind11::arg("shuffle"),
            pybind11::arg("aligned_type") = Alignment_t::None,
            pybind11::arg("multi_hot_reader") = true, pybind11::arg("is_dense_float") = true);
-  pybind11::class_<HugeCTR::HybridEmbeddingParam>(m, "HybridEmbeddingParam")
-      .def(pybind11::init<size_t, int64_t, double, double, double, double,
-                          hybrid_embedding::CommunicationType,
-                          hybrid_embedding::HybridEmbeddingType>(),
-           pybind11::arg("max_num_frequent_categories"),
-           pybind11::arg("max_num_infrequent_samples"), pybind11::arg("p_dup_max"),
-           pybind11::arg("max_all_reduce_bandwidth"), pybind11::arg("max_all_to_all_bandwidth"),
-           pybind11::arg("efficiency_bandwidth_ratio"), pybind11::arg("communication_type"),
-           pybind11::arg("hybrid_embedding_type"));
   pybind11::enum_<HugeCTR::LrPolicy_t>(m, "LrPolicy_t")
       .value("fixed", HugeCTR::LrPolicy_t::fixed)
       .export_values();
@@ -217,14 +200,6 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::AllReduceAlgo>(m, "AllReduceAlgo")
       .value("OneShot", HugeCTR::AllReduceAlgo::ONESHOT)
       .value("NCCL", HugeCTR::AllReduceAlgo::NCCL)
-      .export_values();
-  pybind11::enum_<HugeCTR::hybrid_embedding::HybridEmbeddingType>(m, "HybridEmbeddingType")
-      .value("Distributed", HugeCTR::hybrid_embedding::HybridEmbeddingType::Distributed)
-      .export_values();
-  pybind11::enum_<HugeCTR::hybrid_embedding::CommunicationType>(m, "CommunicationType")
-      .value("IB_NVLink_Hier", HugeCTR::hybrid_embedding::CommunicationType::IB_NVLink_Hier)
-      .value("IB_NVLink", HugeCTR::hybrid_embedding::CommunicationType::IB_NVLink)
-      .value("NVLink_SingleNode", HugeCTR::hybrid_embedding::CommunicationType::NVLink_SingleNode)
       .export_values();
   pybind11::enum_<HugeCTR::Distribution_t>(m, "Distribution_t")
       .value("Uniform", HugeCTR::Distribution_t::Uniform)

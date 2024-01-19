@@ -20,7 +20,7 @@
 #include <core/hctr_impl/hctr_backend.hpp>
 #include <embedding/embedding.hpp>
 #include <numeric>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 
 using namespace embedding;
 

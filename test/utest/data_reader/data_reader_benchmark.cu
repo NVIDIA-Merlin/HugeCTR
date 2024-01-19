@@ -19,14 +19,13 @@
 
 #include <common.hpp>
 #include <cstdio>
-#include <data_readers/async_reader/async_reader.hpp>
 #include <data_readers/multi_hot/detail/data_reader_impl.hpp>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <general_buffer2.hpp>
 #include <iostream>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <sstream>
 #include <utest/test_utils.hpp>
 #include <vector>
@@ -69,7 +68,7 @@ void reader_test(std::vector<int> device_list, size_t batch_size_bytes, int num_
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
+  const auto resource_manager = ResourceManagerCore::create(vvgpu, 424242);
 
   MultiHot::FileSource source;
   source.name = fname;

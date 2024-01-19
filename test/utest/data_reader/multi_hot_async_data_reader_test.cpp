@@ -20,13 +20,12 @@
 #include <common.hpp>
 #include <cstdio>
 #include <data_readers/multi_hot/async_data_reader.hpp>
-#include <embeddings/hybrid_embedding/utils.hpp>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <general_buffer2.hpp>
 #include <iostream>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <sstream>
 #include <type_traits>
 #include <utest/test_utils.hpp>
@@ -34,7 +33,6 @@
 
 using namespace HugeCTR;
 using namespace HugeCTR::MultiHot;
-using namespace HugeCTR::hybrid_embedding;
 
 size_t global_seed = 321654;
 size_t num_batches = 13;
@@ -69,7 +67,7 @@ void async_data_reader_test(std::vector<int> device_list, size_t batch_size,
 
   std::vector<std::vector<int>> vvgpu;
   vvgpu.push_back(device_list);
-  const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
+  const auto resource_manager = ResourceManagerCore::create(vvgpu, 424242);
 
   size_t local_gpu_count = resource_manager->get_local_gpu_count();
   const int sample_dim = label_dim + dense_dim + (total_sparse_dim * (sizeof(dtype) / sizeof(int)));

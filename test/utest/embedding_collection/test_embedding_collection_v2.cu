@@ -25,7 +25,7 @@
 #include <embeddings/embedding_collection.hpp>
 #include <filesystem>
 #include <numeric>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utest/embedding_collection/configuration.hpp>
 #include <utest/embedding_collection/reference_embedding.hpp>
 #include <utils.cuh>
@@ -280,7 +280,7 @@ void embedding_collection_e2e(const Configuration &config) {
   std::iota(device_list_per_node.begin(), device_list_per_node.end(), 0);
   std::vector<std::vector<int>> device_list(num_nodes, device_list_per_node);
 
-  auto resource_manager = HugeCTR::ResourceManagerExt::create(device_list, 0);
+  auto resource_manager = HugeCTR::ResourceManagerCore::create(device_list, 0);
 
   std::vector<std::shared_ptr<core::CoreResourceManager>> core_resource_manager_list;
   for (int gpu_id = 0; gpu_id < num_local_gpus; ++gpu_id) {

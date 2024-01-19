@@ -64,16 +64,7 @@ namespace HugeCTR {
 
 #define WARP_SIZE 32
 
-namespace hybrid_embedding {
-
-enum class HybridEmbeddingType;
-enum class CommunicationType;
-
-}  // namespace hybrid_embedding
-
 enum class Check_t { Sum, None, Unknown };
-
-enum class DataReaderSparse_t { Distributed, Localized };
 
 enum class DataReaderType_t { Norm, Raw, Parquet, RawAsync };
 
@@ -154,35 +145,16 @@ enum class Layer_t {
 enum class Embedding_t {
   DistributedSlotSparseEmbeddingHash,
   LocalizedSlotSparseEmbeddingHash,
-  LocalizedSlotSparseEmbeddingOneHot,
-  HybridSparseEmbedding,
   None
 };
 
 enum class Initializer_t { Default, Uniform, XavierNorm, XavierUniform, Sinusoidal, Zero };
-
-enum class TrainState_t {
-  Init,
-  BottomMLPFprop,
-  TopMLPFprop,
-  BottomMLPBprop,
-  TopMLPBprop,
-  MLPExchangeWgrad,
-  MLPUpdate,
-  Finalize
-};
 
 enum class Distribution_t { Uniform, PowerLaw };
 
 enum class PowerLaw_t { Long, Medium, Short, Specific };
 
 enum class Tensor_t { Train, Evaluate };
-
-// TODO: Consider to move them into a separate file
-struct TrainState {
-  TrainState_t state = TrainState_t::Init;
-  cudaEvent_t* event = nullptr;
-};
 
 struct AsyncParam {
   int num_threads;
@@ -207,17 +179,6 @@ struct AsyncParam {
         aligned_type(aligned_type),
         multi_hot_reader(multi_hot_reader),
         is_dense_float(is_dense_float) {}
-};
-
-struct HybridEmbeddingParam {
-  size_t max_num_frequent_categories;
-  int64_t max_num_infrequent_samples;
-  double p_dup_max;
-  double max_all_reduce_bandwidth;
-  double max_all_to_all_bandwidth;
-  double efficiency_bandwidth_ratio;
-  hybrid_embedding::CommunicationType communication_type;
-  hybrid_embedding::HybridEmbeddingType hybrid_embedding_type;
 };
 
 typedef struct DataSetHeader_ {
@@ -278,7 +239,6 @@ struct DataReaderSparseParam {
   std::vector<bool> is_slot_fixed_length;
   int slot_num;
 
-  DataReaderSparse_t type;
   int max_feature_num;
   int max_nnz;
 
@@ -289,8 +249,7 @@ struct DataReaderSparseParam {
         nnz_per_slot(nnz_per_slot_),
         is_fixed_length(is_fixed_length_),
         is_slot_fixed_length(std::vector<bool>(slot_num_, is_fixed_length_)),
-        slot_num(slot_num_),
-        type(DataReaderSparse_t::Distributed) {
+        slot_num(slot_num_) {
     HCTR_CHECK_HINT(slot_num_ > 0, "Illegal value for slot_num!");
     if (static_cast<size_t>(slot_num_) != nnz_per_slot_.size()) {
       HCTR_OWN_THROW(Error_t::WrongInput, "slot num != nnz_per_slot.size().");
@@ -312,8 +271,7 @@ struct DataReaderSparseParam {
         nnz_per_slot(slot_num_, nnz_per_slot_),
         is_fixed_length(is_fixed_length_),
         is_slot_fixed_length(std::vector<bool>(slot_num_, is_fixed_length_)),
-        slot_num(slot_num_),
-        type(DataReaderSparse_t::Distributed) {
+        slot_num(slot_num_) {
     HCTR_CHECK_HINT(slot_num_ > 0, "Illegal value for slot_num!");
     for (size_t i = 0; i < nnz_per_slot.size(); i++) {
       if (nnz_per_slot[i] == 1) {

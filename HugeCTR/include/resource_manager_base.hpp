@@ -27,6 +27,7 @@ namespace HugeCTR {
  */
 class ResourceManagerBase {
  public:
+  virtual ~ResourceManagerBase() = default;
   virtual void set_local_gpu(std::shared_ptr<GPUResource> gpu_resource, size_t local_gpu_id) = 0;
   virtual const std::shared_ptr<GPUResource>& get_local_gpu(size_t local_gpu_id) const = 0;
   virtual const std::shared_ptr<GPUResource>& get_local_gpu_from_device_id(

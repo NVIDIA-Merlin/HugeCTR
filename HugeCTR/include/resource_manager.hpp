@@ -32,9 +32,7 @@ namespace HugeCTR {
  */
 class ResourceManager : public ResourceManagerBase {
  public:
-  static std::shared_ptr<ResourceManager> create(
-      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,
-      DeviceMap::Layout layout = DeviceMap::LOCAL_FIRST);
+  virtual ~ResourceManager() = default;
   virtual int get_num_process() const = 0;
   virtual int get_process_id() const = 0;
   virtual int get_master_process_id() const = 0;
@@ -49,14 +47,6 @@ class ResourceManager : public ResourceManagerBase {
 
   virtual const std::shared_ptr<rmm::mr::device_memory_resource>&
   get_device_rmm_device_memory_resource(int local_gpu_id) const = 0;
-
-#ifdef ENABLE_MPI
-  virtual void init_ib_comm() = 0;
-  virtual IbComm* get_ib_comm() const = 0;
-  virtual void set_ready_to_transfer() = 0;
-#endif
-  virtual void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) = 0;
-  virtual AllReduceInPlaceComm* get_ar_comm() const = 0;
 };
 
 }  // namespace HugeCTR

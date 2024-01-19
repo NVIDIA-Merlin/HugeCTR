@@ -17,9 +17,8 @@
 #include <common.hpp>
 #include <core23/tensor.hpp>
 #include <data_reader.hpp>
-#include <data_readers/async_reader/async_reader_adapter.hpp>
-#include <data_readers/async_reader/async_reader_common.hpp>
 #include <data_readers/multi_hot/async_data_reader.hpp>
+#include <data_readers/multi_hot/async_reader_common.hpp>
 #include <data_readers/multi_hot/split_batch.hpp>
 #include <inference/preallocated_buffer2.hpp>
 #include <resource_manager.hpp>

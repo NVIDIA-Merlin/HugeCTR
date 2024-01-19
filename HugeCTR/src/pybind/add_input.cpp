@@ -20,7 +20,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <data_readers/async_reader/async_reader_adapter.hpp>
 #include <data_readers/data_reader.hpp>
 #include <data_readers/multi_hot/async_data_reader.hpp>
 #include <pybind/model.hpp>
@@ -107,8 +106,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
                std::vector<std::vector<TensorEntity>>& train_tensor_entries_list,
                std::vector<std::vector<TensorEntity>>& evaluate_tensor_entries_list,
                std::shared_ptr<IDataReader>& train_data_reader,
-               std::shared_ptr<IDataReader>& evaluate_data_reader,
-               std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
+               std::shared_ptr<IDataReader>& evaluate_data_reader, size_t batch_size,
                size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                bool train_intra_iteration_overlap, size_t num_iterations_statistics,
                const std::shared_ptr<ResourceManager> resource_manager) {
@@ -187,138 +185,8 @@ void add_input(Input& input, DataReaderParams& reader_params,
           eval_num_batches_per_thread, input.data_reader_sparse_param_array, total_label_dim,
           dense_dim, use_mixed_precision, false, schedule_h2d, is_float_dense));
 
-    } else {  // use original one-hot async reader
-      bool is_float_dense = reader_params.async_param.is_dense_float;
-      HCTR_CHECK_HINT(!is_float_dense, "One-hot RawAsync Reader only supports int32 dense type\n");
-      if (!repeat_dataset) {
-        HCTR_OWN_THROW(
-            Error_t::WrongInput,
-            "Epoch mode cannot be used with RawAsync reader, please set repeat_dataset as true");
-      }
-      std::string proc_file("/proc/sys/fs/aio-max-nr"), max_nr_str;
-      std::ifstream tmp_fs(proc_file, std::ifstream::in);
-      if (!tmp_fs.good()) {
-        HCTR_OWN_THROW(Error_t::InvalidEnv, "Can't read /proc/sys/fs/aio-max-nr");
-      }
-      int max_nr_requests_allowed_system = -1;
-      int actual_nr_requests = 2;
-      std::getline(tmp_fs, max_nr_str);
-      max_nr_requests_allowed_system = std::stoi(max_nr_str);
-      tmp_fs.close();
-      // TODO currently label+dense have to be int
-      size_t bytes_per_batch =
-          ((total_label_dim + dense_dim) * sizeof(int) + total_max_sparse_dim * sizeof(TypeKey)) *
-          batch_size;
-      Alignment_t aligned_type = reader_params.async_param.aligned_type;
-      int num_threads = reader_params.async_param.num_threads;
-      int num_batches_per_thread = reader_params.async_param.num_batches_per_thread;
-      int max_num_requests_per_thread = reader_params.async_param.max_num_requests_per_thread;
-      int io_depth = reader_params.async_param.io_depth;
-      int io_alignment = reader_params.async_param.io_alignment;
-      bool shuffle = reader_params.async_param.shuffle;
-
-      // Could be different if eval and train datasets are on different storage systems
-      int max_logical_sector_size =
-          std::max(get_logical_sector_size(source_data), get_logical_sector_size(eval_source));
-
-      if (max_logical_sector_size > io_alignment) {
-        HCTR_LOG_C(WARNING, WORLD, "Invalid io_alignment of ", io_alignment, ", using ",
-                   max_logical_sector_size, '\n');
-        io_alignment = max_logical_sector_size;
-      }
-
-      int io_block_size = io_alignment;
-      // TODO train_reader + evaluate_reader + init_reader?
-      int max_nr_requests_user = max_num_requests_per_thread * num_threads;
-      int max_num_batches = num_batches_per_thread * num_threads;
-
-      // note that nr_requests =  max_num_batches * (bytes_per_batch / io_block_size + 2). Each
-      // batch has at least 2 io requests
-      if (max_nr_requests_user > max_nr_requests_allowed_system) {
-        HCTR_LOG(
-            WARNING, WORLD,
-            "Too many concurrent io requests, will automatically compute (overall #io requests "
-            "= num_batches_per_thread * num_threads * (bytes_per_batch / io_block_size+2).\n");
-        max_nr_requests_user =
-            std::max(2, (max_nr_requests_allowed_system - 1) / max_num_batches) * max_num_batches;
-      }
-      if (max_nr_requests_user > max_nr_requests_allowed_system ||
-          max_num_batches * 2 >= max_nr_requests_user) {
-        HCTR_DIE("Too many batches for each thread!\n");
-      }
-      HCTR_LOG_S(INFO, ROOT) << "total_max_sparse_dim = " << total_max_sparse_dim << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "max_nr_requests_user = " << max_nr_requests_user << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "bytes_per_batch = " << bytes_per_batch << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "max_num_batches = " << max_num_batches << std::endl;
-      int next_nr_requests = 0;
-      for (int io_blk = io_alignment;; io_blk += io_alignment) {
-        actual_nr_requests = max_num_batches * (bytes_per_batch / io_blk + 2);
-        next_nr_requests = max_num_batches * (bytes_per_batch / (io_blk + 1) + 2);
-        // upper_bound
-        if ((actual_nr_requests <= max_nr_requests_user && actual_nr_requests > next_nr_requests) ||
-            bytes_per_batch < io_blk) {
-          io_block_size = io_blk;
-          break;
-        }
-      }
-      // int num_blocks_per_batch = max_nr_requests_user / max_num_batches - 2;
-
-      HCTR_CHECK_HINT(io_block_size % io_alignment == 0,
-                      " params_.io_block_size \% params_.io_alignment != 0");
-
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_threads = " << num_threads << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_batches_per_thread = " << num_batches_per_thread
-                             << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: total_io_nr_requests = " << actual_nr_requests
-                             << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_block_size = " << io_block_size << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_depth = " << io_depth << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: io_alignment = " << io_alignment << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: shuffle = " << (shuffle ? "ON" : "OFF") << std::endl;
-      HCTR_LOG_S(INFO, ROOT) << "AsyncReader: num_iterations_statistics = "
-                             << num_iterations_statistics << std::endl;
-
-      const bool wait_for_gpu_idle = train_intra_iteration_overlap;  // scheduling H2D
-      train_data_reader.reset(new AsyncReader<TypeKey>(
-          source_data, batch_size, total_label_dim, dense_dim, input.data_reader_sparse_param_array,
-          use_mixed_precision, resource_manager, num_threads, num_batches_per_thread, io_block_size,
-          io_depth, io_alignment, shuffle, wait_for_gpu_idle, aligned_type));
-
-      // If we want to cache eval, make sure we have enough buffers
-      auto eval_num_batches_per_thread = num_batches_per_thread;
-      int cache_eval_data = reader_params.cache_eval_data;
-      if (cache_eval_data > num_threads * num_batches_per_thread) {
-        eval_num_batches_per_thread = (cache_eval_data + num_threads - 1) / num_threads;
-        HCTR_LOG_S(INFO, ROOT) << "AsyncReader: eval reader increased batches per thread to "
-                               << eval_num_batches_per_thread << " to accommodate for the caching"
-                               << std::endl;
-      }
-
-      // Small IO block may lead to too many AIO requests which hang,
-      // so use a larger one for eval and init which are typically larger than train
-      evaluate_data_reader.reset(new AsyncReader<TypeKey>(
-          eval_source, batch_size_eval, total_label_dim, dense_dim,
-          input.data_reader_sparse_param_array, use_mixed_precision, resource_manager, num_threads,
-          eval_num_batches_per_thread, io_block_size * 8, io_depth, io_alignment, false, false,
-          aligned_type));
-
-      init_data_reader.reset(new AsyncReader<TypeKey>(
-          source_data, num_iterations_statistics * batch_size, total_label_dim, dense_dim,
-          input.data_reader_sparse_param_array, use_mixed_precision, resource_manager, 1, 1,
-          io_block_size * 8, 4, io_alignment, false, false, aligned_type));
-
-      auto train_data_reader_as =
-          std::dynamic_pointer_cast<AsyncReader<TypeKey>>(train_data_reader);
-      auto evaluate_data_reader_as =
-          std::dynamic_pointer_cast<AsyncReader<TypeKey>>(evaluate_data_reader);
-
-      if (input.data_reader_sparse_param_array.size() > 1) {
-        HCTR_OWN_THROW(Error_t::WrongInput, "Only one sparse input is supported.");
-      }
-      const auto& sparse_input =
-          sparse_input_map.find(input.data_reader_sparse_param_array[0].top_name);
-      sparse_input->second.train_sparse_tensors = train_data_reader_as->get_value_tensor23s();
-      sparse_input->second.evaluate_sparse_tensors = evaluate_data_reader_as->get_value_tensor23s();
+    } else {
+      HCTR_OWN_THROW(Error_t::WrongInput, "Only multi-hot async datareader is supported.");
     }
 
     auto schedulable_train_reader =
@@ -506,13 +374,13 @@ template void add_input<long long>(Input&, DataReaderParams&,
                                    std::vector<std::vector<TensorEntity>>&,
                                    std::vector<std::vector<TensorEntity>>&,
                                    std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&,
-                                   std::shared_ptr<IDataReader>&, size_t, size_t, bool, bool, bool,
-                                   size_t, const std::shared_ptr<ResourceManager>);
+                                   size_t, size_t, bool, bool, bool, size_t,
+                                   const std::shared_ptr<ResourceManager>);
 template void add_input<unsigned int>(Input&, DataReaderParams&,
                                       std::map<std::string, SparseInput<unsigned int>>&,
                                       std::vector<std::vector<TensorEntity>>&,
                                       std::vector<std::vector<TensorEntity>>&,
                                       std::shared_ptr<IDataReader>&, std::shared_ptr<IDataReader>&,
-                                      std::shared_ptr<IDataReader>&, size_t, size_t, bool, bool,
-                                      bool, size_t, const std::shared_ptr<ResourceManager>);
+                                      size_t, size_t, bool, bool, bool, size_t,
+                                      const std::shared_ptr<ResourceManager>);
 }  // namespace HugeCTR

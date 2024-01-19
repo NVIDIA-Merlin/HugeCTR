@@ -44,8 +44,11 @@ class ResourceManagerCore : public ResourceManager {
  public:
   ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
                       unsigned long long seed);
-  ResourceManagerCore(const ResourceManagerCore&) = delete;
-  ResourceManagerCore& operator=(const ResourceManagerCore&) = delete;
+  static std::shared_ptr<ResourceManager> create(
+      const std::vector<std::vector<int>>& visible_devices, unsigned long long seed,
+      DeviceMap::Layout layout = DeviceMap::LOCAL_FIRST);
+
+  HCTR_DISALLOW_COPY_AND_MOVE(ResourceManagerCore);
   ~ResourceManagerCore();
 
   // from ResourceManagerBase
@@ -111,25 +114,5 @@ class ResourceManagerCore : public ResourceManager {
 
   const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
       int local_gpu_id) const override;
-
-#ifdef ENABLE_MPI
-  void init_ib_comm() override {
-    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
-  }
-  IbComm* get_ib_comm() const override {
-    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
-    return nullptr;
-  }
-  void set_ready_to_transfer() override {
-    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
-  }
-#endif
-  void set_ar_comm(AllReduceAlgo algo, bool use_mixed_precision) override {
-    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
-  }
-  AllReduceInPlaceComm* get_ar_comm() const override {
-    HCTR_OWN_THROW(Error_t::IllegalCall, "Error: should not be reached");
-    return nullptr;
-  }
 };
 }  // namespace HugeCTR

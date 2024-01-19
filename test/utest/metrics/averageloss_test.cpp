@@ -21,7 +21,7 @@
 #include <fstream>
 #include <functional>
 #include <metrics.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <sstream>
 #include <utest/test_utils.hpp>
 #include <vector>
@@ -129,7 +129,7 @@ void averageloss_test(std::vector<int> device_list, size_t batch_size, size_t nu
   for (int i = 0; i < num_procs; i++) {
     vvgpu.push_back(device_list);
   }
-  const auto resource_manager = ResourceManagerExt::create(vvgpu, 424242);
+  const auto resource_manager = ResourceManagerCore::create(vvgpu, 424242);
 
   // Create AverageLoss metric
   auto metric = std::make_unique<metrics::AverageLoss<T>>(resource_manager);

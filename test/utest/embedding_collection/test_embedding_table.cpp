@@ -21,7 +21,7 @@
 #include <embedding/operators/keys_to_indices.hpp>
 #include <embedding_storage/dynamic_embedding.hpp>
 #include <embedding_storage/ragged_static_embedding.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 
 using namespace embedding;
 int num_embedding_table = 3;
@@ -48,7 +48,7 @@ template <typename key_t, typename index_t>
 void test_embedding_table(int device_id, int table_type) {
   std::vector<int> device_list{device_id};
   HugeCTR::CudaDeviceContext context(device_id);
-  auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
+  auto resource_manager = HugeCTR::ResourceManagerCore::create({device_list}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
 
   auto key_type = HugeCTR::core23::ToScalarType<key_t>::value;
