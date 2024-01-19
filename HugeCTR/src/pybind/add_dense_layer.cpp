@@ -97,8 +97,6 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
   for (size_t i = 0; i < input_param.data_reader_sparse_param_array.size(); ++i) {
     nlohmann::json input_sparse_config;
     input_sparse_config["top"] = input_param.data_reader_sparse_param_array[i].top_name;
-    input_sparse_config["type"] =
-        READER_SPARSE_TYPE_TO_STRING[input_param.data_reader_sparse_param_array[i].type];
     input_sparse_config["nnz_per_slot"] =
         input_param.data_reader_sparse_param_array[i].nnz_per_slot;
     input_sparse_config["is_fixed_length"] =
@@ -130,26 +128,6 @@ void save_graph_to_json(nlohmann::json& layer_config_array,
     }
     if (sparse_embedding_params[i].slot_size_array.size() > 0) {
       sparse_hparam_config["slot_size_array"] = sparse_embedding_params[i].slot_size_array;
-    }
-    if (sparse_embedding_params[i].embedding_type == Embedding_t::HybridSparseEmbedding) {
-      sparse_hparam_config["max_num_frequent_categories"] =
-          sparse_embedding_params[i].hybrid_embedding_param.max_num_frequent_categories;
-      sparse_hparam_config["max_num_infrequent_samples"] =
-          sparse_embedding_params[i].hybrid_embedding_param.max_num_infrequent_samples;
-      sparse_hparam_config["p_dup_max"] =
-          sparse_embedding_params[i].hybrid_embedding_param.p_dup_max;
-      sparse_hparam_config["max_all_reduce_bandwidth"] =
-          sparse_embedding_params[i].hybrid_embedding_param.max_all_reduce_bandwidth;
-      sparse_hparam_config["max_all_to_all_bandwidth"] =
-          sparse_embedding_params[i].hybrid_embedding_param.max_all_to_all_bandwidth;
-      sparse_hparam_config["efficiency_bandwidth_ratio"] =
-          sparse_embedding_params[i].hybrid_embedding_param.efficiency_bandwidth_ratio;
-      sparse_hparam_config["communication_type"] =
-          HE_COMM_TYPE_TO_STRING[sparse_embedding_params[i]
-                                     .hybrid_embedding_param.communication_type];
-      sparse_hparam_config["hybrid_embedding_type"] =
-          HE_TYPE_TO_STRING[sparse_embedding_params[i]
-                                .hybrid_embedding_param.hybrid_embedding_type];
     }
     sparse_config["sparse_embedding_hparam"] = sparse_hparam_config;
     nlohmann::json optimizer_config;

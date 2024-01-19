@@ -21,13 +21,13 @@
 #include <core23/tensor.hpp>
 #include <core23/tensor_operations.hpp>
 #include <embedding/operators/compress_offset.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
 
 using namespace embedding;
 
 TEST(test_compress_offset, test_compress_offset) {
-  auto resource_manager = HugeCTR::ResourceManagerExt::create({{0}}, 0);
+  auto resource_manager = HugeCTR::ResourceManagerCore::create({{0}}, 0);
   auto core = std::make_shared<hctr_internal::HCTRCoreResourceManager>(resource_manager, 0);
   HugeCTR::CudaDeviceContext context(core->get_device_id());
   HugeCTR::core23::Device device(core23::DeviceType::GPU, core->get_device_id());

@@ -285,47 +285,6 @@ class SparseEmbeddingFunctors {
                              Tensor2<TypeEmbeddingComp> &wgrad, size_t sm, cudaStream_t stream);
 
   /**
-   * update_params for LocalizedSlotSparseEmbeddingOneHot.
-   * overload for fp16. Only support atomic SGD currently.
-   * The second step of backward propagation: update embedding tables(weights)
-   * @param stream cuda stream corresponding to the current GPU.
-   * @param embedding_vec_size embedding vector size.
-   * @param opt_params optimizer params.
-   * @param nnz non-zero feature number in one batch
-   * @param hash_value_index the pointer of hash value_index
-   * @param wgrad the pointer of wgrad
-   * @param hash_table_value the pointer of hash table value, which will be updated
-   */
-  template <typename TypeEmbeddingComp>
-  void update_params(size_t embedding_vec_size, const OptParams &opt_params, size_t nnz,
-                     const Tensor2<size_t> &hash_value_index,
-                     const Tensor2<TypeEmbeddingComp> &wgrad, Tensor2<float> &hash_table_value,
-                     Tensor2<size_t> &top_categories, size_t &size_top_categories, size_t sm_count,
-                     cudaStream_t stream, bool force_stats = false);
-
-  /**
-   * Atomic cached sgd update.
-   *
-   * @param num_samples number of samples for which to accumulate the gradient
-   * @param embedding_vec_size size of the embedding vector per category
-   * @param hash_value_index
-   * @param lr
-   * @param scaler
-   * @param wgrad
-   * @param hash_table_value
-   * @param top_categories
-   * @param size_top_categories
-   * @param stream
-   *
-   */
-  template <typename TypeEmbeddingComp>
-  static void opt_sgd_atomic_cached(size_t num_samples, size_t embedding_vec_size,
-                                    const size_t *hash_value_index, float lr, float scaler,
-                                    const TypeEmbeddingComp *wgrad, float *hash_table_value,
-                                    size_t *top_categories, size_t &size_top_categories,
-                                    cudaStream_t stream, bool force_stats = false);
-
-  /**
    * collection communication: reduce_scatter f or DistributedSlotSparseEmbeddingHash
    * @param recv_count the count of elements will be received.
    * @param send_tensors the send tensors of multi GPUs.

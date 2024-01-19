@@ -115,13 +115,7 @@ std::set<Layer_t> TRAINABLE_LAYERS = {
 
 std::map<Embedding_t, std::string> EMBEDDING_TYPE_TO_STRING = {
     {Embedding_t::DistributedSlotSparseEmbeddingHash, "DistributedSlotSparseEmbeddingHash"},
-    {Embedding_t::LocalizedSlotSparseEmbeddingHash, "LocalizedSlotSparseEmbeddingHash"},
-    {Embedding_t::LocalizedSlotSparseEmbeddingOneHot, "LocalizedSlotSparseEmbeddingOneHot"},
-    {Embedding_t::HybridSparseEmbedding, "HybridSparseEmbedding"}};
-
-std::map<DataReaderSparse_t, std::string> READER_SPARSE_TYPE_TO_STRING = {
-    {DataReaderSparse_t::Distributed, "DistributedSlot"},
-    {DataReaderSparse_t::Localized, "LocalizedSlot"}};
+    {Embedding_t::LocalizedSlotSparseEmbeddingHash, "LocalizedSlotSparseEmbeddingHash"}};
 
 std::map<Initializer_t, std::string> INITIALIZER_TYPE_TO_STRING = {
     {Initializer_t::Uniform, "Uniform"},
@@ -131,14 +125,6 @@ std::map<Initializer_t, std::string> INITIALIZER_TYPE_TO_STRING = {
 
 std::map<AllReduceAlgo, std::string> ALLREDUCE_ALGO_TO_STRING = {
     {AllReduceAlgo::ONESHOT, "OneShot"}, {AllReduceAlgo::NCCL, "NCCL"}};
-
-std::map<hybrid_embedding::CommunicationType, std::string> HE_COMM_TYPE_TO_STRING = {
-    {hybrid_embedding::CommunicationType::IB_NVLink_Hier, "IB_NVLink_Hierarchical"},
-    {hybrid_embedding::CommunicationType::IB_NVLink, "IB_NVLink"},
-    {hybrid_embedding::CommunicationType::NVLink_SingleNode, "NVLink_SingleNode"}};
-
-std::map<hybrid_embedding::HybridEmbeddingType, std::string> HE_TYPE_TO_STRING = {
-    {hybrid_embedding::HybridEmbeddingType::Distributed, "Distributed"}};
 
 std::map<FcPosition_t, std::string> FC_POSITION_TO_STRING = {
     {FcPosition_t::Head, "Head"}, {FcPosition_t::Body, "Body"},
@@ -206,13 +192,12 @@ struct SparseEmbedding {
   std::string bottom_name;
   std::vector<size_t> slot_size_array;
   std::shared_ptr<OptParamsPy> embedding_opt_params;
-  HybridEmbeddingParam hybrid_embedding_param;
+
   SparseEmbedding(Embedding_t embedding_type, size_t workspace_size_per_gpu_in_mb,
                   size_t embedding_vec_size, const std::string& combiner_str,
                   std::string sparse_embedding_name, std::string bottom_name,
                   std::vector<size_t>& slot_size_array,
-                  std::shared_ptr<OptParamsPy>& embedding_opt_params,
-                  const HybridEmbeddingParam& hybrid_embedding_param);
+                  std::shared_ptr<OptParamsPy>& embedding_opt_params);
 
   void initialize_max_vocabulary_size_per_gpu();
 };
@@ -339,8 +324,7 @@ void add_input(Input& input, DataReaderParams& reader_params,
                std::vector<std::vector<TensorEntity>>& train_tensor_entities_list,
                std::vector<std::vector<TensorEntity>>& evaluate_tensor_entities_list,
                std::shared_ptr<IDataReader>& train_data_reader,
-               std::shared_ptr<IDataReader>& evaluate_data_reader,
-               std::shared_ptr<IDataReader>& init_data_reader, size_t batch_size,
+               std::shared_ptr<IDataReader>& evaluate_data_reader, size_t batch_size,
                size_t batch_size_eval, bool use_mixed_precision, bool repeat_dataset,
                bool train_intra_iteration_overlap, size_t num_iterations_statistics,
                const std::shared_ptr<ResourceManager>);
@@ -352,6 +336,7 @@ void add_sparse_embedding(SparseEmbedding& sparse_embedding,
                           std::vector<std::vector<TensorEntity>>& evaluate_tensor_entities_list,
                           std::vector<std::shared_ptr<IEmbedding>>& embeddings,
                           const std::shared_ptr<ResourceManager>& resource_manager,
+                          const std::shared_ptr<CollectiveManager>& collective_manager,
                           size_t batch_size, size_t batch_size_eval,
                           OptParams& embedding_opt_params,
                           std::shared_ptr<ExchangeWgrad>& exchange_wgrad, bool use_cuda_graph,
@@ -608,6 +593,7 @@ class Model final {
   std::shared_ptr<IDataReader> evaluate_data_reader_; /**< data reader for evaluation. */
   std::shared_ptr<ResourceManager>
       resource_manager_; /**< GPU resources include handles and streams etc.*/
+  std::shared_ptr<CollectiveManager> collective_manager_;
   std::shared_ptr<embedding::EmbeddingParameterIO> embedding_para_io_;
   metrics::Metrics metrics_; /**< evaluation metrics. */
 
@@ -648,33 +634,6 @@ class Model final {
 
   size_t number_of_networks() const;
 
-  struct GraphScheduler {
-   private:
-    volatile size_t* executed_iter;
-    size_t launched_iter;
-
-   public:
-    GraphScheduler(std::shared_ptr<ResourceManager> resource_manager) : launched_iter(0) {
-      // set up trickling launch
-      CudaCPUDeviceContext ctx(resource_manager->get_local_gpu(0)->get_device_id());
-      HCTR_LIB_THROW(cudaMallocHost((void**)&executed_iter, sizeof(size_t)));
-      *executed_iter = 0;
-    }
-    ~GraphScheduler() { cudaFreeHost(const_cast<size_t*>(executed_iter)); }
-    void trickling() {
-      // this function is called by the only thread, hence no need to specify the rank
-      while (launched_iter > *(executed_iter) + 1) {
-        usleep(10);
-      }
-      launched_iter++;
-    }
-    void record_execution(size_t local_rank, cudaStream_t stream) {
-      // Only rank 0 needs to do the work
-      if (local_rank == 0) inc_var(executed_iter, stream);
-    }
-  };
-  std::unique_ptr<GraphScheduler> graph_scheduler_;
-
   struct Graph {
     // train and eval can be called directly by user
     bool is_first_train_batch_ = true;
@@ -696,22 +655,10 @@ class Model final {
   bool is_scheduled_datareader() {
     return (reader_params_.data_reader_type == DataReaderType_t::RawAsync);
   }
-  bool is_scheduled_embedding() {
-    return (embeddings_.size() == 1 &&
-            embeddings_[0]->get_embedding_type() == Embedding_t::HybridSparseEmbedding);
-  }
-  template <typename NetworkType>
-  void create_train_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks);
-  template <typename NetworkType>
-  void create_evaluate_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks);
-  template <typename NetworkType>
-  void create_train_network_pipeline(std::vector<std::shared_ptr<NetworkType>>& networks);
-  template <typename Network>
+  void create_train_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
   void create_eval_network_pipeline(std::vector<std::shared_ptr<Network>>& networks);
-  template <typename NetworkType>
-  void create_train_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkType>>& networks);
-  template <typename NetworkType>
-  void create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<NetworkType>>& networks);
+  void create_train_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks);
+  void create_evaluate_pipeline_with_ebc(std::vector<std::shared_ptr<Network>>& networks);
 
   bool skip_prefetch_in_last_batch(bool is_train);
   long long read_a_batch(bool is_train);

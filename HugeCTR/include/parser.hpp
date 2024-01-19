@@ -199,9 +199,7 @@ const std::map<std::string, Layer_t> LAYER_TYPE_MAP_MP = {
     {"SequenceMask", Layer_t::SequenceMask}};
 const std::map<std::string, Embedding_t> EMBEDDING_TYPE_MAP = {
     {"DistributedSlotSparseEmbeddingHash", Embedding_t::DistributedSlotSparseEmbeddingHash},
-    {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash},
-    {"LocalizedSlotSparseEmbeddingOneHot", Embedding_t::LocalizedSlotSparseEmbeddingOneHot},
-    {"HybridSparseEmbedding", Embedding_t::HybridSparseEmbedding}};
+    {"LocalizedSlotSparseEmbeddingHash", Embedding_t::LocalizedSlotSparseEmbeddingHash}};
 const std::map<std::string, Initializer_t> INITIALIZER_TYPE_MAP = {
     {"Uniform", Initializer_t::Uniform},
     {"XavierNorm", Initializer_t::XavierNorm},
@@ -243,15 +241,6 @@ static const std::map<std::string, Alignment_t> ALIGNED_TYPE_MAP = {
     {"Auto", Alignment_t::Auto},
     {"None", Alignment_t::None},
 };
-
-static const std::map<std::string, hybrid_embedding::CommunicationType> COMMUNICATION_TYPE_MAP = {
-    {"IB_NVLink_Hierarchical", hybrid_embedding::CommunicationType::IB_NVLink_Hier},
-    {"IB_NVLink", hybrid_embedding::CommunicationType::IB_NVLink},
-    {"NVLink_SingleNode", hybrid_embedding::CommunicationType::NVLink_SingleNode}};
-
-static const std::map<std::string, hybrid_embedding::HybridEmbeddingType>
-    HYBRID_EMBEDDING_TYPE_MAP = {
-        {"Distributed", hybrid_embedding::HybridEmbeddingType::Distributed}};
 
 inline bool has_key_(const nlohmann::json& j_in, const std::string& key_in) {
   if (j_in.find(key_in) == j_in.end()) {

@@ -24,7 +24,7 @@
 #include <embeddings/embedding_collection.hpp>
 #include <include/embeddings/embedding_collection.hpp>
 #include <numeric>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utest/embedding_collection/embedding_collection_utils.hpp>
 #include <utest/embedding_collection/reference_embedding.hpp>
 
@@ -283,7 +283,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
                                      {}};
   auto table_param_list = get_table_param_list_io(ebc_param.emb_type);
 
-  auto resource_manager = HugeCTR::ResourceManagerExt::create({device_list}, 0);
+  auto resource_manager = HugeCTR::ResourceManagerCore::create({device_list}, 0);
   EmbeddingIO emb_io = EmbeddingIO(resource_manager);
   int num_gpus = static_cast<int>(device_list.size());
   int batch_size_per_gpu = batch_size / num_gpus;
@@ -374,6 +374,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
 
   std::vector<HugeCTR::DataDistributor::Result> data_distributor_outputs;
   for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+    HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
     data_distributor_outputs.push_back(HugeCTR::allocate_output_for_data_distributor(
         core_resource_manager_list[gpu_id], ebc_param));
   }
@@ -443,6 +444,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
 
   auto sync_gpus = [&]() {
     for (auto core : core_resource_manager_list) {
+      HugeCTR::CudaDeviceContext context(core->get_device_id());
       HCTR_LIB_THROW(cudaStreamSynchronize(core->get_local_gpu()->get_stream()));
     }
   };
@@ -486,6 +488,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
     emb_ref.embedding_forward_cpu(key_list, bucket_range);
 #pragma omp parallel for num_threads(num_gpus)
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+      HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
       data_distributor->distribute(gpu_id, sparse_dp_tensors[gpu_id],
                                    sparse_dp_num_keys_per_bucket[gpu_id],
                                    data_distributor_outputs[gpu_id], batch_size);
@@ -508,6 +511,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
     emb_ref.embedding_backward_cpu(top_grads, key_list, bucket_range);
 #pragma omp parallel for num_threads(num_gpus)
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+      HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
       ebc->backward_per_gpu(gpu_id, data_distributor_outputs[gpu_id], ebc_top_grads[gpu_id],
                             batch_size);
     }
@@ -517,6 +521,7 @@ void embedding_collection_e2e_io(const std::vector<LookupParam>& lookup_params,
     emb_ref.embedding_update_cpu();
 #pragma omp parallel for num_threads(num_gpus)
     for (int gpu_id = 0; gpu_id < num_gpus; ++gpu_id) {
+      HugeCTR::CudaDeviceContext context(core_resource_manager_list[gpu_id]->get_device_id());
       ebc->update_per_gpu(gpu_id);
     }
     sync_gpus();

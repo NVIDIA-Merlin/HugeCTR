@@ -30,7 +30,7 @@
 #include <optimizer.hpp>
 #include <random>
 #include <regularizer_factory.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <tuple>
 #include <utest/test_utils.hpp>
 
@@ -117,7 +117,7 @@ void network_build_test() {
   std::vector<int> device_vec(core23::Device::count());
   std::generate(device_vec.begin(), device_vec.end(), [dev = 0]() mutable { return dev++; });
   std::vector<std::vector<int>> vvgpu(1, device_vec);
-  const auto& resource_manager = ResourceManagerExt::create(vvgpu, 0);
+  const auto& resource_manager = ResourceManagerCore::create(vvgpu, 0);
 
   std::vector<std::shared_ptr<Network>> networks;
   std::vector<std::pair<core23::Tensor, core23::Tensor>> train_label_and_first_tensors;

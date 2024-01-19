@@ -70,17 +70,12 @@ void ModelPybind(pybind11::module &m) {
   pybind11::class_<HugeCTR::SparseEmbedding, std::shared_ptr<HugeCTR::SparseEmbedding>>(
       m, "SparseEmbedding")
       .def(pybind11::init<Embedding_t, size_t, size_t, const std::string &, std::string,
-                          std::string, std::vector<size_t> &, std::shared_ptr<OptParamsPy> &,
-                          const HybridEmbeddingParam &>(),
+                          std::string, std::vector<size_t> &, std::shared_ptr<OptParamsPy> &>(),
            pybind11::arg("embedding_type"), pybind11::arg("workspace_size_per_gpu_in_mb") = 0,
            pybind11::arg("embedding_vec_size"), pybind11::arg("combiner"),
            pybind11::arg("sparse_embedding_name"), pybind11::arg("bottom_name"),
            pybind11::arg("slot_size_array") = std::vector<size_t>(),
-           pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()),
-           pybind11::arg("hybrid_embedding_param") =
-               HybridEmbeddingParam{1, -1, 0.01, 1.3e11, 2.6e11, 1.0,
-                                    hybrid_embedding::CommunicationType::NVLink_SingleNode,
-                                    hybrid_embedding::HybridEmbeddingType::Distributed});
+           pybind11::arg("optimizer") = std::shared_ptr<OptParamsPy>(new OptParamsPy()));
   pybind11::class_<HugeCTR::DenseLayerComputeConfig>(m, "DenseLayerComputeConfig")
       .def(pybind11::init<bool, bool>(), pybind11::arg("async_wgrad") = false,
            pybind11::arg("fuse_wb") = false);

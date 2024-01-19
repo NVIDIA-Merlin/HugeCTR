@@ -45,22 +45,4 @@ class SchedulableDataReader : public IDataReader {
   virtual std::vector<core23::Tensor> get_label_tensor23s() const = 0;
   virtual std::vector<core23::Tensor> get_dense_tensor23s() const = 0;
 };
-
-class SchedulableEmbeding : public IEmbedding {
- public:
-  virtual ~SchedulableEmbeding() = default;
-
-  virtual void assign_input_tensors(bool is_train, size_t batch_size, size_t inflight_id,
-                                    bool cached) = 0;
-  virtual void index_calculation(bool is_train, int i) = 0;
-  virtual void freq_forward(bool is_train, int i, bool is_first_eval_batch = true) = 0;
-  virtual void freq_backward(int i) = 0;
-  virtual void freq_update_params(int i) = 0;
-  virtual void infreq_model_forward(int i) = 0;
-  virtual void infreq_network_forward(bool is_train, int i) = 0;
-  virtual void global_barrier(bool is_train, int i) = 0;
-  virtual void infreq_network_backward(int i) = 0;
-  virtual void infreq_model_backward(int i) = 0;
-};
-
 }  // namespace HugeCTR

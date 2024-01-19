@@ -16,10 +16,6 @@
 cmake_minimum_required(VERSION 3.20)
 find_package(CUDAToolkit)
 
-file(GLOB async_reader_src 
-  data_reader_async_adapter_test.cpp
-  data_reader_async_test.cpp
-)
 if (NOT DISABLE_CUDF)
   file(GLOB data_reader_test_src
     data_reader_parquet_test.cpp
@@ -30,13 +26,10 @@ if (NOT DISABLE_CUDF)
   target_link_libraries(data_reader_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 endif()
 
-add_executable(async_reader ${async_reader_src})
 add_executable(multi_hot_async_data_reader_test multi_hot_async_data_reader_test.cpp)
 add_executable(batch_locations_test batch_locations_test.cpp)
 add_executable(v2_async_reader_test data_reader_v2_async_test.cpp)
 add_executable(benchmark_async_reader data_reader_benchmark.cu)
-target_link_libraries(async_reader PUBLIC CUDA::nvml huge_ctr_shared gtest gtest_main)
-target_link_libraries(async_reader PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 target_link_libraries(v2_async_reader_test PUBLIC CUDA::nvml huge_ctr_shared gtest gtest_main)
 target_link_libraries(v2_async_reader_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
 target_link_libraries(multi_hot_async_data_reader_test PUBLIC CUDA::nvml huge_ctr_shared gtest gtest_main /usr/local/cuda/lib64/stubs/libcuda.so)

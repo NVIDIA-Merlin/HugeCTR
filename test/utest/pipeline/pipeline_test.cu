@@ -19,7 +19,7 @@
 
 #include <gpu_resource.hpp>
 #include <pipeline.hpp>
-#include <resource_manager.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utest/test_utils.hpp>
 
 using namespace HugeCTR;
@@ -43,7 +43,7 @@ __global__ void setC(float *var, int count) {
 }
 
 void pipeline_test(const std::vector<int> &device_list, bool use_graph) {
-  const auto &resource_manager = ResourceManager::create({device_list}, 0);
+  const auto &resource_manager = ResourceManagerCore::create({device_list}, 0);
   cudaProfilerStart();
   std::vector<Pipeline> pipeline_list;
   std::vector<Pipeline> dup_pipeline_list;

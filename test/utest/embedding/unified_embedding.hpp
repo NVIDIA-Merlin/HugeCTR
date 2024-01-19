@@ -23,7 +23,6 @@
 #include <embedding.hpp>
 #include <embeddings/distributed_slot_sparse_embedding_hash.hpp>
 #include <embeddings/localized_slot_sparse_embedding_hash.hpp>
-#include <embeddings/localized_slot_sparse_embedding_one_hot.hpp>
 #include <embeddings/sparse_embedding_functors.hpp>
 #include <memory>
 #include <utest/embedding/cpu_hashtable.hpp>

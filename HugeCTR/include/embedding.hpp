@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <embeddings/hybrid_embedding/utils.hpp>
 #include <gpu_learning_rate_scheduler.hpp>
 #include <optimizer.hpp>
 #include <sparse_tensor.hpp>
@@ -93,16 +92,6 @@ struct SparseEmbeddingHashParams {
   }
 };
 
-static size_t get_slot_num(const SparseTensorBag& bag) {
-  const std::vector<size_t>& dimension = bag.get_dimensions();
-  if (dimension.size() == 2) {
-    return dimension[1];
-  }
-  HCTR_OWN_THROW(Error_t::IllegalCall,
-                 "slot_num is available when sparse tensor shape is (batchsize, slot_num)");
-  return 0;
-}
-
 // TODO remove Tensor2 Based BufferBag
 struct BufferBag {
   TensorBag2 keys;
@@ -125,18 +114,6 @@ struct SparseInput {
   SparseInput(int slot_num_in, int max_feature_num_per_sample_in)
       : slot_num(slot_num_in), max_feature_num_per_sample(max_feature_num_per_sample_in) {}
   SparseInput() {}
-};
-
-struct BufferBag23 {
-  core23::Tensor keys;
-  core23::Tensor slot_id;
-  core23::Tensor embedding;
-  std::vector<core23::Tensor> opt_states;
-
-  std::vector<core23::Tensor> h_value_tensors;
-  std::vector<core23::Tensor> h_slot_id_tensors;
-  std::vector<core23::Tensor> uvm_key_tensor_bags;
-  std::vector<core23::Tensor> d_value_index_tensors;
 };
 
 }  // namespace HugeCTR

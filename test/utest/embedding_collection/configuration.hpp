@@ -20,7 +20,7 @@
 #include <embedding/embedding.hpp>
 #include <embeddings/embedding_collection.hpp>
 #include <numeric>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <utest/embedding_collection/embedding_collection_utils.hpp>
 #include <utest/embedding_collection/reference_embedding.hpp>
 

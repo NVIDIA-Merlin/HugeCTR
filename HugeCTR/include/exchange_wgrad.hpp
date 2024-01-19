@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <collectives/collective.hpp>
 #include <general_buffer2.hpp>
 #include <resource_manager.hpp>
 
@@ -43,14 +44,15 @@ class NetworkExchangeWgrad : public ExchangeWgrad {
   void init_ar_comm(const std::vector<void*>& ptr, size_t size) final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
-  NetworkExchangeWgrad(const std::shared_ptr<ResourceManager>& resource_manager);
+  NetworkExchangeWgrad(const std::shared_ptr<ResourceManager>& resource_manager,
+                       const std::shared_ptr<CollectiveManager>& collective_manager);
   ~NetworkExchangeWgrad() = default;
 
  private:
   // TODO remove them after hybrid embedding is deprecated
   BuffPtrs<TypeFP> network_wgrad_buffs_;
   BuffPtrs<TypeFP> null_wgrad_buffs_;
-  std::shared_ptr<ResourceManager> resource_manager_;
+  std::shared_ptr<CollectiveManager> collective_manager_;
 
   AllReduceInPlaceComm::Handle ar_handle_;
 
@@ -67,7 +69,8 @@ class GroupedExchangeWgrad : public ExchangeWgrad {
   void init_ar_comm(const std::vector<void*>& ptr, size_t size) final;
   void update_embed_wgrad_size(size_t size) final;
   void allreduce(size_t device_id, cudaStream_t stream);
-  GroupedExchangeWgrad(const std::shared_ptr<ResourceManager>& resource_manager);
+  GroupedExchangeWgrad(const std::shared_ptr<ResourceManager>& resource_manager,
+                       const std::shared_ptr<CollectiveManager>& collective_manager);
   ~GroupedExchangeWgrad() = default;
 
  private:
@@ -75,7 +78,7 @@ class GroupedExchangeWgrad : public ExchangeWgrad {
   BuffPtrs<TypeFP> network_wgrad_buffs_;
   BuffPtrs<TypeFP> embed_wgrad_buffs_;
 
-  std::shared_ptr<ResourceManager> resource_manager_;
+  std::shared_ptr<CollectiveManager> collective_manager_;
 
   AllReduceInPlaceComm::Handle ar_handle_;
 

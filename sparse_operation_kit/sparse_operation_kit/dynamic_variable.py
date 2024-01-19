@@ -486,7 +486,6 @@ def export(var):
         )
         # sort_indice_tensor = tf.argsort(indices)
         with tf.device("CPU"):
-
             indices = tf.identity(indices)
             values = tf.identity(values)
         return indices, values

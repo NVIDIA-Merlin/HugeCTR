@@ -21,7 +21,7 @@
 #include <fstream>
 #include <gpu_resource.hpp>
 #include <io/filesystem.hpp>
-#include <resource_managers/resource_manager_ext.hpp>
+#include <resource_managers/resource_manager_core.hpp>
 #include <tensor2.hpp>
 #include <utils.hpp>
 #include <vector>
