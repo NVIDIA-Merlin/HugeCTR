@@ -837,7 +837,8 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                                                              ebc_param.key_type,
                                                              ebc_param.offset_type};
   CalDstIds cal_dst_ids{core, meta.num_local_hotness_, ebc_param.universal_batch_size};
-  SegmentdUnique segmentd_unique{core, meta.num_local_hotness_, ebc_param.universal_batch_size};
+  SegmentdUnique segmentd_unique{core, meta.num_local_hotness_, ebc_param.universal_batch_size,
+                                 true, meta.max_ev_size_};
   SegmentedSortDevice segmented_sort{core,
                                      meta.wgrad_attr.sorted_table_ids,
                                      meta.num_local_hotness_,
@@ -856,14 +857,13 @@ void sparse_backward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                           ebc_param.key_type);
 
   Wgrad wgrad;
-  WgradInitializer{core, ebc_param, 0, meta.wgrad_attr}.init(wgrad).init_indices().init_data();
+  wgrad.init_attr(ebc_param, meta.wgrad_attr, core);
   EmbeddingInput embedding_input;
   embedding_input.keys = model_key;
   embedding_input.bucket_range = model_offsets;
   embedding_input.h_num_keys = num_model_key;
   local_reduce_index_calculation_.cal_for_sparse_input(embedding_input, reduction_indices_, wgrad,
                                                        batch_size);
-
   ModelCommBuffer model_comm_buffer;
   model_comm_buffer.init_from_device_buffer(core, emb_vec_model_buffer, meta.model_buffer_attr);
   LocalReduce local_reduce_;

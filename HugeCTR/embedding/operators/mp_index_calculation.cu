@@ -63,8 +63,7 @@ void MPLocalReduceIndexCalculation::cal_for_sparse_input(const EmbeddingInput& e
 
   auto stream = core_->get_local_gpu()->get_stream();
   if (!wgrad.attr.is_same_ev_size && embedding_input.h_num_keys != 0) {
-    cal_dst_offset_mp_(wgrad.table_ids, wgrad.attr.table_id_to_ev_size, wgrad.num_unique_keys,
-                       wgrad.ev_start_indices, core_, stream);
+    cal_dst_offset_mp_(wgrad, core_, stream);
   }
 }
 

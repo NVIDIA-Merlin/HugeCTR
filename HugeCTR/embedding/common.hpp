@@ -335,6 +335,7 @@ struct WgradAttr {
   core23::Tensor sorted_unique_table_ids;
   core23::Tensor table_id_to_ev_size;
   core23::DataType type;
+  core23::DataType key_type;
 
   std::vector<int> h_sorted_unique_table_ids;
 
@@ -355,8 +356,26 @@ struct Wgrad {
   core23::Tensor num_unique_keys;   // uint64_t
   core23::Tensor table_ids;         // int
   core23::Tensor ev_start_indices;  // uint32_t
-
   core23::Tensor data;
+
+  size_t h_unique_keys;
+  bool is_dynamic_allocate = false;
+  bool attr_allocated = false;
+  bool indices_allocated = false;
+  bool data_allocated = false;
+
+  Wgrad() = default;
+  // sometimes need allocate attribute and data separate
+  void init_attr(const EmbeddingCollectionParam &ebc_param, WgradAttr wgrad_attr,
+                 std::shared_ptr<CoreResourceManager> &core);
+  void init_data(std::shared_ptr<CoreResourceManager> core, uint32_t h_unique_key_num,
+                 int max_ev_size);
+};
+
+struct DynamicWgradInitiazlier {
+  void init_indices_and_data(Wgrad &wgrad, size_t h_num_key, core23::Tensor key_flag_buffer,
+                             int max_ev_size, std::shared_ptr<CoreResourceManager> core,
+                             cudaStream_t stream);
 };
 
 struct WgradInitializer {

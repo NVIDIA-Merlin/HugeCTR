@@ -641,13 +641,60 @@ std::vector<int> get_allreduce_buffer_num_keys(
   return vocabulary_size_list;
 }
 
-WgradInitializer &WgradInitializer::init(Wgrad &other) {
-  this->wgrad = &other;
-  wgrad->attr = wgrad_attr;
-  return *this;
+void Wgrad::init_attr(const EmbeddingCollectionParam &ebc_param, WgradAttr wgrad_attr,
+                      std::shared_ptr<CoreResourceManager> &core) {
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+  this->attr = wgrad_attr;
+  this->attr.type = ebc_param.wgrad_type_;
+  this->attr.key_type = ebc_param.key_type;
+  this->num_unique_keys = core23::Tensor(params.shape({1}).data_type(core23::ScalarType::UInt64));
+  this->attr_allocated = true;
 }
 
+void Wgrad::init_data(std::shared_ptr<CoreResourceManager> core, uint32_t h_unique_key_num,
+                      int max_ev_size) {
+  HCTR_CHECK_HINT(this->attr_allocated, "Wgrad's attr should be inited before init data");
+  HugeCTR::CudaDeviceContext context(core->get_device_id());
+  core23::Device device(core23::DeviceType::GPU, core->get_device_id());
+  core23::TensorParams params = core23::TensorParams().device(device);
+  this->unique_keys = core23::Tensor(
+      params.shape({static_cast<int64_t>(h_unique_key_num)}).data_type(this->attr.key_type));
+  this->table_ids = core23::Tensor(
+      params.shape({static_cast<int64_t>(h_unique_key_num)}).data_type(core23::ScalarType::Int32));
+  this->data = core23::Tensor(params.shape({static_cast<int64_t>(h_unique_key_num) * max_ev_size})
+                                  .data_type(this->attr.type));
+  this->ev_start_indices = core23::Tensor(params.shape({static_cast<int64_t>(h_unique_key_num) + 1})
+                                              .data_type(core23::ScalarType::UInt32));
+
+  this->h_unique_keys = h_unique_key_num;
+  this->is_dynamic_allocate = true;
+  this->data_allocated = true;
+  this->indices_allocated = true;
+  return;
+}
+
+void DynamicWgradInitiazlier::init_indices_and_data(Wgrad &wgrad, size_t h_num_key,
+                                                    core23::Tensor key_flag_buffer, int max_ev_size,
+                                                    std::shared_ptr<CoreResourceManager> core,
+                                                    cudaStream_t stream) {
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  uint32_t h_unique_key_num = 0;
+  HCTR_LIB_THROW(cudaMemcpy(&h_unique_key_num, key_flag_buffer.data<uint32_t>() + h_num_key - 1,
+                            sizeof(uint32_t), cudaMemcpyDeviceToHost));
+  wgrad.init_data(core, h_unique_key_num, max_ev_size);
+  HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+  return;
+}
+
+WgradInitializer &WgradInitializer::init(Wgrad &other) {
+  this->wgrad = &other;
+  this->wgrad->init_attr(ebc_param, wgrad_attr, core);
+  return *this;
+}
 WgradInitializer &WgradInitializer::init_indices() {
+  HCTR_CHECK_HINT(wgrad->attr_allocated, "Wgrad's attr should be inited before init indices");
   int gpu_id = core->get_global_gpu_id();
 
   auto local_max_hotness_list = get_wgrad_max_num_keys(ebc_param, grouped_id, gpu_id);
@@ -666,15 +713,16 @@ WgradInitializer &WgradInitializer::init_indices() {
   wgrad->attr.type = ebc_param.wgrad_type_;
   wgrad->unique_keys =
       core23::Tensor(params.shape({batch_size * max_num_keys}).data_type(key_type));
-  wgrad->num_unique_keys = core23::Tensor(params.shape({1}).data_type(core23::ScalarType::UInt64));
   wgrad->table_ids = core23::Tensor(
       params.shape({batch_size * max_num_keys}).data_type(core23::ScalarType::Int32));
   wgrad->ev_start_indices = core23::Tensor(
       params.shape({batch_size * max_num_keys + 1}).data_type(core23::ScalarType::UInt32));
+  wgrad->indices_allocated = true;
   return *this;
 }
 
 WgradInitializer &WgradInitializer::init_data() {
+  HCTR_CHECK_HINT(wgrad->attr_allocated, "Wgrad's attr should be inited before init data");
   int gpu_id = core->get_global_gpu_id();
 
   auto local_max_hotness_list = get_wgrad_max_num_keys(ebc_param, grouped_id, gpu_id);
@@ -697,16 +745,18 @@ WgradInitializer &WgradInitializer::init_data() {
       static_cast<int64_t>(wgrad_unique_ratio * static_cast<double>(max_buffer_size));
 
   wgrad->data = core23::Tensor(params.shape({num_elements}).data_type(wgrad->attr.type));
+  wgrad->data_allocated = true;
   return *this;
 }
 
 AllreduceWgradInitializer &AllreduceWgradInitializer::init(Wgrad &other) {
   this->wgrad = &other;
-  wgrad->attr = wgrad_attr;
+  this->wgrad->init_attr(ebc_param, wgrad_attr, core);
   return *this;
 }
 
 AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
+  HCTR_CHECK_HINT(wgrad->attr_allocated, "Wgrad's attr should be inited before init indices");
   int gpu_id = core->get_global_gpu_id();
 
   std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
@@ -725,7 +775,6 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
   core23::TensorParams params = core23::TensorParams().device(device);
 
   wgrad->unique_keys = core23::Tensor(params.shape({max_num_keys}).data_type(key_type));
-  wgrad->num_unique_keys = core23::Tensor(params.shape({1}).data_type(core23::ScalarType::UInt64));
   wgrad->table_ids =
       core23::Tensor(params.shape({max_num_keys}).data_type(core23::ScalarType::Int32));
   wgrad->ev_start_indices =
@@ -769,11 +818,13 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_indices() {
                       wgrad->ev_start_indices.num_bytes(), wgrad->ev_start_indices.device(),
                       core23::DeviceType::CPU);
   }
+  wgrad->indices_allocated = true;
   return *this;
 }
 
 AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(
     bool grouped, const core23::BufferChannel &buffer_channel) {
+  HCTR_CHECK_HINT(wgrad->attr_allocated, "Wgrad's attr should be inited before init data");
   wgrad->attr = wgrad_attr;
   int gpu_id = core->get_global_gpu_id();
   std::vector<int> h_local_ev_size_list = get_wgrad_ev_size(ebc_param, grouped_id, gpu_id);
@@ -797,6 +848,7 @@ AllreduceWgradInitializer &AllreduceWgradInitializer::init_data(
     wgrads_params = wgrads_params.alignment(alignment_num).buffer_channel(buffer_channel);
   }
   wgrad->data = core23::Tensor(wgrads_params.shape({max_buffer_size}).data_type(wgrad->attr.type));
+  wgrad->data_allocated = true;
 
   return *this;
 }
