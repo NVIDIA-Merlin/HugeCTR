@@ -707,7 +707,9 @@ __global__ void get_unique_key_same_ev_size(
 }
 
 SegmentdUnique::SegmentdUnique(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
-                               int batch_size) {
+                               int batch_size, bool need_allocate_wgrad_buffer, int max_ev_size) {
+  need_allocate_wgrad_buffer_ = need_allocate_wgrad_buffer;
+  max_ev_size_ = max_ev_size;
   core23::Device device(core23::DeviceType::GPU, core->get_device_id());
   core23::TensorParams params = core23::TensorParams().device(device);
 
@@ -722,9 +724,7 @@ SegmentdUnique::SegmentdUnique(const std::shared_ptr<CoreResourceManager> &core,
 }
 
 void SegmentdUnique::operator()(const core23::Tensor &sorted_keys, const core23::Tensor &table_ids,
-                                const core23::Tensor &key_num, core23::Tensor &unique_keys,
-                                core23::Tensor &unique_table_ids,
-                                core23::Tensor &unique_keys_offset, core23::Tensor &num_unique_keys,
+                                const core23::Tensor &key_num, Wgrad &wgrad,
                                 core23::Tensor &dst_ids, size_t h_num_key, bool is_same_ev_size,
                                 int ev_size, std::shared_ptr<CoreResourceManager> core) {
   auto stream = core->get_local_gpu()->get_stream();
@@ -745,18 +745,25 @@ void SegmentdUnique::operator()(const core23::Tensor &sorted_keys, const core23:
                                   key_flag_buffer_.data<uint32_t>(), h_num_key, stream);
   });
 
+  if (need_allocate_wgrad_buffer_) {
+    HCTR_CHECK_HINT((!wgrad.data_allocated && !wgrad.indices_allocated),
+                    "Wgrad should not be allocate before");
+    DynamicWgradInitiazlier{}.init_indices_and_data(wgrad, h_num_key, key_flag_buffer_,
+                                                    max_ev_size_, core, stream);
+  }
+
   DISPATCH_INTEGRAL_FUNCTION_CORE23(key_type.type(), key_t, [&] {
     if (is_same_ev_size) {
       get_unique_key_same_ev_size<<<grid_size, block_size, 0, stream>>>(
           sorted_keys.data<key_t>(), table_ids.data<int>(), key_flag_buffer_.data<uint32_t>(),
-          key_num.data<size_t>(), ev_size, unique_keys.data<key_t>(), unique_table_ids.data<int>(),
-          unique_keys_offset.data<uint32_t>(), num_unique_keys.data<size_t>(),
-          dst_ids.data<uint32_t>());
+          key_num.data<size_t>(), ev_size, wgrad.unique_keys.data<key_t>(),
+          wgrad.table_ids.data<int>(), wgrad.ev_start_indices.data<uint32_t>(),
+          wgrad.num_unique_keys.data<size_t>(), dst_ids.data<uint32_t>());
     } else {
       get_unique_key<<<grid_size, block_size, 0, stream>>>(
           sorted_keys.data<key_t>(), table_ids.data<int>(), key_flag_buffer_.data<uint32_t>(),
-          key_num.data<uint64_t>(), unique_keys.data<key_t>(), unique_table_ids.data<int>(),
-          num_unique_keys.data<uint64_t>(), dst_ids.data<uint32_t>());
+          key_num.data<uint64_t>(), wgrad.unique_keys.data<key_t>(), wgrad.table_ids.data<int>(),
+          wgrad.num_unique_keys.data<uint64_t>(), dst_ids.data<uint32_t>());
     }
   });
 }
@@ -842,29 +849,27 @@ CalDstOffsetMP::CalDstOffsetMP(const std::shared_ptr<CoreResourceManager> &core,
                                              .data_type(core23::ScalarType::Char));
 }
 
-void CalDstOffsetMP::operator()(const core23::Tensor &unique_key_table_ids,
-                                const core23::Tensor &table_id_to_evsizes,
-                                const core23::Tensor &num_unique_keys,
-                                core23::Tensor &dst_key_offset,
-                                std::shared_ptr<CoreResourceManager> core, cudaStream_t stream) {
+void CalDstOffsetMP::operator()(Wgrad &wgrad, std::shared_ptr<CoreResourceManager> core,
+                                cudaStream_t stream) {
   const int block_size = 256;
   const int grid_size =
       core->get_kernel_param().num_sms * core->get_kernel_param().max_thread_per_block / block_size;
-  get_dst_length_per_key<<<grid_size, block_size, 0, stream>>>(
-      unique_key_table_ids.data<int>(), table_id_to_evsizes.data<int>(),
-      num_unique_keys.data<uint64_t>(), dst_key_offset.data<uint32_t>());
 
+  get_dst_length_per_key<<<grid_size, block_size, 0, stream>>>(
+      wgrad.table_ids.data<int>(), wgrad.attr.table_id_to_ev_size.data<int>(),
+      wgrad.num_unique_keys.data<uint64_t>(), wgrad.ev_start_indices.data<uint32_t>());
   size_t temp_bytes = cub_scan_temp_buffer_.num_bytes();
+
+  size_t scan_num = wgrad.is_dynamic_allocate ? wgrad.h_unique_keys : max_key_num_;
   cub::DeviceScan::ExclusiveSum(cub_scan_temp_buffer_.data(), temp_bytes,
-                                dst_key_offset.data<uint32_t>(), dst_key_offset.data<uint32_t>(),
-                                max_key_num_, stream);
+                                wgrad.ev_start_indices.data<uint32_t>(),
+                                wgrad.ev_start_indices.data<uint32_t>(), scan_num, stream);
 }
 
 void unique_keys(SegmentdUnique &segmented_unique_kernel, ReductionIndices &reduction_indices,
                  Wgrad &wgrad, std::shared_ptr<CoreResourceManager> core) {
   segmented_unique_kernel(reduction_indices.sorted_keys, reduction_indices.table_ids,
-                          reduction_indices.num_key, wgrad.unique_keys, wgrad.table_ids,
-                          wgrad.ev_start_indices, wgrad.num_unique_keys, reduction_indices.dst_ids,
+                          reduction_indices.num_key, wgrad, reduction_indices.dst_ids,
                           reduction_indices.num_elements, wgrad.attr.is_same_ev_size,
                           wgrad.attr.same_ev_size, core);
 }

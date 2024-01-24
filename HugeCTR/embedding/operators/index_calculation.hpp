@@ -157,16 +157,18 @@ struct SegmentdUnique {
   core23::Tensor cub_scan_temp_buffer_;  // Void
   core23::Tensor key_flag_buffer_;       // size_t
 
+  // for SOK
+  bool need_allocate_wgrad_buffer_;
+  int max_ev_size_;
   SegmentdUnique() = default;
 
-  SegmentdUnique(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
-                 int batch_size);
+  SegmentdUnique(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys, int batch_size,
+                 bool need_allocate_wgrad_buffer = false, int max_ev_size = 0);
 
   void operator()(const core23::Tensor &sorted_keys, const core23::Tensor &table_ids,
-                  const core23::Tensor &key_num, core23::Tensor &unique_keys,
-                  core23::Tensor &unique_table_ids, core23::Tensor &unique_keys_offset,
-                  core23::Tensor &num_unique_keys, core23::Tensor &dst_ids, size_t h_num_key,
-                  bool is_same_ev_size, int ev_size, std::shared_ptr<CoreResourceManager> core);
+                  const core23::Tensor &key_num, Wgrad &wgrad, core23::Tensor &dst_ids,
+                  size_t h_num_key, bool is_same_ev_size, int ev_size,
+                  std::shared_ptr<CoreResourceManager> core);
 };
 
 struct CalDstIds {
@@ -193,10 +195,7 @@ struct CalDstOffsetMP {
   CalDstOffsetMP(const std::shared_ptr<CoreResourceManager> &core, int max_num_keys,
                  int batch_size);
 
-  void operator()(const core23::Tensor &unique_key_table_ids,
-                  const core23::Tensor &table_id_to_evsizes, const core23::Tensor &num_unique_key,
-                  core23::Tensor &dst_key_offset, std::shared_ptr<CoreResourceManager> core,
-                  cudaStream_t stream);
+  void operator()(Wgrad &wgrad, std::shared_ptr<CoreResourceManager> core, cudaStream_t stream);
 };
 
 class LocalReduceIndexCalculation {
