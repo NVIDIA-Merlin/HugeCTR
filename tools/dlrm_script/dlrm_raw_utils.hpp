@@ -536,7 +536,15 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
 
   while (true) {
     process_read_bytes += in_args.get_byte_range_size();
+#if defined(CUDF_VERSION_MAJOR) && CUDF_VERSION_MAJOR == 23 && defined(CUDF_VERSION_MINOR) && \
+    CUDF_VERSION_MINOR >= 12
+    auto tbl_w_metadata = cudf_io::read_csv(in_args, cudf::get_default_stream(), mr);
+#elif defined(CUDF_VERSION_MAJOR) && CUDF_VERSION_MAJOR > 23
+    auto tbl_w_metadata = cudf_io::read_csv(in_args, cudf::get_default_stream(), mr);
+#else
     auto tbl_w_metadata = cudf_io::read_csv(in_args, mr);
+
+#endif
     int32_t num_rows = tbl_w_metadata.tbl->num_rows();
     read_row_nums += num_rows;
 

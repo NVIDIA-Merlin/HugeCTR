@@ -94,10 +94,12 @@ class ResourceManagerExt : public ResourceManager {
 
   DeviceMap::Layout get_device_layout() const override { return core_->get_device_layout(); }
 
+#ifndef DISABLE_CUDF
   const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
       int local_gpu_id) const override {
     return core_->get_device_rmm_device_memory_resource(local_gpu_id);
   }
+#endif
 
 #ifdef ENABLE_MPI
   void init_ib_comm() override;

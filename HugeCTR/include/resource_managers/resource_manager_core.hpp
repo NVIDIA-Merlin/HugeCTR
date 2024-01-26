@@ -33,13 +33,16 @@ class ResourceManagerCore : public ResourceManager {
   std::vector<std::shared_ptr<GPUResource>> gpu_resources_; /**< GPU resource vector */
   std::vector<std::vector<bool>> p2p_matrix_;
 
+  void all2all_warmup();
+  void enable_all_peer_accesses();
+
+#ifndef DISABLE_CUDF
   std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> base_cuda_mr_;
   std::vector<std::shared_ptr<rmm::mr::device_memory_resource>> memory_resource_;
   std::vector<rmm::mr::device_memory_resource*> original_device_resource_;
 
-  void all2all_warmup();
-  void enable_all_peer_accesses();
   void initialize_rmm_resources();
+#endif
 
  public:
   ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
@@ -109,8 +112,10 @@ class ResourceManagerCore : public ResourceManager {
 
   DeviceMap::Layout get_device_layout() const override { return device_map_.get_device_layout(); }
 
+#ifndef DISABLE_CUDF
   const std::shared_ptr<rmm::mr::device_memory_resource>& get_device_rmm_device_memory_resource(
       int local_gpu_id) const override;
+#endif
 
 #ifdef ENABLE_MPI
   void init_ib_comm() override {
