@@ -21,7 +21,10 @@
 #include <device_map.hpp>
 #include <gpu_resource.hpp>
 #include <resource_manager_base.hpp>
+
+#ifndef DISABLE_CUDF
 #include <rmm/mr/device/device_memory_resource.hpp>
+#endif
 
 namespace HugeCTR {
 
@@ -45,8 +48,10 @@ class ResourceManager : public ResourceManagerBase {
 
   virtual DeviceMap::Layout get_device_layout() const = 0;
 
+#ifndef DISABLE_CUDF
   virtual const std::shared_ptr<rmm::mr::device_memory_resource>&
   get_device_rmm_device_memory_resource(int local_gpu_id) const = 0;
+#endif
 };
 
 }  // namespace HugeCTR

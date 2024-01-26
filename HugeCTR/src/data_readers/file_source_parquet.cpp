@@ -154,8 +154,12 @@ cudf_io::table_with_metadata ParquetFileSource::read_group(size_t row_group_id,
   parquet_args_.set_row_groups(rgrps);
   // parquet_args_.set_num_rows(-1);
   parquet_args_.set_timestamp_type(cudf::data_type(cudf::type_id::EMPTY));
-  auto tbl_w_metadata = cudf_io::read_parquet(parquet_args_, mr);
 
+#if defined(CUDF_VERSION_MAJOR) && CUDF_VERSION_MAJOR >= 24
+  auto tbl_w_metadata = cudf_io::read_parquet(parquet_args_, cudf::get_default_stream(), mr);
+#else
+  auto tbl_w_metadata = cudf_io::read_parquet(parquet_args_, mr);
+#endif
   if (!counter_) {
     HCTR_OWN_THROW(Error_t::UnspecificError, "Read parquet file first\n");
   }

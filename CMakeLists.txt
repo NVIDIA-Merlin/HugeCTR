@@ -122,7 +122,8 @@ if (DISABLE_A2A_WARMUP)
 endif()
 
 option(DISABLE_CUDF "Disable cudf: disable parquet format related features" OFF)
-
+# this manual definition is a WAR and RMM team will fix it in the future
+add_compile_definitions(LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE)
 option(USE_CUDART_STATIC "Setup clangformat target" OFF)
 if(USE_CUDART_STATIC)
   set(DISABLE_CUDF ON)
@@ -137,13 +138,29 @@ if (DISABLE_CUDF)
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DDISABLE_CUDF")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DDISABLE_CUDF")
 else()
+  execute_process(
+    COMMAND bash -c "pip show cudf|grep Version | sed 's/.*: //'" 
+    OUTPUT_VARIABLE CUDF_VERSION
+  )
+
+  string(REPLACE "." ";" VERSION_LIST ${CUDF_VERSION})
+  list(GET VERSION_LIST 0 CUDF_VERSION_MAJOR)
+  list(GET VERSION_LIST 1 CUDF_VERSION_MINOR)
+  # list(GET VERSION_LIST 2 CUDF_VERSION_PATCH)
+  # add_compile_definitions(CUDF_VERSION_PATCH=${CUDF_VERSION_PATCH})
+
+  add_compile_definitions(CUDF_VERSION_MAJOR=${CUDF_VERSION_MAJOR})
+  add_compile_definitions(CUDF_VERSION_MINOR=${CUDF_VERSION_MINOR})
+  message(STATUS "CUDF_VERSION is  ${CUDF_VERSION}")
+
   find_package(Parquet REQUIRED CONFIG PATHS  /usr/lib/cmake/arrow/ /usr/lib/cmake/Parquet/ NO_DEFAULT_PATH)
   if(Parquet_FOUND AND NOT ENABLE_HDFS AND NOT ENABLE_S3 AND NOT ENABLE_GCS)
-  message (STATUS "Arrow Parquet is found")
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_ARROW_PARQUET")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_ARROW_PARQUET")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_ARROW_PARQUET")
+    message (STATUS "Arrow Parquet is found")
+    set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_ARROW_PARQUET")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_ARROW_PARQUET")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_ARROW_PARQUET")
   endif()
+
 endif()
 
 option(SHARP_A2A "Enable SHARP All2All" OFF)

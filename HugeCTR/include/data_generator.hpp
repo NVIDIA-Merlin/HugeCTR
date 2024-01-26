@@ -31,9 +31,8 @@
 #include <cudf/table/table.hpp>
 #include <cudf/table/table_view.hpp>
 #include <cudf/utilities/bit.hpp>
-#endif
-
 #include <rmm/device_buffer.hpp>
+#endif
 
 namespace HugeCTR {
 
