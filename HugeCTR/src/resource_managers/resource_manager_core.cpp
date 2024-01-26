@@ -21,12 +21,15 @@
 #include <random>
 #include <resource_managers/resource_manager_core.hpp>
 #include <utils.hpp>
+
+#ifndef DISABLE_CUDF
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #pragma GCC diagnostic pop
+#endif
 
 namespace HugeCTR {
 
@@ -98,27 +101,6 @@ void ResourceManagerCore::enable_all_peer_accesses() {
   }
 }
 
-void ResourceManagerCore::initialize_rmm_resources() {
-  const size_t pool_alloc_size = 256 * 1024 * 1024;
-  using dmmr = rmm::mr::device_memory_resource;
-  static const char* allow_set_char = getenv("HCTR_RMM_SETTABLE");
-  bool allow_set = true;
-  if (allow_set_char && allow_set_char[0] == '0') {
-    allow_set = false;
-  }
-  CudaDeviceContext context;
-  auto local_gpu_device_id_list = get_local_gpu_device_id_list();
-  for (size_t i = 0; i < local_gpu_device_id_list.size(); i++) {
-    context.set_device(local_gpu_device_id_list[i]);
-    base_cuda_mr_.emplace_back(std::make_shared<rmm::mr::cuda_memory_resource>());
-    memory_resource_.emplace_back(std::make_shared<rmm::mr::pool_memory_resource<dmmr>>(
-        base_cuda_mr_.back().get(), pool_alloc_size));
-    if (allow_set) {
-      original_device_resource_.push_back(
-          rmm::mr::set_current_device_resource(memory_resource_.back().get()));
-    }
-  }
-}
 ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, DeviceMap&& device_map,
                                          unsigned long long seed)
     : num_process_(num_process), process_id_(process_id), device_map_(std::move(device_map)) {
@@ -204,13 +186,17 @@ ResourceManagerCore::ResourceManagerCore(int num_process, int process_id, Device
 
   all2all_warmup();
 
+#ifndef DISABLE_CUDF
   initialize_rmm_resources();
+#endif
   // int dev_id = 0;
   // cudaGetDevice(&dev_id);
   // HCTR_LOG(INFO, WORLD, "ResourceManagerCore ctor getCurrentDeviceId after rmm_init %d\n",
   // dev_id);
 }
+
 ResourceManagerCore::~ResourceManagerCore() {
+#ifndef DISABLE_CUDF
   if (original_device_resource_.empty()) {
     return;
   }
@@ -220,6 +206,7 @@ ResourceManagerCore::~ResourceManagerCore() {
     context.set_device(local_gpu_device_id_list[i]);
     rmm::mr::set_current_device_resource(original_device_resource_[i]);
   }
+#endif
 }
 bool ResourceManagerCore::p2p_enabled(int src_device_id, int dst_device_id) const {
   return p2p_matrix_[src_device_id][dst_device_id];
@@ -240,6 +227,29 @@ bool ResourceManagerCore::all_p2p_enabled() const {
   return true;
 }
 
+#ifndef DISABLE_CUDF
+void ResourceManagerCore::initialize_rmm_resources() {
+  const size_t pool_alloc_size = 256 * 1024 * 1024;
+  using dmmr = rmm::mr::device_memory_resource;
+  static const char* allow_set_char = getenv("HCTR_RMM_SETTABLE");
+  bool allow_set = true;
+  if (allow_set_char && allow_set_char[0] == '0') {
+    allow_set = false;
+  }
+  CudaDeviceContext context;
+  auto local_gpu_device_id_list = get_local_gpu_device_id_list();
+  for (size_t i = 0; i < local_gpu_device_id_list.size(); i++) {
+    context.set_device(local_gpu_device_id_list[i]);
+    base_cuda_mr_.emplace_back(std::make_shared<rmm::mr::cuda_memory_resource>());
+    memory_resource_.emplace_back(std::make_shared<rmm::mr::pool_memory_resource<dmmr>>(
+        base_cuda_mr_.back().get(), pool_alloc_size));
+    if (allow_set) {
+      original_device_resource_.push_back(
+          rmm::mr::set_current_device_resource(memory_resource_.back().get()));
+    }
+  }
+}
+
 const std::shared_ptr<rmm::mr::device_memory_resource>&
 ResourceManagerCore::get_device_rmm_device_memory_resource(int local_gpu_id) const {
   auto dev_list = get_local_gpu_device_id_list();
@@ -247,5 +257,5 @@ ResourceManagerCore::get_device_rmm_device_memory_resource(int local_gpu_id) con
   auto index = std::distance(dev_list.begin(), it);
   return memory_resource_[index];
 }
-
+#endif
 }  // namespace HugeCTR
