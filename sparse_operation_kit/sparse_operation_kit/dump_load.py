@@ -39,6 +39,9 @@ from sparse_operation_kit.distributed_variable import LocalizedVariable
 
 from sparse_operation_kit.dynamic_variable import DynamicVariable, export, assign
 from dataclasses import dataclass
+from datetime import datetime
+from sparse_operation_kit.utils import get_nano_time
+from sparse_operation_kit import raw_ops
 
 # length:byte
 integer_length = 4
@@ -1287,3 +1290,163 @@ def load(path, load_vars, optimizer=None):
     load_table(path, load_vars, optimizer)
     print("[SOK INFO] SOK load weight from path:", path, " success!")
     return
+
+
+def incremental_model_dump(sok_vars, time_threshold, sess=None):
+    """
+    Abbreviated as ``sok.incremental_model_dump``.
+
+    Dump the keys and values updated after the time threshold from the given sok var into numpy arrays.
+    The time threshold requires the ``datetime.datetime`` type, and the time needs to be aligned to UTC time. It is recommended to use ``pytz`` library for timezone adjustment.
+
+    If use this API in TensorFlow1.15, need to input Session into this API.
+
+    Note: Since HKV internally uses GPU's timestamp to record time for each key, which may slightly differ from the host-side timestamps.
+          It is recommended to set the expected time threshold a few seconds earlier to avoid this discrepancy.
+
+    Parameters
+    ----------
+    sok_vars: List,Tuple of SOK Variable
+               Can be a single or list of sok.DynamicVariable with HKV backend
+    time_threshold: List,Tuple of ``datetime.datetime``
+               Length of time_threshold should be 1 or same length with sok_vars, if length equals 1 , every sok_var will use same time_threshold
+    sess: tf.compat.v1.Session
+          Only use in TensorFlow 1.15.
+
+    Returns
+    -------
+    keys: List, a list of np.array
+        The keys of the given variable's incremental keys from time_threshold.
+
+    values: List, a list of np.array
+        the values of the given variable's incremental values from time_threshold
+
+    Example
+    -------
+    .. code-block:: python
+
+        import pytz
+        import time
+        from datetime import datetime
+        import numpy as np
+        import tensorflow as tf
+        import horovod.tensorflow as hvd
+        import sparse_operation_kit as sok
+
+        v = sok.DynamicVariable(dimension=3, initializer="13",var_type="hybrid",init_capacity=1024,max_capacity=1024)
+
+        optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+        optimizer = sok.OptimizerWrapper(optimizer)
+        utc_time = datetime.now(pytz.utc)
+        time.sleep(10)
+
+        with tf.GradientTape() as tape:
+            embedding = tf.nn.embedding_lookup(v, indices)
+            print("embedding:", embedding)
+            loss = tf.reduce_sum(embedding)
+
+        grads = tape.gradient(loss, [v])
+        optimizer.apply_gradients(zip(grads, [v]))
+
+
+        keys,values = sok.incremental_model_dump(v,utc_time)
+    """
+
+    is_list = isinstance(sok_vars, list) or isinstance(sok_vars, tuple)
+    if not is_list:
+        sok_vars = [sok_vars]
+    assert isinstance(sok_vars, list) or isinstance(sok_vars, tuple)
+
+    is_list_threshold = isinstance(time_threshold, list) or isinstance(time_threshold, tuple)
+
+    if not is_list_threshold:
+        time_threshold = [time_threshold]
+        if not (len(time_threshold) == 1 or len(time_threshold) == len(sok_vars)):
+            raise Exception(
+                "length of time_threshold should be 1 or same length with sok_vars, if length equals 1 , every sok_var will use same time_threshold!"
+            )
+
+    if sess is not None:
+        assert isinstance(sess, tf.compat.v1.Session)
+
+    for i, sok_var in enumerate(sok_vars):
+        is_dynamic_variable = isinstance(sok_var, DynamicVariable)
+        if not is_dynamic_variable:
+            raise Exception(
+                "Now only support sok.DynamicVariable with HKV backend, but the {}-th sok variable in the input sok_vars is not a sok.DynamicVariable!".format(
+                    str(i)
+                )
+            )
+        tmp_backend = sok_var.backend_type
+        if tmp_backend != "hybrid":
+            raise Exception(
+                "Now only support sok.DynamicVariable with HKV backend, but the {}-th sok variable in the input sok_vars is not hkv backend!".format(
+                    str(i)
+                )
+            )
+
+    timestamp_list = []
+    if len(time_threshold) == 1:
+        timestamp = datetime.timestamp(time_threshold[0])
+        timestamp_ns = int(timestamp * 1e9)
+
+        for i in range(len(sok_vars)):
+            timestamp_list.append(np.array([timestamp_ns]))
+    else:
+        for i in range(len(time_threshold)):
+            tmp_time = time_threshold[i]
+            timestamp = datetime.timestamp(tmp_time)
+            timestamp_ns = int(timestamp * 1e9)
+            timestamp_list.append(np.array([timestamp_ns]))
+    var_num = len(sok_vars)
+    keys_list_local = []
+    values_list_local = []
+    keys_list_global = []
+    values_list_global = []
+    time_threshold_tensor_list = []
+    if sess is not None:
+        for i, sok_var in enumerate(sok_vars):
+            time_threshold_tensor = tf.placeholder(shape=[None], dtype=tf.uint64)
+            time_threshold_tensor_list.append(time_threshold_tensor)
+            tmp_keys, tmp_values = raw_ops.dummy_var_export_if(
+                sok_var.handle, time_threshold_tensor
+            )
+            with tf.device("CPU"):
+                tmp_keys = tf.identity(tmp_keys)
+                tmp_values = tf.identity(tmp_values)
+            keys_list_local.append(tmp_keys)
+            values_list_local.append(tmp_values)
+        tmp_global_keys_list = []
+        tmp_global_values_list = []
+        for i in range(len(keys_list_local)):
+            with tf.device("CPU"):
+                tmp_global_keys_list.append(allgather(keys_list_local[i]))
+                tmp_global_values_list.append(allgather(values_list_local[i]))
+        var_list = []
+        var_list.extend(tmp_global_keys_list)
+        var_list.extend(tmp_global_values_list)
+        result_list = sess.run(
+            var_list,
+            feed_dict=dict(zip(time_threshold_tensor_list, timestamp_list)),
+        )
+
+        for i in range(len(sok_vars)):
+            keys_list_global.append(result_list[i])
+            values_list_global.append(result_list[i + var_num])
+    else:
+        for i, sok_var in enumerate(sok_vars):
+            time_threshold_tensor = tf.constant(timestamp_list[i], dtype=tf.uint64)
+            tmp_keys, tmp_values = raw_ops.dummy_var_export_if(
+                sok_var.handle, time_threshold_tensor
+            )
+            with tf.device("CPU"):
+                tmp_keys = tf.identity(tmp_keys)
+                tmp_values = tf.identity(tmp_values)
+            keys_list_local.append(tmp_keys)
+            values_list_local.append(tmp_values)
+
+        for i in range(len(keys_list_local)):
+            with tf.device("CPU"):
+                keys_list_global.append(allgather(keys_list_local[i]).numpy())
+                values_list_global.append(allgather(values_list_local[i]).numpy())
+    return keys_list_global, values_list_global

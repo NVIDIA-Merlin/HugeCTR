@@ -53,6 +53,7 @@ class DummyVar : public ResourceBase {
   int64_t cols();
 
   void Export(void *keys, void *values, cudaStream_t stream);
+  void ExportIf(void *keys, void *values, size_t *counter, uint64_t threshold, cudaStream_t stream);
   void Assign(const void *keys, const void *values, size_t num_keys, cudaStream_t stream);
 
   void SparseRead(const void *keys, void *values, size_t num_keys, cudaStream_t stream);

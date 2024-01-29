@@ -484,7 +484,6 @@ def export(var):
         indices, values = dynamic_variable_ops.dummy_var_export(
             var.handle, key_type=var.key_type, dtype=var.handle_dtype
         )
-        # sort_indice_tensor = tf.argsort(indices)
         with tf.device("CPU"):
             indices = tf.identity(indices)
             values = tf.identity(values)

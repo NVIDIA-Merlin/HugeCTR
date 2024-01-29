@@ -18,6 +18,7 @@ cd lookup
 horovodrun -np ${task_num} python lookup_sparse_distributed_test.py
 horovodrun -np ${task_num} python lookup_sparse_distributed_dynamic_test.py
 horovodrun -np ${task_num} python lookup_sparse_distributed_hkv_test.py
+horovodrun -np ${task_num} python lookup_sparse_hkv_incremental_dump_test.py
 #horovodrun -np ${task_num} python lookup_sparse_localized_test.py
 #horovodrun -np ${task_num} python lookup_sparse_localized_dynamic_test.py
 #horovodrun -np ${task_num} python lookup_sparse_localized_hkv_test.py

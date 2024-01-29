@@ -40,6 +40,8 @@ class HKVVariable : public VariableBase<KeyType, ValueType> {
   int64_t cols() override;
 
   void eXport(KeyType *keys, ValueType *values, cudaStream_t stream = 0) override;
+  void eXport_if(KeyType *keys, ValueType *values, size_t *counter, uint64_t threshold,
+                 cudaStream_t stream = 0) override;
   void assign(const KeyType *keys, const ValueType *values, size_t num_keys,
               cudaStream_t stream = 0) override;
 

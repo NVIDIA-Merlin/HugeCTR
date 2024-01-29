@@ -32,6 +32,10 @@ class VariableBase {
   virtual int64_t cols() = 0;
 
   virtual void eXport(KeyType *keys, ValueType *values, cudaStream_t stream = 0) = 0;
+
+  virtual void eXport_if(KeyType *keys, ValueType *values, size_t *counter, uint64_t threshold,
+                         cudaStream_t stream = 0) = 0;
+
   virtual void assign(const KeyType *keys, const ValueType *values, size_t num_keys,
                       cudaStream_t stream = 0) = 0;
 
