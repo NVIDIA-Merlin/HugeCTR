@@ -133,6 +133,75 @@ REGISTER_GPU_KERNELS(int32_t, int32_t, float, float);
 #undef REGISTER_GPU_KERNELS
 
 // -----------------------------------------------------------------------------------------------
+// DummyVarExportIf
+// -----------------------------------------------------------------------------------------------
+template <typename KeyType, typename ValueType>
+class DummyVarExportIfOp : public OpKernel {
+ public:
+  explicit DummyVarExportIfOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
+
+  void Compute(OpKernelContext* ctx) override {
+    // Get DummyVar
+    core::RefCountPtr<DummyVar<KeyType, ValueType>> var;
+    OP_REQUIRES_OK(ctx, LookupResource(ctx, HandleFromInput(ctx, 0), &var));
+
+    tf_shared_lock ml(*var->mu());
+
+    // Get shape
+    int64_t rows = var->rows();
+    int64_t cols = var->cols();
+
+    const Tensor* threshold_tensor = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("threshold", &threshold_tensor));
+
+    AllocatorAttributes alloc_attr;
+    alloc_attr.set_on_host(true); 
+    // temp buffer
+    Tensor tmp_indices;
+    OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_INT64, {rows}, &tmp_indices, alloc_attr));
+
+    Tensor tmp_values;
+    OP_REQUIRES_OK(ctx, ctx->allocate_temp(DataTypeToEnum<ValueType>::v(), {rows*cols}, &tmp_values, alloc_attr));
+
+    Tensor counter;
+    OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_UINT64, {1}, &counter, alloc_attr));
+    // Get cuda stream of tensorflow
+    auto device_ctx = ctx->op_device_context();
+    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+    var->ExportIf(tmp_indices.data(), tmp_values.data(),(size_t*)counter.data(),((uint64_t*)threshold_tensor->data())[0], stream);
+    // Allocate output
+    Tensor* indices = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {((size_t*)counter.data())[0]}, &indices));
+    Tensor* values = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(1, {((size_t*)counter.data())[0], cols}, &values));
+    
+    std::memcpy(indices->data(), tmp_indices.data(), sizeof(KeyType) * ((size_t*)counter.data())[0]);
+    std::memcpy(values->data(), tmp_values.data(), sizeof(ValueType) * ((size_t*)counter.data())[0] * cols);
+  }
+};
+
+#define REGISTER_GPU_KERNELS(key_type_tf, key_type, dtype_tf, dtype)   \
+  REGISTER_KERNEL_BUILDER(Name("DummyVarExportIf")                     \
+                              .Device(DEVICE_GPU)                      \
+                              .HostMemory("resource")                  \
+                              .HostMemory("threshold")                 \
+                              .HostMemory("indices")                   \
+                              .HostMemory("values")                    \
+                              .TypeConstraint<key_type_tf>("key_type") \
+                              .TypeConstraint<dtype_tf>("dtype"),      \
+                          DummyVarExportIfOp<key_type, dtype>)
+#if TF_VERSION_MAJOR == 1
+REGISTER_GPU_KERNELS(int64, int64_t, float, float);
+REGISTER_GPU_KERNELS(int32, int32_t, float, float);
+#else
+REGISTER_GPU_KERNELS(int64_t, int64_t, float, float);
+REGISTER_GPU_KERNELS(int32_t, int32_t, float, float);
+#endif
+#undef REGISTER_GPU_KERNELS
+
+
+// -----------------------------------------------------------------------------------------------
 // DummyVarSparseRead
 // -----------------------------------------------------------------------------------------------
 template <typename KeyType, typename ValueType>

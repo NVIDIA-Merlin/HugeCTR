@@ -64,6 +64,12 @@ void DummyVar<KeyType, ValueType>::Export(void* keys, void* values, cudaStream_t
 }
 
 template <typename KeyType, typename ValueType>
+void DummyVar<KeyType, ValueType>::ExportIf(void* keys, void* values,size_t* counter,uint64_t threshold, cudaStream_t stream) {
+  check_var();
+  var_->eXport_if(static_cast<KeyType*>(keys), static_cast<ValueType*>(values),counter,threshold,  stream);
+}
+
+template <typename KeyType, typename ValueType>
 void DummyVar<KeyType, ValueType>::Assign(const void* keys, const void* values, size_t num_keys,
                                           cudaStream_t stream) {
   check_var();

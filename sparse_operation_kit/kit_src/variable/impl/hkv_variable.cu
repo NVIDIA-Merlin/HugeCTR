@@ -137,6 +137,14 @@ __global__ void generate_normal_kernel(curandState* state, T** result, bool* d_f
   }
 }
 
+template <class K, class S>
+struct ExportIfPredFunctor {
+  __forceinline__ __device__ bool operator()(const K& key, S& score, const K& pattern,
+                                             const S& threshold) {
+    return score > threshold;
+  }
+};
+
 static void set_curand_states(curandState** states, cudaStream_t stream = 0) {
   int device;
   CUDACHECK(cudaGetDevice(&device));
@@ -197,7 +205,6 @@ HKVVariable<KeyType, ValueType>::HKVVariable(int64_t dimension, int64_t initial_
   nv::merlin::EvictStrategy hkv_evict_strategy;
   parse_evict_strategy(evict_strategy, hkv_evict_strategy);
   hkv_table_option_.evict_strategy = hkv_evict_strategy;
-
   hkv_table_->init(hkv_table_option_);
 }
 
@@ -230,22 +237,49 @@ void HKVVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
   ValueType* d_values;
   CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
 
-  // KeyType* d_keys;
-  // CUDACHECK(cudaMalloc(&d_keys, sizeof(KeyType) * num_keys));
-  // ValueType* d_values;
-  // CUDACHECK(cudaMalloc(&d_values, sizeof(ValueType) * num_keys * dim));
   hkv_table_->export_batch(hkv_table_option_.max_capacity, 0, d_keys, d_values, nullptr,
                            stream);  // Meta missing
   CUDACHECK(cudaStreamSynchronize(stream));
 
-  // clang-format off
   std::memcpy(keys, d_keys, sizeof(KeyType) * num_keys);
   std::memcpy(values, d_values, sizeof(ValueType) * num_keys * dim);
-  //CUDACHECK(cudaMemcpy(keys, d_keys, sizeof(KeyType) * num_keys,cudaMemcpyDeviceToHost));
-  //CUDACHECK(cudaMemcpy(values, d_values, sizeof(ValueType) * num_keys * dim,cudaMemcpyDeviceToHost));
+  CUDACHECK(cudaFree(d_keys));
+  CUDACHECK(cudaFree(d_values));
+}
+
+template <typename KeyType, typename ValueType>
+void HKVVariable<KeyType, ValueType>::eXport_if(KeyType* keys, ValueType* values, size_t* counter,
+                                                uint64_t threshold, cudaStream_t stream) {
+  int64_t num_keys = rows();
+  int64_t dim = cols();
+
+  // `keys` and `values` are pointers of host memory
+  KeyType* d_keys;
+  CUDACHECK(cudaMallocManaged(&d_keys, sizeof(KeyType) * num_keys));
+  ValueType* d_values;
+  CUDACHECK(cudaMallocManaged(&d_values, sizeof(ValueType) * num_keys * dim));
+
+  uint64_t* d_socre_type;
+  CUDACHECK(cudaMallocManaged(&d_socre_type, sizeof(uint64_t) * num_keys));
+
+  uint64_t* d_dump_counter;
+  CUDACHECK(cudaMallocManaged(&d_dump_counter, sizeof(uint64_t)));
+  // useless HKV need a input , but do nothing in the ExportIfPredFunctor
+  KeyType pattern = 100;
+
+  hkv_table_->template export_batch_if<ExportIfPredFunctor>(
+      pattern, threshold, hkv_table_->capacity(), 0, d_dump_counter, d_keys, d_values, d_socre_type,
+      stream);
+  CUDACHECK(cudaStreamSynchronize(stream));
+  // clang-format off
+  std::memcpy(keys, d_keys, sizeof(KeyType) * (*d_dump_counter));
+  std::memcpy(values, d_values, sizeof(ValueType) * (*d_dump_counter) * dim);
+  counter[0] = (size_t)(*d_dump_counter);
   //  clang-format on
   CUDACHECK(cudaFree(d_keys));
   CUDACHECK(cudaFree(d_values));
+  CUDACHECK(cudaFree(d_socre_type));
+  CUDACHECK(cudaFree(d_dump_counter));
 }
 
 template <typename KeyType, typename ValueType>

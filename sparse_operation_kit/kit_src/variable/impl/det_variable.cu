@@ -172,6 +172,12 @@ void DETVariable<KeyType, ValueType>::eXport(KeyType* keys, ValueType* values,
 }
 
 template <typename KeyType, typename ValueType>
+void DETVariable<KeyType, ValueType>::eXport_if(KeyType* keys, ValueType* values, size_t* counter,
+                                                uint64_t threshold, cudaStream_t stream) {
+  throw std::runtime_error("SOK dynamic variable with DET backend don't support eXport_if");
+}
+
+template <typename KeyType, typename ValueType>
 void DETVariable<KeyType, ValueType>::assign(const KeyType* keys, const ValueType* values,
                                              size_t num_keys, cudaStream_t stream) {
   size_t dim = cols();

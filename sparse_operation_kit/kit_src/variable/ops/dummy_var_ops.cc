@@ -41,6 +41,16 @@ REGISTER_OP("DummyVarExport")
     .Attr("dtype: {float32} = DT_FLOAT")
     .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
 
+REGISTER_OP("DummyVarExportIf")
+    .Input("resource: resource")
+    .Input("threshold: uint64")
+    .Output("indices: key_type")
+    .Output("values: dtype")
+    .Attr("key_type: {int32, int64} = DT_INT64")
+    .Attr("dtype: {float32} = DT_FLOAT")
+    .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
+
+
 REGISTER_OP("DummyVarSparseRead")
     .Input("resource: resource")
     .Input("indices: key_type")
