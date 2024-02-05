@@ -382,10 +382,7 @@ InputDataConfiguration criteo_dataset = {
 InputDataConfiguration criteo_multi_hot_dataset = {
     .fixed_hotness = true,
     .input_data_type = InputDataType::RawFormat,
-    .raw_format_param = {
-        .input_file = "/lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw/train_data.bin",
-        .label_dim = 1,
-        .dense_dim = 13}};
+    .raw_format_param = {.input_file = "/data/train_data.bin", .label_dim = 1, .dense_dim = 13}};
 
 struct Configuration {
   std::vector<EmbeddingConfiguration> embedding_config;

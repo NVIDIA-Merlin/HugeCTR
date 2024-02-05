@@ -263,13 +263,10 @@ stages:
 
 .cluster_test_job_daily:
   extends:
-    - .selene_luna_job
+    - .draco_oci_test_job
     - .default:rules:daily-test
   variables:
-    SLURM_ACCOUNT: coreai_devtech_all
-    OLD_SLURM_ACCOUNT: "devtech"
-    GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
-  allow_failure: false
+    DRACO_OCI_LOGDIR: /lustre/fsw/portfolios/coreai/users/svcnvdlfw/hugectr_ci/${CI_PIPELINE_ID}
 
 .selene_test_job:
   extends:
@@ -297,6 +294,56 @@ stages:
     SBATCH_OTHER_PARAMS: "--nv-meta ml-model.hugectr --gpus-per-node=8"
   tags:
     - $RUNNER_TAG
+  allow_failure: false
+
+.draco_oci_test_job:
+  extends:
+    - .hugectr:rules:test_in_child
+  script:
+    - echo ${MOUNTS}
+    - export LOG_DIR="${DRACO_OCI_LOGDIR}/${CI_JOB_NAME}/${CI_JOB_ID}/results"
+    - echo ${LOG_DIR}
+    - mkdir -p "${LOG_DIR}"
+    - export LOG_FILE="${LOG_DIR}/${DATESTAMP}.log"
+    - export CONT=$(echo "${CONT}" | sed 's/:5005//g')
+    - chmod +x ${TEST_CMD}
+    - bash ${TEST_CMD} | tee ${LOG_FILE}
+  variables:
+    #    CI_SLURM_ACCOUNT: "coreai_devtech_all"
+    CI_SCHEDULER_TYPE: "slurm"
+    CI_SLURM_PARTITION: "batch_block1"
+    CI_SLURM_GPUS_PER_NODE: "8"
+    DRACO_OCI_PREFIX: "/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr"
+    SLURM_JOB_NUM_NODES: 1
+    CI_SLURM_TIME: "00:30:00"
+    GIT_DEPTH: "1"
+  tags:
+    - draco_oci_generic
+  allow_failure: false
+
+.draco_oci_sok_test_job:
+  extends:
+    - .sok:rules:test_in_child
+  script:
+    - echo ${MOUNTS}
+    - export LOG_DIR="${DRACO_OCI_LOGDIR}/${CI_JOB_NAME}/${CI_JOB_ID}/results"
+    - echo ${LOG_DIR}
+    - mkdir -p "${LOG_DIR}"
+    - export LOG_FILE="${LOG_DIR}/${DATESTAMP}.log"
+    - export CONT=$(echo "${CONT}" | sed 's/:5005//g')
+    - chmod +x ${TEST_CMD}
+    - bash ${TEST_CMD} | tee ${LOG_FILE}
+  variables:
+    #    CI_SLURM_ACCOUNT: "coreai_devtech_all"
+    CI_SCHEDULER_TYPE: "slurm"
+    CI_SLURM_PARTITION: "batch_block1"
+    CI_SLURM_GPUS_PER_NODE: "8"
+    DRACO_OCI_PREFIX: "/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr"
+    SLURM_JOB_NUM_NODES: 1
+    CI_SLURM_TIME:      "00:30:00"
+    GIT_DEPTH: "1"
+  tags:
+    - draco_oci_generic
   allow_failure: false
 
 .dlcluster_test_job:
@@ -392,15 +439,21 @@ stages:
     WALLTIME: "00:30:00"
   stage: post_test
 
+.draco_oci_post_test_job:
+  extends:
+    - .draco_oci_test_job
+    - .hugectr:rules:test_in_child
+  variables:
+    WALLTIME: "00:30:00"
+  stage: post_test
+
 .cluster_post_test_job_daily:
   extends:
-    - .cluster_test_job
+    - .draco_oci_test_job
     - .default:rules:daily-test
-  stage: post_test
   variables:
-    SLURM_ACCOUNT: coreai_devtech_all
-    OLD_SLURM_ACCOUNT: "devtech"
-    GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
+    DRACO_OCI_LOGDIR: /lustre/fsw/portfolios/coreai/users/svcnvdlfw/hugectr_ci/${CI_PIPELINE_ID}
+  stage: post_test
 
 .inference_benchmark:
   extends:
