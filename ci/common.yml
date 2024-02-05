@@ -56,3 +56,11 @@ variables:
   DRACO_BST_DATASET: ${DATA_PREFIX}/fs1/projects/gpu_compute/datasets/hugectr-ci/bst
   DRACO_CLUSTER: "dracorno"
   DRACO_LOGDIR: ${DATA_PREFIX}/fs1/projects/gpu_compute/users/svcnvdlfw/hugectr_ci/${PARENT_PIPELINE_ID}
+  # DRACO-OCI cluster
+  DRACO_OCI_DATASET: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/criteo_kaggle
+  DRACO_OCI_DIN_DATASET: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/din
+  DRACO_OCI_NCF_DATASET: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/movie_len
+  DRACO_OCI_DATASET_NEW_CRITEO: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/new-criteo-dataset
+  DRACO_OCI_MMOE_DATASET: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/mmoe_data
+  DRACO_OCI_BST_DATASET: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/bst
+  DRACO_OCI_LOGDIR: /lustre/fsw/portfolios/coreai/users/svcnvdlfw/hugectr_ci/${PARENT_PIPELINE_ID}

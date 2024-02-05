@@ -221,15 +221,15 @@ build_pytorch_hps_trt_plugin:
   variables:
     FROM_IMAGE: ${IMAGE_PYTORCH}
     DST_IMAGE: $PYTORCH_TRT_IMAGE_VERSIONED
-    BUILD_TORCH_PLUGIN: 1    
+    BUILD_TORCH_PLUGIN: 1
     BUILD_TRT_PLUGIN: 1
     TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
     #BUILD_HPS_BACKEND: 1
     #HUGECTR_BACKEND_VER: main
     #TRITON_BRANCH: r22.11
 
-# Check Selene busy or not
-check_selene_status:
+# Check cluster busy or not
+check_cluster_status:
   extends: .trigger:rules:selene
   stage: pre_test
   tags:
@@ -239,16 +239,16 @@ check_selene_status:
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
     - docker pull ${CONT}
     - RC=0
-    - docker run -d --rm --name selene_idle_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} ${CONT} sleep infinity
-    - docker exec selene_idle_${CI_PIPELINE_ID} bash -cx "python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA} --token \"${CLUSTER_TOKEN}\" " || RC=$?
+    - docker run -d --rm --name cluster_idle_${CI_PIPELINE_ID} ${EXTRA_DOCKER_RUN_ARGS} ${CONT} sleep infinity
+    - docker exec cluster_idle_${CI_PIPELINE_ID} bash -cx "python get_selene_runner_status.py --quota ${SELENE_QUEUE_QUOTA} --token \"${CLUSTER_TOKEN}\" " || RC=$?
     - echo "$RC"
     - echo "NEW_CI_CONCURRENT_ID=${CI_CONCURRENT_ID}" >> other_param.env
     - if [[ $RC == 0 ]]; then
-      echo "Selene is idle!";
-      cp ./ci/selene/ci.yml ./test-ci.yml;
+      echo "Run jobs in draco-oci cluster!";
+      cp ./ci/draco-oci/ci.yml ./test-ci.yml;
       echo "NEW_SBATCH_OTHER_PARAMS=" >> other_param.env;
       else
-      echo "Selene is busy!";
+      echo "Run jobs in other cluster!";
       cp ./ci/dracorno/ci.yml ./test-ci.yml;
       echo "NEW_SBATCH_OTHER_PARAMS=--nv-meta ml-model.hugectr --gpus-per-node=8" >> other_param.env;
       fi
@@ -268,11 +268,11 @@ trigger_test_pipeline:
   stage:
     test
   needs:
-    - check_selene_status
+    - check_cluster_status
   trigger:
     include:
       - artifact: test-ci.yml
-        job: check_selene_status
+        job: check_cluster_status
     strategy: depend
   variables:
     PARENT_SOURCE: ${CI_PIPELINE_SOURCE}
@@ -286,12 +286,11 @@ criteo_multi_node:
   needs:
     - build_train_multi_node
   variables:
-    GPFSFOLDER: $LOGDIR/criteo_multi_node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "00:15:00"
-    DGXNNODES: 2
+    MOUNTS: ${DRACO_OCI_DATASET}:${DATASET_MOUNT}
+    CI_SLURM_TIME: "00:15:00"
+    CI_SLURM_NODES: 2
+    SLURM_JOB_NUM_NODES: 2
     TEST_CMD: ./ci/integration_test/criteo/criteo_multi_node.sub
 
 dlrm_dcnv2_benchmark_8node:
@@ -299,12 +298,11 @@ dlrm_dcnv2_benchmark_8node:
   needs:
     - build_train_multi_node
   variables:
-    GPFSFOLDER: $LOGDIR/dlrm_dcnv2_benchmark_8node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw:/data,/lustre/fsw/mlperf/mlperft-dlrm/datasets/criteo_multihot_raw:/data_val
-    WALLTIME: "00:15:00"
-    DGXNNODES: 8
+    MOUNTS: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/dlrm/datasets/criteo_multihot_raw:/data,/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/dlrm/datasets/criteo_multihot_raw:/data_val
+    CI_SLURM_TIME: "02:00:00"
+    CI_SLURM_NODES: 8
+    SLURM_JOB_NUM_NODES: 8
     TEST_CMD: ./ci/integration_test/dlrm/train_dcnv2_8node.sub
 
 wdl_multi_gpu:
@@ -312,12 +310,9 @@ wdl_multi_gpu:
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/wdl_multi_gpu                                                      # log dir, usually $LOGDIR + job name
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}                                     # should not change
     CONT: $TRAIN_IMAGE_VERSIONED                                                 # image name
-    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT}                                          # mount
-    WALLTIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
-    DGXNNODES: 1                                                                 # node num
+    MOUNTS: ${DRACO_OCI_DATASET_NEW_CRITEO}:${DATASET_MOUNT}                                          # mount
+    CI_SLURM_TIME: "00:15:00"                                                         # estimate job time. Less time, higher priority
     TEST_CMD: ./ci/integration_test/wdl/wdl_daily.sub
 
 deepfm_multi_gpu:
@@ -325,12 +320,9 @@ deepfm_multi_gpu:
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/deepfm_multi_gpu
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    MOUNTS: ${DRACO_OCI_DATASET}:${DATASET_MOUNT}
+    CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/integration_test/deepfm/deepfm_daily.sub
 
 dcn_multi_node:
@@ -338,12 +330,11 @@ dcn_multi_node:
   needs:
     - build_train_multi_node
   variables:
-    GPFSFOLDER: $LOGDIR/dcn_multi_node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "01:00:00"
-    DGXNNODES: 4                                                                              # using 4 node
+    MOUNTS: ${DRACO_OCI_DATASET}:${DATASET_MOUNT}
+    CI_SLURM_TIME: "01:00:00"
+    CI_SLURM_NODES: 4
+    SLURM_JOB_NUM_NODES: 4
     TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
 
 py_low_level:
@@ -351,12 +342,9 @@ py_low_level:
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/py_low_level
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: /raid:/raid,${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT}
-    WALLTIME: "01:00:00"
-    DGXNNODES: 1
+    MOUNTS: /raid:/raid,${DRACO_OCI_DATASET_NEW_CRITEO}:${NEW_CRITEO_MOUNT}
+    CI_SLURM_TIME: "01:00:00"
     TEST_CMD: ./ci/integration_test/py_interface/py_low_level.sub
 
 ebc_single_node:
@@ -364,12 +352,9 @@ ebc_single_node:
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/ebc_single_node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${DATASET_MOUNT},/raid:/raid
-    WALLTIME: "00:45:00"
-    DGXNNODES: 1
+    MOUNTS: ${DRACO_OCI_DATASET_NEW_CRITEO}:${DATASET_MOUNT},/raid:/raid
+    CI_SLURM_TIME: "02:00:00"
     TEST_CMD: ./ci/integration_test/ebc/ebc.sub
 
 py_multi_node:
@@ -377,12 +362,11 @@ py_multi_node:
   needs:
     - build_train_multi_node
   variables:
-    GPFSFOLDER: $LOGDIR/py_multi_node
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: ${DATASET}:${DATASET_MOUNT}
-    WALLTIME: "00:15:00"
-    DGXNNODES: 4
+    MOUNTS: ${DRACO_OCI_DATASET}:${DATASET_MOUNT}
+    CI_SLURM_TIME: "00:15:00"
+    CI_SLURM_NODES: 4
+    SLURM_JOB_NUM_NODES: 4
     TEST_CMD: ./ci/integration_test/py_interface/py_multi_node.sub
 
 inference_benchmark:
@@ -393,13 +377,10 @@ inference_benchmark:
     - export BZ=1
     - export MIXED_PRECISION=FP32
   variables:
-    GPFSFOLDER: $LOGDIR/inference_benchmark
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $INFER_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data
+    MOUNTS: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/keynote_inference/perf_data:/perf_data
     WORKDIR: /workdir
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
 
 inference_ps_test:
@@ -444,12 +425,9 @@ e2e_nvt_regression_test:
   needs:
     - build_train_single_node_latest
   variables:
-    GPFSFOLDER: $LOGDIR/e2e_nvt_regression_test
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED_LATEST
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1,/lustre/fsw/devtech/hpc-hugectr/inference/nvt_regression:/workdir/samples/din/raw_data,/lustre/fsw/devtech/hpc-hugectr/criteo_1TB/day_0:/dir/to/criteo/day_0
-    WALLTIME: "01:00:00"
-    DGXNNODES: 1
+    MOUNTS: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1,/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/inference/nvt_regression:/workdir/samples/din/raw_data,/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/criteo_1TB/day_0:/dir/to/criteo/day_0
+    CI_SLURM_TIME: "01:00:00"
     TEST_CMD: ./ci/integration_test/nvt/nvt_regression_test.sub
 
 nb_hps_demo:
@@ -457,11 +435,8 @@ nb_hps_demo:
   needs:
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/nb_hps_demo
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    CI_SLURM_TIME: "00:45:00"
     TEST_CMD: ./ci/integration_test/notebooks/hps_demo.sub
 
 test_sok_pypi:
@@ -469,11 +444,8 @@ test_sok_pypi:
   needs:
     - build_sok_tf2
   variables:
-    GPFSFOLDER: $LOGDIR/test_sok_pypi
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $SOK_IMAGE_VERSIONED_TF2
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/integration_test/sok/test_sok_pypi.sub
 
 wdl_check:
@@ -482,12 +454,9 @@ wdl_check:
   needs:
     - wdl_multi_gpu
   variables:
-    GPFSFOLDER: $LOGDIR/wdl_check
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/wdl_multi_gpu:/logs
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    MOUNTS:  ${DRACO_OCI_LOGDIR}/wdl_multi_gpu:/logs
+    CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_wdl.sub
 
 inference_benchmark_check:
@@ -496,12 +465,9 @@ inference_benchmark_check:
     - inference_benchmark
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/inference_benchmark_check
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/inference_benchmark:/logs
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    MOUNTS:  ${DRACO_OCI_LOGDIR}/inference_benchmark:/logs
+    CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
 
 inference_cpu_memory_usage:
@@ -511,14 +477,12 @@ inference_cpu_memory_usage:
   before_script:
     - export BZ=1
     - export MIXED_PRECISION=FP32
+    - mkdir -p ${DRACO_OCI_LOGDIR}/inference_cpu_memory
   variables:
-    GPFSFOLDER: $LOGDIR/inference_cpu_memory
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $INFER_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,$LOGDIR/inference_cpu_memory:/logs
+    MOUNTS: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,${DRACO_OCI_LOGDIR}/inference_cpu_memory:/logs
     WORKDIR: /workdir
-    WALLTIME: "00:30:00"
-    DGXNNODES: 1
+    CI_SLURM_TIME: "00:30:00"
     TEST_CMD: ./ci/benchmark/hps_memory_check/run.sub
 
 inference_CPU_Memory_check:
@@ -527,12 +491,9 @@ inference_CPU_Memory_check:
     - inference_cpu_memory_usage
     - build_train_single_node
   variables:
-    GPFSFOLDER: $LOGDIR/inference_cpu_memory
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/inference_cpu_memory:/logs
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    MOUNTS: ${DRACO_OCI_LOGDIR}/inference_cpu_memory:/logs
+    CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_cpu_usage.sub
 
 dlrm_dcnv2_8node_check:
@@ -541,12 +502,9 @@ dlrm_dcnv2_8node_check:
   needs:
     - dlrm_dcnv2_benchmark_8node
   variables:
-    GPFSFOLDER: $LOGDIR/dlrm_dcnv2_8node_check
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: $LOGDIR/dlrm_dcnv2_benchmark_8node:/logs
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
+    MOUNTS: ${DRACO_OCI_LOGDIR}/dlrm_dcnv2_benchmark_8node:/logs
+    CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_dcnv2_dlrm_8node.sub
 
 # rm_logs:
