@@ -57,10 +57,15 @@ docker_buildx::docker_buildx() {
 
   docker buildx inspect --bootstrap
 
-  docker buildx build $in_BUILDX_ARGS .
+  local BUILDX_VERSION=$( docker buildx version | awk '{print $2}' | sed 's/[^0-9.]//g' )
+  local BUILDX_PROVENANCE_ARGS="--provenance=false"
+  if dpkg --compare-versions "${BUILDX_VERSION}" "lt" "0.10.0"; then
+    BUILDX_PROVENANCE_ARGS=""
+  fi
+
+  docker buildx build $BUILDX_PROVENANCE_ARGS $in_BUILDX_ARGS .
   RV=$?
   echo "exit code from the previous command -> $RV"
   cleanup
   return $RV 
 }
-
