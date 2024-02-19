@@ -50,7 +50,6 @@ REGISTER_OP("DummyVarExportIf")
     .Attr("dtype: {float32} = DT_FLOAT")
     .SetShapeFn([](InferenceContext* c) { return sok_tsl_status(); });
 
-
 REGISTER_OP("DummyVarSparseRead")
     .Input("resource: resource")
     .Input("indices: key_type")
@@ -75,6 +74,36 @@ REGISTER_OP("DummyVarSparseRead")
       ShapeHandle output_shape;
       TF_RETURN_IF_ERROR(c->Concatenate(c->input(1), handle_shape_1, &output_shape));
       c->set_output(0, output_shape);
+
+      return sok_tsl_status();
+    });
+
+REGISTER_OP("DummyVarSparseReadEvict")
+    .Input("resource: resource")
+    .Input("indices: key_type")
+    .Output("output: dtype")
+    .Output("evict_keys: key_type")
+    .Output("evict_values: dtype")
+    .Attr("key_type: {int32, int64}")
+    .Attr("dtype: {float32, float16} = DT_FLOAT")
+    .SetShapeFn([](InferenceContext* c) {
+      //// Get handle.shape[1]
+      //auto handle_shapes_and_types = c->input_handle_shapes_and_types(0);
+      //if (handle_shapes_and_types == nullptr) {
+      //    return sok_tsl_status();
+      //}
+      //auto handle_shape = (*handle_shapes_and_types)[0].shape;
+      //ShapeHandle handle_shape_1;
+      //TF_RETURN_IF_ERROR(c->Subshape(handle_shape, 1, 2, &handle_shape_1));
+
+      //// rank(indices) should == 1
+      //ShapeHandle indices_shape;
+      //TF_RETURN_IF_ERROR(c->WithRank(c->input(1), 1, &indices_shape));
+
+      //// Set output shape = [indices.shape[0], handle.shape[1]]
+      //ShapeHandle output_shape;
+      //TF_RETURN_IF_ERROR(c->Concatenate(c->input(1), handle_shape_1, &output_shape));
+      //c->set_output(0, output_shape);
 
       return sok_tsl_status();
     });

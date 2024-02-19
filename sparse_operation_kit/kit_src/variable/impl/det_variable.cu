@@ -219,6 +219,24 @@ void DETVariable<KeyType, ValueType>::lookup(const KeyType* keys, ValueType** va
 }
 
 template <typename KeyType, typename ValueType>
+void DETVariable<KeyType, ValueType>::lookup_with_evict(const KeyType* keys, KeyType* tmp_keys,
+                                                        ValueType* tmp_values, ValueType* values,
+                                                        uint64_t* evict_num_keys, uint64_t num_keys,
+                                                        cudaStream_t stream) {
+  throw std::runtime_error(
+      "SOK dynamic variable with DET backend don't support lookup_with_evict!");
+}
+
+template <typename KeyType, typename ValueType>
+void DETVariable<KeyType, ValueType>::copy_evict_keys(const KeyType* keys, const ValueType* values,
+                                                      size_t num_keys, size_t dim,
+                                                      KeyType* ret_keys, ValueType* ret_values,
+                                                      cudaStream_t stream) {
+  throw std::runtime_error(
+      "SOK dynamic variable with DET backend don't support lookup_with_evict!");
+}
+
+template <typename KeyType, typename ValueType>
 void DETVariable<KeyType, ValueType>::scatter_add(const KeyType* keys, const ValueType* values,
                                                   size_t num_keys, cudaStream_t stream) {
   map_->scatter_add(keys, values, num_keys, stream);

@@ -86,6 +86,20 @@ void DummyVar<KeyType, ValueType>::SparseRead(const void* keys, void* values, si
 }
 
 template <typename KeyType, typename ValueType>
+void DummyVar<KeyType, ValueType>::SparseReadEvict(const void* keys, void* tmp_keys, void* tmp_values, void *values , uint64_t* evict_num_keys, size_t num_keys,
+                                              cudaStream_t stream) {
+  check_var();
+  var_->lookup_with_evict(static_cast<const KeyType*>(keys), static_cast<KeyType*>(tmp_keys),static_cast<ValueType*>(tmp_values),static_cast<ValueType*>(values),evict_num_keys, num_keys,
+               stream);
+}
+
+template <typename KeyType, typename ValueType>
+void DummyVar<KeyType, ValueType>::CopyEvictKeys(const void* keys, const void* values,size_t num_keys,size_t dim, void* ret_keys, void* ret_values, cudaStream_t stream) {
+  check_var();
+  var_->copy_evict_keys(static_cast<const KeyType*>(keys), static_cast<const ValueType*>(values),num_keys,dim,static_cast<KeyType*>(ret_keys),static_cast<ValueType*>(ret_values),stream);
+}
+
+template <typename KeyType, typename ValueType>
 void DummyVar<KeyType, ValueType>::ScatterAdd(const void* keys, const void* values, size_t num_keys,
                                               cudaStream_t stream) {
   check_var();

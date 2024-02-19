@@ -22,6 +22,16 @@
 
 namespace sok {
 
+uint64_t align_length(uint64_t num) {
+  // Check if num is already a multiple of 16
+  if (num % 16 == 0) {
+    return num;
+  }
+  // Find the next multiple of 16
+  uint64_t alignedNum = ((num / 16) + 1) * 16;
+  return alignedNum;
+}
+
 template <typename KeyType, typename ValueType>
 std::shared_ptr<VariableBase<KeyType, ValueType>> VariableFactory::create(
     int64_t rows, int64_t cols, const std::string &type, const std::string &initializer,

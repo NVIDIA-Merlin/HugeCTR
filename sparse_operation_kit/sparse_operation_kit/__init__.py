@@ -65,7 +65,7 @@ from sparse_operation_kit.optimizer import OptimizerWrapper
 from sparse_operation_kit.optimizer import SGD
 
 
-from sparse_operation_kit.lookup import lookup_sparse
+from sparse_operation_kit.lookup import lookup_sparse, sparse_read_and_evict
 from sparse_operation_kit.lookup import all2all_dense_embedding
 
 from sparse_operation_kit.dump_load import dump, load, incremental_model_dump
