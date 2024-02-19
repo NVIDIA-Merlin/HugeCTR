@@ -57,6 +57,10 @@ class DummyVar : public ResourceBase {
   void Assign(const void *keys, const void *values, size_t num_keys, cudaStream_t stream);
 
   void SparseRead(const void *keys, void *values, size_t num_keys, cudaStream_t stream);
+  void SparseReadEvict(const void *keys, void *tmp_keys, void *tmp_values, void *values,
+                       uint64_t *evict_num_keys, size_t num_keys, cudaStream_t stream);
+  void CopyEvictKeys(const void *keys, const void *values, size_t num_keys, size_t dim,
+                     void *ret_keys, void *ret_values, cudaStream_t stream);
   void ScatterAdd(const void *keys, const void *values, size_t num_keys, cudaStream_t stream);
   void ScatterUpdate(const void *keys, const void *values, size_t num_keys, cudaStream_t stream);
 

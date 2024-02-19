@@ -253,6 +253,82 @@ REGISTER_GPU_KERNELS(int32_t, int32_t, float, float);
 #undef REGISTER_GPU_KERNELS
 
 // -----------------------------------------------------------------------------------------------
+// DummyVarSparseReadEvict
+// -----------------------------------------------------------------------------------------------
+template <typename KeyType, typename ValueType>
+class DummyVarSparseReadEvictOp : public OpKernel {
+ public:
+  explicit DummyVarSparseReadEvictOp(OpKernelConstruction* ctx) : OpKernel(ctx) {}
+
+  void Compute(OpKernelContext* ctx) override {
+    core::RefCountPtr<DummyVar<KeyType, ValueType>> var;
+    OP_REQUIRES_OK(ctx, LookupResource(ctx, HandleFromInput(ctx, 0), &var));
+
+    tf_shared_lock ml(*var->mu());
+
+    const Tensor* indices = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->input("indices", &indices));
+
+    int64_t cols = var->cols();
+    int64_t rows = indices->NumElements();
+
+    AllocatorAttributes alloc_attr;
+    alloc_attr.set_on_host(true); 
+    // temp buffer
+    Tensor tmp_indices;
+    OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_INT64, {rows}, &tmp_indices));
+
+
+    Tensor tmp_values;
+    OP_REQUIRES_OK(ctx, ctx->allocate_temp(DataTypeToEnum<ValueType>::v(), {rows*cols}, &tmp_values));
+
+    Tensor tmp_evict_num;
+    OP_REQUIRES_OK(ctx, ctx->allocate_temp(DT_UINT64, {1}, &tmp_evict_num, alloc_attr));
+
+    Tensor* output = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(0, {rows, cols}, &output));
+
+    // Get cuda stream of tensorflow
+    auto device_ctx = ctx->op_device_context();
+    OP_REQUIRES(ctx, device_ctx != nullptr, errors::Aborted("No valid device context."));
+    cudaStream_t stream = stream_executor::gpu::AsGpuStreamValue(device_ctx->stream());
+
+    var->SparseReadEvict(indices->data(),tmp_indices.data(),tmp_values.data(), output->data(),(uint64_t*)tmp_evict_num.data(), rows, stream);
+    size_t evict_num = ((size_t*)tmp_evict_num.data())[0];
+    Tensor* output_evict_keys = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(1, {evict_num}, &output_evict_keys));
+
+    Tensor* output_evict_value = nullptr;
+    OP_REQUIRES_OK(ctx, ctx->allocate_output(2, {evict_num, cols}, &output_evict_value));
+    if (evict_num > 0){
+    var->CopyEvictKeys(tmp_indices.data(),tmp_values.data(),evict_num,cols,output_evict_keys->data(),output_evict_value->data(),stream);
+    }
+
+  }
+};
+
+#define REGISTER_GPU_KERNELS(key_type_tf, key_type, dtype_tf, dtype)   \
+  REGISTER_KERNEL_BUILDER(Name("DummyVarSparseReadEvict")                   \
+                              .Device(DEVICE_GPU)                      \
+                              .HostMemory("resource")                  \
+                              .TypeConstraint<key_type_tf>("key_type") \
+                              .TypeConstraint<dtype_tf>("dtype"),      \
+                          DummyVarSparseReadEvictOp<key_type, dtype>)
+#if TF_VERSION_MAJOR == 1
+REGISTER_GPU_KERNELS(int64, int64_t, float, float);
+REGISTER_GPU_KERNELS(int32, int32_t, float, float);
+// REGISTER_GPU_KERNELS(int64, int64_t, Eigen::half, __half);
+// REGISTER_GPU_KERNELS(int32, int32_t, Eigen::half, __half);
+#else
+REGISTER_GPU_KERNELS(int64_t, int64_t, float, float);
+REGISTER_GPU_KERNELS(int32_t, int32_t, float, float);
+// REGISTER_GPU_KERNELS(int64_t, int64_t, Eigen::half, __half);
+// REGISTER_GPU_KERNELS(int32_t, int32_t, Eigen::half, __half);
+#endif
+#undef REGISTER_GPU_KERNELS
+
+
+// -----------------------------------------------------------------------------------------------
 // DummyVarScatterAdd
 // -----------------------------------------------------------------------------------------------
 template <typename KeyType, typename ValueType>

@@ -37,6 +37,7 @@ from sparse_operation_kit.distributed_variable import DistributedVariable
 from sparse_operation_kit.distributed_variable import LocalizedVariable
 
 from sparse_operation_kit.dynamic_variable import DynamicVariable
+from sparse_operation_kit.utils import SOK_IndexedSlices
 import importlib
 
 try:
@@ -48,6 +49,30 @@ try:
     from tensorflow.python.ops import resource_variable_ops
 except:
     pass
+
+
+@tf.RegisterGradient("DummyVarSparseReadEvict")
+def _DummyVarSparseReadEvictGrad(op, *top_grads):
+    handle = op.inputs[0]
+    indices = op.inputs[1]
+    key_type = op.get_attr("key_type")
+    dtype = op.get_attr("dtype")
+    variable_shape = raw_ops.dummy_var_shape(handle, key_type=key_type, dtype=dtype)
+    size = array_ops.expand_dims(array_ops.size(indices), 0)
+    values_shape = array_ops.concat([size, variable_shape[1:]], 0)
+    grad = array_ops.reshape(top_grads[0], values_shape)
+    indices = array_ops.reshape(indices, size)
+
+    grads = [SOK_IndexedSlices()(grad, indices, values_shape)]
+    return grads + [None]
+
+
+def sparse_read_and_evict(var, indices, name=None):
+    # only used on hybrid backend
+    if var.backend_type != "hybrid":
+        raise TypeError("sparse_read_and_evict only use on hybrid backend")
+    variable_accessed(var)
+    return raw_ops.dummy_var_sparse_read_evict(var._dummy_handle, indices, dtype=var.handle_dtype)
 
 
 def group_lookup(params, indices, dtype=None, name=None):

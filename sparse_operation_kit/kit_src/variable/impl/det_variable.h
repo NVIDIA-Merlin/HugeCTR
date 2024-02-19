@@ -45,6 +45,13 @@ class DETVariable : public VariableBase<KeyType, ValueType> {
               cudaStream_t stream = 0) override;
   void lookup(const KeyType *keys, ValueType **values, size_t num_keys,
               cudaStream_t stream = 0) override;
+
+  void lookup_with_evict(const KeyType *keys, KeyType *tmp_keys, ValueType *tmp_values,
+                         ValueType *values, uint64_t *evict_num_keys, uint64_t num_keys,
+                         cudaStream_t stream = 0) override;
+
+  void copy_evict_keys(const KeyType *keys, const ValueType *values, size_t num_keys, size_t dim,
+                       KeyType *ret_keys, ValueType *ret_values, cudaStream_t stream = 0) override;
   void scatter_add(const KeyType *keys, const ValueType *values, size_t num_keys,
                    cudaStream_t stream = 0) override;
   void scatter_update(const KeyType *keys, const ValueType *values, size_t num_keys,

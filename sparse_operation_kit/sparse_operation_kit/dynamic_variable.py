@@ -17,6 +17,7 @@
 import tensorflow as tf
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
+from tensorflow.python.ops.resource_variable_ops import variable_shape
 from tensorflow.python.ops.resource_variable_ops import ResourceVariable, variable_accessed
 from tensorflow.python.eager import context
 from tensorflow.python.ops import resource_variable_ops
