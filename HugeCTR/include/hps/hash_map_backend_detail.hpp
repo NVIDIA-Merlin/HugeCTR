@@ -19,6 +19,7 @@
 #include <hps/inference_utils.hpp>
 #include <thread_pool.hpp>
 #include <type_traits>
+#include <atomic>
 
 namespace HugeCTR {
 
@@ -55,7 +56,9 @@ namespace HugeCTR {
       const Payload& payload{it->second};                           \
                                                                     \
       /* Stash pointer and reference in map. */                     \
+      std::unique_lock lock(part.read_write_lck);                   \
       part.value_slots.emplace_back(payload.value);                 \
+      lock.unlock();                                                \
       part.entries.erase(it);                                       \
       ++num_deletions;                                              \
     }                                                               \
@@ -91,6 +94,7 @@ namespace HugeCTR {
                                                                                              \
       /* Race-conditions here are deliberately ignored because insignificant in practice. */ \
       __VA_ARGS__;                                                                           \
+      while (payload.lck.load(std::memory_order_relaxed) != 0);                              \
       std::copy_n(payload.value, part.value_size, &values[(k - keys) * value_stride]);       \
     } else {                                                                                 \
       on_miss(k - keys);                                                                     \
@@ -135,6 +139,7 @@ namespace HugeCTR {
                   std::is_same_v<decltype(k), const Key* const>);                            \
     static_assert(std::is_same_v<decltype(values), const char* const>);                      \
                                                                                              \
+    /* TODO(robertzhu): use thread safe api */                                               \
     const auto& res{part.entries.try_emplace(*k)};                                           \
     Payload& payload{res.first->second};                                                     \
                                                                                              \
@@ -142,6 +147,7 @@ namespace HugeCTR {
                                                                                              \
     /* If new insertion. */                                                                  \
     if (res.second) {                                                                        \
+      std::unique_lock<std::shared_mutex> lock(part.read_write_lck);                   \
       /* If no free space, allocate another buffer, and fill pointer queue. */               \
       if (part.value_slots.empty()) {                                                        \
         const size_t stride{(value_size + value_page_alignment - 1) / value_page_alignment * \
@@ -152,6 +158,7 @@ namespace HugeCTR {
         /* Get more memory. */                                                               \
         part.value_pages.emplace_back(num_values* stride, char_allocator_);                  \
         ValuePage& value_page{part.value_pages.back()};                                      \
+        /*HCTR_LOG_C(DEBUG, WORLD, "insert value_page: num_values ", num_values, "; stride ", stride, "; value_page ", value_page.capacity(), ".\n"); \*/
                                                                                              \
         /* Stock up slot references. */                                                      \
         part.value_slots.reserve(part.value_slots.size() + num_values);                      \
@@ -165,9 +172,16 @@ namespace HugeCTR {
       payload.value = part.value_slots.back();                                               \
       part.value_slots.pop_back();                                                           \
       ++num_inserts;                                                                         \
+      lock.unlock();                                                                         \
     }                                                                                        \
                                                                                              \
+    if (payload.lck.load(std::memory_order_relaxed) != -1) {                                 \
+      int8_t expected = 0;                                                                   \
+      while (!payload.lck.compare_exchange_weak(expected, 1, std::memory_order_release,      \
+                                                std::memory_order_relaxed));                 \
+    }                                                                                        \
     std::copy_n(&values[(k - keys) * value_stride], value_size, payload.value);              \
+    payload.lck.store(0, std::memory_order_relaxed);                                         \
   } while (0)
 
 /**
