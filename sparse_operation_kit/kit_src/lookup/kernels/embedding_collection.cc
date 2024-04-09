@@ -29,6 +29,7 @@
 #include "lookup/impl/embedding_collection_adapter.h"
 #include "lookup/impl/hotness_calculate.h"
 #include "lookup/impl/core_impl/core23_allocator.hpp"
+#include "common/check.h"
 
 // clang-format on
 
@@ -112,6 +113,7 @@ class EmbeddingCollectionBase : public OpKernel {
           global_batch_size, global_gpu_id_);
       this->meta_.reset(new sok::UniformModelParallelEmbeddingMeta(tf_backend, *ebc_param_, 0));
     } else {
+      CUDACHECK(cudaDeviceSynchronize());
       std::vector<std::vector<int>> shard_matrix;
       this->make_shard_matrix(shard_matrix);
       this->ebc_param_ = sok::make_embedding_collection_param<KeyType, OffsetType, DType>(
