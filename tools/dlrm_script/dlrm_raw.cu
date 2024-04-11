@@ -141,7 +141,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
     cudf_io::table_with_metadata tbl_w_metadata =
         cudf_io::read_csv(in_args, cudf::get_default_stream(), p_mr);
 #elif defined(CUDF_VERSION_MAJOR) && CUDF_VERSION_MAJOR > 23
-    auto tbl_w_metadata = cudf_io::read_csv(in_args, cudf::get_default_stream(), mr);
+    auto tbl_w_metadata = cudf_io::read_csv(in_args, cudf::get_default_stream(), p_mr);
 #else
     cudf_io::table_with_metadata tbl_w_metadata = cudf_io::read_csv(in_args, p_mr);
 #endif
@@ -501,7 +501,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
       cudf_io::table_with_metadata tbl_w_metadata =
           cudf_io::read_csv(in_args, cudf::get_default_stream(), p_mr);
 #elif defined(CUDF_VERSION_MAJOR) && CUDF_VERSION_MAJOR > 23
-      auto tbl_w_metadata = cudf_io::read_csv(in_args, cudf::get_default_stream(), mr);
+      auto tbl_w_metadata = cudf_io::read_csv(in_args, cudf::get_default_stream(), p_mr);
 #else
       cudf_io::table_with_metadata tbl_w_metadata = cudf_io::read_csv(in_args, p_mr);
 

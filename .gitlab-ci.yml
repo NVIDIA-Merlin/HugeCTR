@@ -177,7 +177,7 @@ build_inference:
 build_sok_tf2:
   extends: .build_sok
   variables:
-    FROM_IMAGE: ${IMAGE_SOK_TF2}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $SOK_IMAGE_VERSIONED_TF2
     CMAKE_OPTION: "-DSM=\"60;61;70;75;80;90\""
     BUILD_SOK: 1
@@ -207,7 +207,7 @@ build_hugectr_hps_trt_plugin:
 build_tf_hps_trt_plugin:
   extends: .build_hugectr
   variables:
-    FROM_IMAGE: ${IMAGE_SOK_TF2}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TF_TRT_IMAGE_VERSIONED
     BUILD_TF_PLUGIN: 1
     BUILD_TRT_PLUGIN: 1
@@ -219,7 +219,7 @@ build_tf_hps_trt_plugin:
 build_pytorch_hps_trt_plugin:
   extends: .build_hugectr
   variables:
-    FROM_IMAGE: ${IMAGE_PYTORCH}
+    FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $PYTORCH_TRT_IMAGE_VERSIONED
     BUILD_TORCH_PLUGIN: 1
     BUILD_TRT_PLUGIN: 1
@@ -445,7 +445,7 @@ test_sok_pypi:
     - build_sok_tf2
   variables:
     CONT: $SOK_IMAGE_VERSIONED_TF2
-    CI_SLURM_TIME: "00:15:00"
+    CI_SLURM_TIME: "00:30:00"
     TEST_CMD: ./ci/integration_test/sok/test_sok_pypi.sub
 
 wdl_check:

@@ -120,7 +120,6 @@ def _generate_embedding_tables():
 
 
 def create_hps_plugin_creator():
-    trt_version = [int(n) for n in trt.__version__.split(".")]
     plugin_lib_name = PLUGIN_LIB_PATH
     handle = ctypes.CDLL(plugin_lib_name, mode=ctypes.RTLD_GLOBAL)
     trt.init_libnvinfer_plugins(TRT_LOGGER, "")

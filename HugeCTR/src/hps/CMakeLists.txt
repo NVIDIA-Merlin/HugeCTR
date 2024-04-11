@@ -30,6 +30,9 @@ list(APPEND huge_ctr_hps_src
   "../io/gcs_filesystem.cpp"
 )
 
+# this manual definition is a WAR and RMM team will fix it in the future
+add_compile_definitions(LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE)
+
 add_library(huge_ctr_hps SHARED ${huge_ctr_hps_src})
 
 if(ENABLE_HDFS)

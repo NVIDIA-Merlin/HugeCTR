@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <tensorflow/core/framework/op_kernel.h>
 #ifndef TF_GE_211
 #include <tensorflow/stream_executor/cuda/cuda_activation.h>
 #include <tensorflow/stream_executor/gpu/gpu_stream.h>
@@ -26,6 +25,8 @@
 #include <tensorflow/compiler/xla/stream_executor/stream.h>
 #include <tensorflow/compiler/xla/stream_executor/stream_executor.h>
 #endif
+
+#include <tensorflow/core/framework/op_kernel.h>
 
 #include <hps/plugin/facade.hpp>
 

@@ -47,7 +47,6 @@ def onnx_surgery(args):
 
 
 def create_hps_plugin_creator(args):
-    trt_version = [int(n) for n in trt.__version__.split(".")]
     plugin_lib_name = args["hps_trt_plugin_lib_path"]
     handle = ctypes.CDLL(plugin_lib_name, mode=ctypes.RTLD_GLOBAL)
     trt.init_libnvinfer_plugins(TRT_LOGGER, "")
