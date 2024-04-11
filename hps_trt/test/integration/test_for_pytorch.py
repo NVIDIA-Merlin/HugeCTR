@@ -342,7 +342,6 @@ def build_engine_from_onnx(onnx_model_path):
 
 
 def create_hps_plugin_creator():
-    trt_version = [int(n) for n in trt.__version__.split(".")]
     handle = ctypes.CDLL(plugin_lib_name, mode=ctypes.RTLD_GLOBAL)
     trt.init_libnvinfer_plugins(TRT_LOGGER, "")
     plg_registry = trt.get_plugin_registry()

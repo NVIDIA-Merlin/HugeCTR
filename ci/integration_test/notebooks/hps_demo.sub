@@ -2,6 +2,5 @@
 
 srun --ntasks=1 --container-image="${CONT}" bash -cx " \
     chmod +x /usr/local/hugectr/bin/* && \
-    pip install torch==2.0.0+cu118 torchvision==0.15.1+cu118 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118 && \
-    pip install tensorflow protobuf==3.20.3 && \
+    pip install torchvision==0.17.2+cu121 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu121 && \
     cd /workdir/test/notebook_test && pytest hps_demo.py"
