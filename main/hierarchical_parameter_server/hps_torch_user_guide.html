@@ -160,10 +160,10 @@
 <p>While all NVIDIA Merlin components are open source, the most convenient way to leverage them is through Merlin NGC containers. These containers enable you to encapsulate your software application, libraries, dependencies, and runtime compilers within a self-contained environment. By installing HPS using NGC containers, you ensure that your application environment remains portable, consistent, reproducible, and independent of the underlying host system’s software configuration.</p>
 <p>HPS is available within the Merlin Docker containers, which can be accessed through the NVIDIA GPU Cloud (NGC) catalog. You can explore and obtain these containers from the catalog by visiting <a class="reference external" href="https://catalog.ngc.nvidia.com/containers">https://catalog.ngc.nvidia.com/containers</a>.</p>
 <p>To utilize these Docker containers, you will need to install the <a class="reference external" href="https://github.com/NVIDIA/nvidia-docker">NVIDIA Container Toolkit</a> to provide GPU support for Docker.</p>
-<p>The following sample commands pull and start the Merlin PyTorch container:</p>
-<p>Merlin PyTorch</p>
+<p>The following sample commands pull and start the Merlin HugeCTR container:</p>
+<p>Merlin HugeCTR</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="c1"># Run the container in interactive mode</span>
-$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>--gpus<span class="o">=</span>all<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-pytorch:23.12
+$<span class="w"> </span>docker<span class="w"> </span>run<span class="w"> </span>--gpus<span class="o">=</span>all<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:24.04
 </pre></div>
 </div>
 <p>You can check the existence of the HPS plugin for Torch after launching the container by running the following Python statements:</p>
