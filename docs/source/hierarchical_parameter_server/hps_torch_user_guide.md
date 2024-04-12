@@ -33,12 +33,12 @@ HPS is available within the Merlin Docker containers, which can be accessed thro
 
 To utilize these Docker containers, you will need to install the [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) to provide GPU support for Docker.
 
-The following sample commands pull and start the Merlin PyTorch container:
+The following sample commands pull and start the Merlin HugeCTR container:
 
-Merlin PyTorch
+Merlin HugeCTR
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-pytorch:23.12
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:24.04
 ```
 
 You can check the existence of the HPS plugin for Torch after launching the container by running the following Python statements:
