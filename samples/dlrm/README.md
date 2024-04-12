@@ -18,11 +18,11 @@ HugeCTR is available as buildable source code, but the easiest way to install an
 
 1. Pull the HugeCTR NGC Docker by running the following command:
    ```bash
-   $ docker pull nvcr.io/nvidia/merlin/merlin-hugectr:23.12
+   $ docker pull nvcr.io/nvidia/merlin/merlin-hugectr:24.04
    ```
 2. Launch the container in interactive mode with the HugeCTR root directory mounted into the container by running the following command:
    ```bash
-   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-hugectr:23.12
+   $ docker run --gpus=all --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr nvcr.io/nvidia/merlin/merlin-hugectr:24.04
    ```
 
 ### Build the HugeCTR Docker Container on Your Own ###
@@ -86,7 +86,7 @@ As a result, `day_*_sparse_multi_hot.npz` files will be created (24 files in tot
 Because HugeCTR uses, among others, [raw format](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw) for input data, we need to convert NumPy files created in the preceding steps to this format. To this end, use `preprocessing/convert_to_raw.py` script that comes with the container created in section [Build the container and push to a docker registry](#build-the-container-and-push-to-a-docker-registry) below.
 
 ```
-docker run -it --rm --network=host --ipc=host -v /data:/data nvcr.io/nvidia/merlin/merlin-hugectr:23.12
+docker run -it --rm --network=host --ipc=host -v /data:/data nvcr.io/nvidia/merlin/merlin-hugectr:24.04
 ```
 In that container, run:
 ```
