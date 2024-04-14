@@ -194,7 +194,7 @@ perf_analyzer -m your_model_name --collect-metrics -f perf_output.csv --verbose-
 |--------------------|-----|-----|
 |Profile client side E2E Pipeline|NO|YES|
 |Profile sever side key lookup session|YES|YES|
-|Pofile the embedding cache component|YES|NO|
+|Profile the embedding cache component|YES|NO|
 |Profile the database backend component|YES|NO|
 |Support different key distributions|YES|YES|
 |Concurrency Support|NO|YES|
