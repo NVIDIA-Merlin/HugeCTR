@@ -1,4 +1,0 @@
-#!/bin/bash
-
-srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-    rm -rf "

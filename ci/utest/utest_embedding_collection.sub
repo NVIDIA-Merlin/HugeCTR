@@ -1,5 +1,0 @@
-#!/bin/bash
-
-srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx "\
-      cd /workdir/build/bin \
-      && ./embedding_collection_test --gtest_filter=-test_embedding_collection.benchmark*:test_embedding_collection.utest_2node"
