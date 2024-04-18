@@ -34,7 +34,6 @@ using namespace HugeCTR;
 
 // const std::string fname = "/40m.limit_preshuffled/train_data.bin";
 // const std::string fname = "/criteo_kaggle/dlrm/test_data.bin";
-// const std::string fname = "/raid/datasets/criteo/mlperf/40m.limit_preshuffled/train_data.bin";
 const std::string fname = "/data_multihot/val_data.bin";
 
 __global__ void gpu_sleep(int64_t num_cycles) {

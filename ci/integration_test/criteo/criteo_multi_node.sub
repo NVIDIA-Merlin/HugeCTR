@@ -1,7 +1,0 @@
-#!/bin/bash
-
-#TODO: add restriction of NCCL_IB_HCA for draco-oci, may need remove it for other cluster
-srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
-    export NCCL_IB_HCA=\"=mlx5_1\" && \
-    cd /dataset/criteo_kaggle/criteo_parquet && \
-    python3 /workdir/test/pybind_test/multi_node_test.py --json-file=/workdir/test/scripts/criteo_2node_4gpu.json"
