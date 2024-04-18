@@ -29,7 +29,7 @@ latency over the configurable iteration, and then repeats the measurements until
 For example, if `--embedding_cache` is used the results will be show below:
 
 ```
-$ hps_profiler --iterations 1000 --num_key 2000 --powerlaw --alpha 1.2 --config /hugectr/model/ps.json --table_size 630000 --warmup_iterations 100   --embedding_cache
+$ hps_profiler --iterations 1000 --num_key 2000 --distribution powerlaw --alpha 1.2 --config /hugectr/model/ps.json --table_size 630000 --warmup_iterations 100   --embedding_cache
 
 ...
 *** Measurement Results ***
@@ -144,7 +144,7 @@ Optional arguments:
 
 Measurement example of the HPS Lookup Session
 ```
-$hps_profiler --iterations 1000 --num_key 2000 --powerlaw --alpha 1.2 --config /hugectr/Model_Samples/wdl/wdl_infer/model/ps.json --table_size 630000 --warmup_iterations 100   --lookup_session
+$hps_profiler --iterations 1000 --num_key 2000 --distribution powerlaw --alpha 1.2 --config /hugectr/Model_Samples/wdl/wdl_infer/model/ps.json --table_size 630000 --warmup_iterations 100   --lookup_session
 ...
 *** Measurement Results ***
 The Benchmark of: End-to-end lookup embedding keys for Lookup session
@@ -153,14 +153,14 @@ Latencies [900 iterations] min = 0.190813ms, mean = 0.243117ms, median = 0.23808
 
 Measurement example of the HPS Data Backend
 ```
-$hps_profiler --iterations 1000 --num_key 2000 --powerlaw --alpha 1.2 --config /hugectr/Model_Samples/wdl/wdl_infer/model/ps.json --table_size 630000 --warmup_iterations 100   --database_backend
+$hps_profiler --iterations 1000 --num_key 2000 --distribution powerlaw --alpha 1.2 --config /hugectr/Model_Samples/wdl/wdl_infer/model/ps.json --table_size 630000 --warmup_iterations 100   --database_backend
 ...
 *** Measurement Results ***
 The Benchmark of: Lookup the embedding key from default HPS database Backend
 Latencies [900 iterations] min = 0.075086ms, mean = 0.127312ms, median = 0.121235ms, 95% = 0.166826ms, 99% = 0.219295ms, max = 0.285409ms, throughput = 8248.44/s
 ```
 *`NOTE`*:  
-1. If the user add the `--powerlaw` option, the queried embedding key will be generated with the specified argument `--alpha = **`.
+1. If the user add the `--distribution powerlaw` option, the queried embedding key will be generated with the specified argument `--alpha = **`.
 2. If the user add the `--hot_key_percentage=**` and `--hot_key_coverage=xx` options, the queried embedding key  will generate the number of `--table_size` * `--hot_key_percentage` keys with this probability of `--hot_key_percentage=**`. 
 For example `--hot_key_percentage=0.01`,  `--hot_key_coverage=0.9` and `--table_size=1000`, then the first 1000*0.01=10 keys will appear in the request with a probability of 90%.
 3. It is recommended that users make mutually exclusive selections of three components(`--embedding_cache`,`--database_backend` and `--lookup_session`) to ensure the most accurate performance. Because the measurement results of the lookup session will include the performance results of the database backend and embedding cache.
