@@ -374,10 +374,9 @@ InputDataConfiguration synthetic_uniform_dataset = {.fixed_hotness = true,
 InputDataConfiguration criteo_dataset = {
     .fixed_hotness = true,
     .input_data_type = InputDataType::RawFormat,
-    .raw_format_param = {
-        .input_file = "/raid/datasets/criteo/mlperf/40m.limit_preshuffled/train_data.bin",
-        .label_dim = 1,
-        .dense_dim = 13}};
+    .raw_format_param = {.input_file = "/datasets/40m.limit_preshuffled/train_data.bin",
+                         .label_dim = 1,
+                         .dense_dim = 13}};
 
 InputDataConfiguration criteo_multi_hot_dataset = {
     .fixed_hotness = true,

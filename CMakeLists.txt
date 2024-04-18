@@ -122,7 +122,7 @@ if (DISABLE_A2A_WARMUP)
 endif()
 
 option(DISABLE_CUDF "Disable cudf: disable parquet format related features" OFF)
-# this manual definition is a WAR and RMM team will fix it in the future
+# Add this manual definition
 add_compile_definitions(LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE)
 option(USE_CUDART_STATIC "Setup clangformat target" OFF)
 if(USE_CUDART_STATIC)
