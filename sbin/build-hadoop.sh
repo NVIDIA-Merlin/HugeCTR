@@ -43,7 +43,6 @@ if [[ "${HDFS_BUILD_MODE}" == "MINIMAL" ]]; then
   cd hadoop-hdfs-project/hadoop-hdfs-native-client
 fi
 
-# WAR for https://issues.apache.org/jira/browse/YARN-11528
 # TODO: remove below lines when the fix released.
 sed -i '/scripts/i \
     \"resolutions\": { \
