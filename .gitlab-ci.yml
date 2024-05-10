@@ -64,7 +64,7 @@ build_optimized:
   extends: .build_nightly
   variables:
     REMOTE_REPO: https://${RD_CI_JOB_TOKEN}gitlab-master.nvidia.com/dl/mlperf/optimized.git
-    DST_IMAGE: ${IMAGE_OPTIMIZED}
+    DST_IMAGE: ${IMAGE_OPTIMIZED}.${CI_PIPELINE_ID}
     DOCKER_FILE: Dockerfile
     BUILD_ARGS: --build-arg FROM_IMAGE_NAME=gitlab-master.nvidia.com:5005/dl/dgx/pytorch:master-py3-devel
     OPTIMIZED: 1
