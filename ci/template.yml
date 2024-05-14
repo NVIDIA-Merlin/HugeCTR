@@ -254,7 +254,7 @@ stages:
     - .selene_luna_job
     - .hugectr:rules:sanity-test
   variables:
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
@@ -273,7 +273,7 @@ stages:
     - .selene_luna_job
     - .hugectr:rules:test_in_child
   variables:
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     DGXNNODES: 1
@@ -309,7 +309,7 @@ stages:
     - chmod +x ${TEST_CMD}
     - bash ${TEST_CMD} | tee ${LOG_FILE}
   variables:
-    #    CI_SLURM_ACCOUNT: "coreai_devtech_all"
+    CI_SLURM_ACCOUNT: "coreai_devtech_all" #svcnvdlfw only attends account "coreai_devtech_all"
     CI_SCHEDULER_TYPE: "slurm"
     CI_SLURM_PARTITION: "batch_block1"
     CI_SLURM_GPUS_PER_NODE: "8"
@@ -323,7 +323,7 @@ stages:
 
 .draco_oci_sok_test_job:
   extends:
-    - .sok:rules:test_in_child
+      - .sok:rules:test_in_child
   script:
     - echo ${MOUNTS}
     - export LOG_DIR="${DRACO_OCI_LOGDIR}/${CI_JOB_NAME}/${CI_JOB_ID}/results"
@@ -334,7 +334,7 @@ stages:
     - chmod +x ${TEST_CMD}
     - bash ${TEST_CMD} | tee ${LOG_FILE}
   variables:
-    #    CI_SLURM_ACCOUNT: "coreai_devtech_all"
+    CI_SLURM_ACCOUNT: "coreai_devtech_all" #svcnvdlfw only attends account "coreai_devtech_all""
     CI_SCHEDULER_TYPE: "slurm"
     CI_SLURM_PARTITION: "batch_block1"
     CI_SLURM_GPUS_PER_NODE: "8"
@@ -369,7 +369,7 @@ stages:
     GIT_DEPTH: "1"
     WALLTIME:      "02:00:00"
   tags:
-  - computelab_generic
+    - computelab_generic
   allow_failure: false
 
 .sok_test_job:
@@ -383,7 +383,7 @@ stages:
     - .selene_luna_job
     - .sok:rules:test_in_child
   variables:
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     DGXNNODES: 1
@@ -423,7 +423,7 @@ stages:
     - .selene_test_job
     - .hugectr:rules:test_in_child
   variables:
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     DGXNNODES: 1
@@ -470,7 +470,7 @@ stages:
     CONT: ${UNIFIED_CTR_LATEST}
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data,${CI_PROJECT_DIR}:/hugectr
     WORKDIR: /hugectr
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     WALLTIME: "00:15:00"
@@ -491,7 +491,7 @@ stages:
     GPFSFOLDER: $LOGDIR/sok_benchmark
     CONT: ${UNIFIED_TF_LATEST}
     MOUNTS: /lustre/fsw/mlperf/mlperft-dlrm/datasets/terabyte_portion_csv/:/dataset,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     WALLTIME: "00:45:00"
@@ -515,7 +515,7 @@ stages:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_CTR_LATEST}
     MOUNTS: ${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DATASET_CRITEO_SELENE}:${CRITEO_MOUNT},/raid:/raid,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     WALLTIME: "00:15:00"
@@ -534,7 +534,7 @@ stages:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_TF_LATEST}
     MOUNTS: /lustre/fsw/devtech/hpc-hugectr/emmaq/yingcan_benchmark:/hps_backend_benchmark,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     WALLTIME: "00:30:00"
@@ -551,7 +551,7 @@ collect_benchmark_result:
     GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
     CONT: ${UNIFIED_CTR_LATEST}
     MOUNTS: $LOGDIR:/logs,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: coreai_devtech_all
+    SLURM_ACCOUNT: coreai_devtech_hugectr
     OLD_SLURM_ACCOUNT: "devtech"
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     WALLTIME: "00:15:00"
