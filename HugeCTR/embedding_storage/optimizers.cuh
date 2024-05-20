@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #pragma once
+#include <float.h>
+
 #include <core23/data_type_helpers.cuh>
 
 namespace embedding {
