@@ -11,7 +11,7 @@ Design Goals:
 * **Easy**: Regardless of whether you are a data scientist or machine learning practitioner, we've made it easy for anybody to use HugeCTR with plenty of [documents](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_user_guide.html), [notebooks](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/notebooks) and [samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/samples).
 * **Domain Specific**: HugeCTR provides the [essentials](https://github.com/NVIDIA-Merlin/HugeCTR#core-features), so that you can efficiently deploy your recommender models with very large embedding.
 
-**NOTE**: If you have any questions in using HugeCTR, please file an issue or join our [Slack channel](https://join.slack.com/t/hugectr/shared_invite/zt-29fptzv4w-s4bA3TkDn54YEHLKIS4Qsw) to have more interactive discussions. 
+**NOTE**: If you have any questions in using HugeCTR, please file an issue or join our [Slack channel](https://join.slack.com/t/hugectr/shared_invite/zt-2ji0b305s-SIVB~_XZYtz38JCkT8VFSg) to have more interactive discussions. 
 
 ## Table of Contents
 * [Core Features](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html)
