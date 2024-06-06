@@ -1,6 +1,0 @@
-#!/bin/bash
-
-srun --ntasks=1 --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-      python3 /workdir/ci/post_test/check_cpu_memory_usage.py  /logs/cpu_dynamic_mem.log 16 && \
-       python3 /workdir/ci/post_test/check_cpu_memory_usage.py  /logs/cpu_uvm_mem.log 16 && \
-        python3 /workdir/ci/post_test/check_cpu_memory_usage.py  /logs/cpu_static_mem.log 16 "

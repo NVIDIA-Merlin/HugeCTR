@@ -43,3 +43,4 @@ elif [ "$container" == "merlin-tensorflow" ]; then
     bash run_function_test.sh && \
     popd
 fi
+
