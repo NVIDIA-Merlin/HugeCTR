@@ -30,7 +30,7 @@ if __name__ == "__main__":
     with tf.device("CPU"):
         indices = tf.convert_to_tensor([i for i in range(vocab_size)], dtype=tf.int64)
         values = tf.convert_to_tensor(np.random.rand(vocab_size, dim), dtype=tf.float32)
-    v = sok.DynamicVariable(dimension=dim)
+    v = sok.DynamicVariable(dimension=dim, var_type="hbm")
 
     # Test assign
     init_op = tf.compat.v1.global_variables_initializer()

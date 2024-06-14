@@ -48,13 +48,19 @@ if __name__ == "__main__":
     if len(gpus) >= 2:
         for i in range(len(cols)):
             v = sok.DynamicVariable(
-                dimension=cols[i], initializer=str(initial_vals[i]), mode="localized:%d" % gpus[i]
+                dimension=cols[i],
+                initializer=str(initial_vals[i]),
+                var_type="hbm",
+                mode="localized:%d" % gpus[i],
             )
             sok_vars.append(v)
     else:
         for i in range(len(cols)):
             v = sok.DynamicVariable(
-                dimension=cols[i], initializer=str(initial_vals[i]), mode="localized:0"
+                dimension=cols[i],
+                initializer=str(initial_vals[i]),
+                var_type="hbm",
+                mode="localized:0",
             )
             sok_vars.append(v)
 

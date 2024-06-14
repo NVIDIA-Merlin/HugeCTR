@@ -42,7 +42,7 @@ def OptimizerWrapper(optimizer):
         import horovod.tensorflow as hvd
         import sparse_operation_kit as sok
 
-        v = sok.DynamicVariable(dimension=3, initializer="13")
+        v = sok.DynamicVariable(dimension=3, var_type="hbm", initializer="13")
 
         indices = tf.convert_to_tensor([0, 1, 2**40], dtype=tf.int64)
 
@@ -117,6 +117,7 @@ class OptimizerWrapperV1(object):
                     slot = DynamicVariable(
                         dimension=var.dimension,
                         initializer=self._initial_vals[slot_name],
+                        var_type=var.backend_type,
                         name="DynamicSlot",
                         trainable=False,
                     )
@@ -163,6 +164,7 @@ class OptimizerWrapperV1(object):
                             slot = DynamicVariable(
                                 dimension=v.dimension,
                                 initializer=self._initial_vals[slot_name],
+                                var_type=v.backend_type,
                                 name="DynamicSlot",
                                 trainable=False,
                             )
@@ -254,6 +256,7 @@ class OptimizerWrapperV2(object):
                     slot = DynamicVariable(
                         dimension=var.dimension,
                         initializer=self._initial_vals[slot_name],
+                        var_type=var.backend_type,
                         name="DynamicSlot",
                         trainable=False,
                     )
@@ -308,6 +311,7 @@ class OptimizerWrapperV2(object):
                             slot = DynamicVariable(
                                 dimension=v.dimension,
                                 initializer=self._initial_vals[slot_name],
+                                var_type=v.backend_type,
                                 name="DynamicSlot",
                                 trainable=False,
                             )

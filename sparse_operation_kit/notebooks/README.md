@@ -31,7 +31,7 @@ git clone https://github.com/NVIDIA/HugeCTR
    docker run --runtime=nvidia --rm -it --cap-add SYS_NICE -u $(id -u):$(id -g) -v $(pwd):/hugectr -w /hugectr -p 8080:8080 nvcr.io/nvidia/merlin/merlin-tensorflow:23.11
    ```
 
-2. Start Jupyter using these commands:
+2. Start Jupyter using these commands: 
 
    ```shell
    cd /hugectr/hps_tf/notebooks
@@ -48,21 +48,21 @@ git clone https://github.com/NVIDIA/HugeCTR
 ## Notebook List
 
 Here's a list of notebooks that you can run:
-- [sok_train_dlrm_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/sok_train_dlrm_demo.ipynb): Demonstrates how to train DLRM model with TF and SOK.
+- [sok_train_dlrm_demo.ipynb](sok_train_dlrm_demo.ipynb): Demonstrates how to train DLRM model with TF and SOK.
 
-- [hps_inference_dlrm_with_sok_weight_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/hps_inference_dlrm_with_sok_weight_demo.ipynb): Demonstrateshow to use hps-tf to read SOK's sparse weight and perform inference. Before running, you must first complete the training in [sok_train_dlrm_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/sok_train_dlrm_demo.ipynb).
+- [hps_inference_dlrm_with_sok_weight_demo.ipynb](hps_inference_dlrm_with_sok_weight_demo.ipynb): Demonstrateshow to use hps-tf to read SOK's sparse weight and perform inference. Before running, you must first complete the training in [sok_train_dlrm_demo.ipynb](sok_train_dlrm_demo.ipynb).
 
-- [sok_incremental_dump_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/sok_incremental_dump_demo.ipynb): Demonstrates how to use SOK for incremental dump and verifies its correctness.
+- [sok_incremental_dump_demo.ipynb](sok_incremental_dump_demo.ipynb): Demonstrates how to use SOK for incremental dump and verifies its correctness.
 
-- [sok_dump_load_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/sok_dump_load_demo.ipynb): Demonstrates  how to use SOK for dump/load and verifies the correctness of the dump/load operations.
+- [sok_dump_load_demo.ipynb](sok_dump_load_demo.ipynb): Demonstrates  how to use SOK for dump/load and verifies the correctness of the dump/load operations.
 
 ## System Specifications
 The specifications of the system on which each notebook can run successfully are summarized in the table. The notebooks are verified on the system below but it does not mean the minimum requirements.
 
 | Notebook                                                                                   | CPU                                                          | GPU                              | #GPUs | Author         |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
-| [sok_train_dlrm_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/sok_train_dlrm_demo.ipynb)                   | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 2     | Hui Kang    |
-| [hps_inference_dlrm_with_sok_weight_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/hps_inference_dlrm_with_sok_weight_demo.ipynb)                   | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 1     | Hui Kang    |
-| [sok_incremental_dump_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/sok_incremental_dump_demo.ipynb)                         | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 2     | Hui Kang    |
-| [sok_dump_load_demo.ipynb](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit/notebooks/sok_dump_load_demo.ipynb)                                       | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 2     | Hui Kang    |
+| [sok_train_dlrm_demo.ipynb](sok_train_dlrm_demo.ipynb)                   | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 2     | Hui Kang    |
+| [hps_inference_dlrm_with_sok_weight_demo.ipynb](hps_inference_dlrm_with_sok_weight_demo.ipynb)                   | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 1     | Hui Kang    |
+| [sok_incremental_dump_demo.ipynb](sok_incremental_dump_demo.ipynb)                         | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 2     | Hui Kang    |
+| [sok_dump_load_demo.ipynb](sok_dump_load_demo.ipynb)                                       | AMD EPYC 7742 64-Core Processor<br />2 TB Memory | Ampere A100-SXM4-80GB<br />80 GB Memory | 2     | Hui Kang    |
 

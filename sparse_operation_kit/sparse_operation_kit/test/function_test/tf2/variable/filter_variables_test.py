@@ -32,7 +32,7 @@ if __name__ == "__main__":
     v1 = tf.Variable([[0, 1, 2]])
     v2 = sok.Variable([[3, 4, 5]])
     v3 = sok.Variable([[6, 7, 8]], mode="localized:0")
-    v4 = sok.DynamicVariable(dimension=3, initializer="13")
+    v4 = sok.DynamicVariable(dimension=3, initializer="13", var_type="hbm")
 
     sok_vars, other_vars = sok.filter_variables([v1, v2, v3, v4])
     assert len(sok_vars) == 3
