@@ -94,6 +94,19 @@
              
   <section class="tex2jax_ignore mathjax_ignore" id="release-notes">
 <h1>Release Notes<a class="headerlink" href="#release-notes" title="Permalink to this heading"></a></h1>
+<section id="what-s-new-in-version-24-06">
+<h2>What’s New in Version 24.06<a class="headerlink" href="#what-s-new-in-version-24-06" title="Permalink to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Sparse Operation Kit (SOK) Updates:</strong></p>
+<ul>
+<li><p>A new API <code class="docutils literal notranslate"><span class="pre">sok.incremental_dump</span></code> has been added, which allows users to dump newly added keys and values into a numpy array by specifying a time threshold. Currently it only supports <code class="docutils literal notranslate"><span class="pre">sok.DynamicVariable</span></code> that uses HKV as the backend.</p></li>
+<li><p>Fixed the issue of wgrad using too much GPU memory.</p></li>
+<li><p>Fixed an illegal memory access issue in a CUDA kernel during backward propagation.</p></li>
+<li><p>The documentation and examples for SOK (Sparse Operation Kit) have been updated. For more details, refer to the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html">SOK Documentation</a>.</p></li>
+</ul>
+</li>
+</ul>
+</section>
 <section id="what-s-new-in-version-23-12">
 <h2>What’s New in Version 23.12<a class="headerlink" href="#what-s-new-in-version-23-12" title="Permalink to this heading"></a></h2>
 <ul>
@@ -1309,12 +1322,12 @@ See also <a class="reference external" href="https://docs.nvidia.com/deeplearnin
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../v23.06.00/index.html">v23.06.00</a></dd>
       <dd><a href="../v23.06.01/index.html">v23.06.01</a></dd>
       <dd><a href="../v23.08.00/index.html">v23.08.00</a></dd>
       <dd><a href="../v23.09.00/index.html">v23.09.00</a></dd>
       <dd><a href="../v23.12.00/index.html">v23.12.00</a></dd>
       <dd><a href="../v24.04.00/index.html">v24.04.00</a></dd>
+      <dd><a href="../v24.06.00/index.html">v24.06.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
