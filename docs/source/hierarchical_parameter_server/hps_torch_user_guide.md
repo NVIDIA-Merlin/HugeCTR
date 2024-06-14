@@ -38,7 +38,7 @@ The following sample commands pull and start the Merlin HugeCTR container:
 Merlin HugeCTR
 ```shell
 # Run the container in interactive mode
-$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:24.04
+$ docker run --gpus=all --rm -it --cap-add SYS_NICE nvcr.io/nvidia/merlin/merlin-hugectr:24.06
 ```
 
 You can check the existence of the HPS plugin for Torch after launching the container by running the following Python statements:
