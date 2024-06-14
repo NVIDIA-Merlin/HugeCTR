@@ -1165,7 +1165,7 @@ def dump(path, dump_vars, optimizer=None):
         import horovod.tensorflow as hvd
         import sparse_operation_kit as sok
 
-        v = sok.DynamicVariable(dimension=3, initializer="13")
+        v = sok.DynamicVariable(dimension=3, var_type="hbm", initializer="13")
 
         optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
         optimizer = sok.OptimizerWrapper(optimizer)
@@ -1246,7 +1246,7 @@ def load(path, load_vars, optimizer=None):
         import horovod.tensorflow as hvd
         import sparse_operation_kit as sok
 
-        v = sok.DynamicVariable(dimension=3, initializer="13")
+        v = sok.DynamicVariable(dimension=3, var_type="hbm", initializer="13")
 
         optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
         optimizer = sok.OptimizerWrapper(optimizer)

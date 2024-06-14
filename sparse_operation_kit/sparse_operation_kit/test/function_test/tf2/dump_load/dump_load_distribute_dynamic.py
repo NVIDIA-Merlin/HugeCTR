@@ -63,7 +63,7 @@ if __name__ == "__main__":
         sok_optimizer = sok.OptimizerWrapper(optimizer)
         # sok variables
         sok_vars = [
-            sok.DynamicVariable(dimension=cols[i], initializer=str(initial_vals[i]))
+            sok.DynamicVariable(dimension=cols[i], initializer=str(initial_vals[i]), var_type="hbm")
             for i in range(len(cols))
         ]
         local_indices = []

@@ -31,19 +31,14 @@ if __name__ == "__main__":
         tf.config.experimental.set_visible_devices(gpus[hvd.local_rank()], "GPU")
     sok.init()
 
-    gpu_num = hvd.size()
-    rows = [8192] * gpu_num
-    cols = [128 - 8 * x for x in range(gpu_num)]
-    hotness = [1 + x for x in range(gpu_num)]
-    combiners = ["mean"] * np.floor(gpu_num / 2).astype(np.int32) + ["sum"] * np.ceil(
-        gpu_num - gpu_num / 2
-    ).astype(np.int32)
-
+    rows = [8192 * 5, 8192]
+    cols = [128, 4]
+    hotness = [10, 3]
+    combiners = ["mean", "sum"]
     batch_size = 8192
     iters = 100
-    initial_vals = [3 + x for x in range(gpu_num)]
-    gpus = np.arange(gpu_num)
-
+    initial_vals = [13, 17]
+    # Here is SOK support optimizer
     optimizers = [
         tf.optimizers.SGD(learning_rate=1.0),
         tf.optimizers.SGD(learning_rate=1.0, momentum=0.9),
@@ -53,6 +48,7 @@ if __name__ == "__main__":
         tf.optimizers.Ftrl(learning_rate=1.0),
     ]
 
+    # train step
     def step(params, indices):
         with tf.GradientTape() as tape:
             embeddings = sok.lookup_sparse(params, indices, combiners=combiners)
@@ -67,25 +63,16 @@ if __name__ == "__main__":
     for optimizer_id, optimizer in enumerate(optimizers):
         sok_optimizer = sok.OptimizerWrapper(optimizer)
         # sok variables
-        sok_vars = []
-        if len(gpus) >= 2:
-            for i in range(len(cols)):
-                v = sok.DynamicVariable(
-                    dimension=cols[i],
-                    initializer=str(initial_vals[i]),
-                    var_type="hbm",
-                    mode="localized:%d" % gpus[i],
-                )
-                sok_vars.append(v)
-        else:
-            for i in range(len(cols)):
-                v = sok.DynamicVariable(
-                    dimension=cols[i],
-                    initializer=str(initial_vals[i]),
-                    var_type="hbm",
-                    mode="localized:0",
-                )
-                sok_vars.append(v)
+        sok_vars = [
+            sok.DynamicVariable(
+                dimension=cols[i],
+                var_type="hybrid",
+                initializer=str(initial_vals[i]),
+                init_capacity=1024 * 1024,
+                max_capacity=1024 * 1024,
+            )
+            for i in range(len(cols))
+        ]
         local_indices = []
         for row in rows:
             local_size = row // hvd.size()
@@ -112,6 +99,8 @@ if __name__ == "__main__":
             indices.append(total_indices[j][batch_size + left : batch_size + right])
         _ = step(sok_vars, indices)
 
+        # First , export all the embedding table and opt slot states to tf.variable
+        # need to assert after sok load
         vars_unique_ids = []
         for sok_var in sok_vars:
             vars_unique_ids.append(sok_var._unique_id)
@@ -144,18 +133,21 @@ if __name__ == "__main__":
         sok_var_index_nps_raw = []
         sok_var_nps_new = []
         sok_var_index_nps_new = []
+
+        # Second , dump sok variable and opt slot states to file system
         for sok_var in sok_vars:
             ex_indices, ex_values = sok.export(sok_var)
-
             sok_var_nps_raw.append(ex_values.numpy())
             sok_var_index_nps_raw.append(ex_indices.numpy())
         sok.dump("./weight", sok_vars, sok_optimizer)
 
+        # Third , assign all the sok_var to zero , like a memset , so we can make sure load is valid
         for sok_var in sok_vars:
             ex_indices, ex_values = sok.export(sok_var)
             zeros_values = tf.zeros(ex_values.shape)
             sok.assign(sok_var, ex_indices, zeros_values)
 
+        # Forth , load weight from sok dump
         for tmp_slot_list in slot_vars_list:
             for tmp_slot_var in tmp_slot_list:
                 ex_indices, ex_values = sok.export(tmp_slot_var)
@@ -190,8 +182,7 @@ if __name__ == "__main__":
             remap_indices = var_sorted[var_pos]
             tmp_sok_var_nps_raw = sok_var_nps_raw[i][remap_indices, :]
 
-            if hvd.rank() == sok_vars[i].target_gpu:
-                assert ((sok_var_nps_new[i] - tmp_sok_var_nps_raw) < 1e-5).all()
+            assert ((sok_var_nps_new[i] - tmp_sok_var_nps_raw) < 1e-5).all()
 
         if have_state:
             for i, tmp_slot_states_list in enumerate(slot_states_list_new):
@@ -204,5 +195,6 @@ if __name__ == "__main__":
                     tmp_var_raw = slot_states_list_raw[i][j][remap_indices, :]
                     assert ((slot_states_list_new[i][j] - tmp_var_raw) < 1e-5).all()
         print(
-            "[SOK INFO] dump load localized dynamic test %dth optimizer successfully" % optimizer_id
+            "[SOK INFO] dump load distribute dynamic test %dth optimizer successfully"
+            % optimizer_id
         )

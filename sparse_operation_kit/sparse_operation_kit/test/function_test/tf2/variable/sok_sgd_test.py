@@ -30,7 +30,7 @@ if __name__ == "__main__":
     vocab_size = 1024 * 128
     batch = 8192
 
-    sok_var = sok.DynamicVariable(dimension=dim)
+    sok_var = sok.DynamicVariable(dimension=dim, var_type="hbm")
     sok_optimizer = sok.SGD(lr=1.0)
 
     indices_val = [idx for idx in range(vocab_size)]

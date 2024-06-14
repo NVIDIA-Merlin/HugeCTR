@@ -161,7 +161,7 @@ def filter_variables(vars):
             v1 = tf.Variable([[0, 1, 2]])
             v2 = sok.Variable([[3, 4, 5]])
             v3 = sok.Variable([[6, 7, 8]], mode="localized:0")
-            v4 = sok.DynamicVariable(dimension=3, initializer="13")
+            v4 = sok.DynamicVariable(dimension=3, var_type="hbm", initializer="13")
 
             sok_vars, other_vars = sok.filter_variables([v1, v2, v3, v4])
             assert len(sok_vars) == 3

@@ -1,6 +1,13 @@
 # SparseOperationKit Release Notes #
 The release notes for SparseOperationKit.
 
+## What's new in Version 2.1.0 ##
++ The official release of SOK:
+    * A new API `sok.incremental_dump` has been added, which allows users to dump newly added keys and values into a numpy array by specifying a time threshold. Currently it only supports `sok.DynamicVariable` that uses HKV as the backend.
+    * Fixed the issue of wgrad using too much GPU memory.
+    * Fixed an illegal memory access issue in a CUDA kernel during backward propagation.
+    * The documentation and examples for SOK (Sparse Operation Kit) have been updated.
+
 ## What's new in Version 2.0.0 ##
 + The official release of SOK:
     * Remove the legacy code,`DistributedEmbedding` and `All2AllDenseEmbedding` will be deprecated.

@@ -122,7 +122,7 @@ class DynamicVariable(ResourceVariable):
             global dynamic_variable_count
             name = "sok_dynamic_Variable_" + str(dynamic_variable_count)
             dynamic_variable_count += 1
-        var_type = "hbm" if var_type is None else var_type
+        var_type = "hybrid" if var_type is None else var_type
         self._var_type = var_type
         self._base = super(DynamicVariable, self)
         self._base.__init__(

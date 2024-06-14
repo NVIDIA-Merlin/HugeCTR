@@ -3,6 +3,7 @@
 [![Version](https://img.shields.io/github/v/release/NVIDIA-Merlin/HugeCTR?color=orange)](release_notes.md/)
 [![LICENSE](https://img.shields.io/github/license/NVIDIA-Merlin/HugeCTR)](https://github.com/NVIDIA-Merlin/HugeCTR/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/documentation-blue.svg)](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_user_guide.html)
+[![SOK Documentation](https://img.shields.io/badge/SOK%20Documentation-blue?logoColor=blue)](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html)
 
 HugeCTR is a GPU-accelerated recommender framework designed for training and inference of large deep learning models. 
 

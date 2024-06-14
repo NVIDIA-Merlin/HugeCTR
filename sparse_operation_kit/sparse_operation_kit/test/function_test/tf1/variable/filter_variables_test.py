@@ -32,7 +32,7 @@ if __name__ == "__main__":
     v1 = tf.Variable([[0, 1, 2]])
     v2 = sok.Variable([[3, 4, 5]])
     v3 = sok.Variable([[6, 7, 8]], mode="localized:0")
-    v4 = sok.DynamicVariable(dimension=3, initializer="13")
+    v4 = sok.DynamicVariable(dimension=3, initializer="13", var_type="hbm")
     init_op = tf.compat.v1.global_variables_initializer()
     sess.run(init_op)
 

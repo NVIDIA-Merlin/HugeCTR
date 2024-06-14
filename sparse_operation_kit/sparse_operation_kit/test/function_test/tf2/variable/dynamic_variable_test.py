@@ -38,7 +38,7 @@ if __name__ == "__main__":
     ]
 
     for optimizer_id, optimizer in enumerate(optimizers):
-        sok_var = sok.DynamicVariable(dimension=dim)
+        sok_var = sok.DynamicVariable(dimension=dim, var_type="hbm")
         sok_optimizer = sok.OptimizerWrapper(optimizer)
 
         indices_val = [idx for idx in range(vocab_size)]

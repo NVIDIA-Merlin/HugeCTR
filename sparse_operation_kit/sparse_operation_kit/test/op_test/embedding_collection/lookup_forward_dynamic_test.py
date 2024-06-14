@@ -20,8 +20,8 @@ import sparse_operation_kit as sok
 
 
 def test():
-    v1 = sok.DynamicVariable(dimension=3, initializer="17")
-    v2 = sok.DynamicVariable(dimension=5, initializer="13")
+    v1 = sok.DynamicVariable(dimension=3, initializer="17", var_type="hbm")
+    v2 = sok.DynamicVariable(dimension=5, initializer="13", var_type="hbm")
     key_recv = tf.convert_to_tensor([0, 1, 1, 0, 1], dtype=tf.int64)
     offset_recv = tf.convert_to_tensor([1, 2, 1, 1], dtype=tf.int32)
     output1, output2, output3 = sok.raw_ops.lookup_forward_dynamic(

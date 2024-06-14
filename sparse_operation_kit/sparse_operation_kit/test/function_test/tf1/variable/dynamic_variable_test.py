@@ -30,7 +30,7 @@ for optimizer in optimizers:
     indices = tf.placeholder(shape=[None], dtype=tf.int64)
     weight = tf.placeholder(shape=[None, dim], dtype=tf.float32)
 
-    sok_var = sok.DynamicVariable(dimension=dim)
+    sok_var = sok.DynamicVariable(dimension=dim, var_type="hbm")
     emb = tf.nn.embedding_lookup(sok_var, indices)
     emb_mul = emb * weight
     loss = tf.reduce_sum(emb_mul)
