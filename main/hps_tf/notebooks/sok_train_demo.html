@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOK Train DLRM Demo &mdash; Merlin HugeCTR  documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/mystnb.4510f1fc1dee50b3e5859aac5469c37c29e427902b24a333a5f9fcb2f0b3ac41.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+
+  
+    <link rel="canonical" href="https://nvidia-merlin.github.io/HugeCTR/main/hps_tf/notebooks/sok_train_demo.html" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/sphinx_highlight.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+  <div class="banner">
+    <p class="banner">
+      After the HugeCTR <code>v23.08</code>, the offline inference  will be deprecated.
+      Check out our HPS plugins for TensorRT and TensorFlow as alternatives.</p>
+  </div>
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            Merlin HugeCTR
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">HUGECTR</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_user_guide.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_core_features.html">Core Features</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../sparse_operation_kit.html">Sparse Operation Kit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../performance.html">Performance</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/index.html">Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../notebooks/multi-modal-data/index.html">Multi-modal Example Notebooks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/index.html">API Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../additional_resources.html">Additional Resources</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../release_notes.html">Release Notes</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Merlin HugeCTR</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">SOK Train DLRM Demo</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># Copyright 2021 NVIDIA Corporation. All Rights Reserved.</span>
+<span class="c1">#</span>
+<span class="c1"># Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</span>
+<span class="c1"># you may not use this file except in compliance with the License.</span>
+<span class="c1"># You may obtain a copy of the License at</span>
+<span class="c1">#</span>
+<span class="c1">#     http://www.apache.org/licenses/LICENSE-2.0</span>
+<span class="c1">#</span>
+<span class="c1"># Unless required by applicable law or agreed to in writing, software</span>
+<span class="c1"># distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</span>
+<span class="c1"># WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</span>
+<span class="c1"># See the License for the specific language governing permissions and</span>
+<span class="c1"># limitations under the License.</span>
+<span class="c1"># ==============================================================================</span>
+
+<span class="c1"># Each user is responsible for checking the content of datasets and the</span>
+<span class="c1"># applicable licenses and determining if suitable for the intended use.</span>
+</pre></div>
+</div>
+</div>
+</div>
+<img alt="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-sok-to-dlrm-demo/nvidia_logo.png" src="http://developer.download.nvidia.com/notebooks/dlsw-notebooks/merlin_hugectr_hps-sok-to-dlrm-demo/nvidia_logo.png" />
+<section class="tex2jax_ignore mathjax_ignore" id="sok-train-dlrm-demo">
+<h1>SOK Train DLRM Demo<a class="headerlink" href="#sok-train-dlrm-demo" title="Permalink to this heading"></a></h1>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading"></a></h2>
+<p>This notebook demonstrates how to train a DLRM model with SparseOperationKit (SOK) and then make inference with HierarchicalParameterServer(HPS). It is recommended to run <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/blob/master/sparse_operation_kit/notebooks/sparse_operation_kit_demo.ipynb">sparse_operation_kit_demo.ipynb</a> and <a class="reference internal" href="hierarchical_parameter_server_demo.html"><span class="std std-doc">hierarchical_parameter_server_demo.ipynb</span></a> before diving into this notebook.</p>
+<p>For more details about SOK, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html">SOK Documentation</a>. For more details about HPS APIs, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/api/index.html">HPS APIs</a>. For more details about HPS, please refer to <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html">HugeCTR Hierarchical Parameter Server (HPS)</a>.</p>
+</section>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<section id="get-sok-from-ngc">
+<h3>Get SOK from NGC<a class="headerlink" href="#get-sok-from-ngc" title="Permalink to this heading"></a></h3>
+<p>Both SOK and HPS Python modules are preinstalled in the 24.06 and later <a class="reference external" href="https://catalog.ngc.nvidia.com/orgs/nvidia/teams/merlin/containers/merlin-hugectr">Merlin HugeCTR Container</a>: <code class="docutils literal notranslate"><span class="pre">nvcr.io/nvidia/merlin/merlin-hugectr:24.06</span></code>.</p>
+<p>You can check the existence of the required libraries by running the following Python code after launching this container.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import sparse_operation_kit as sok&quot;</span>
+$<span class="w"> </span>python3<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;import hierarchical_parameter_server as hps&quot;</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="configurations">
+<h2>Configurations<a class="headerlink" href="#configurations" title="Permalink to this heading"></a></h2>
+<p>First of all we specify the required configurations, e.g., the arguments needed for generating the dataset, the model parameters and the paths to save the model. We will use DLRM model which has one embedding table, bottom MLP layers, interaction layer and top MLP layers. Please note that the input to the embedding layer will be a sparse key tensor.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;TF_CPP_MIN_LOG_LEVEL&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;3&#39;</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">horovod.tensorflow</span> <span class="k">as</span> <span class="nn">hvd</span>
+<span class="kn">import</span> <span class="nn">sparse_operation_kit</span> <span class="k">as</span> <span class="nn">sok</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+<span class="n">args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">2</span>                               <span class="c1"># the number of available GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span>                             <span class="c1"># the number of training iteration</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">26</span>                             <span class="c1"># the number of feature fields in this embedding layer</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_sizes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="mi">16</span><span class="p">]</span><span class="o">*</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">]</span>                       <span class="c1"># the dimension of embedding vectors</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">13</span>                            <span class="c1"># the dimension of dense features</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1024</span>                  <span class="c1"># the globally batchsize for all GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;local_batch_size&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;global_batch_size&quot;</span><span class="p">]</span><span class="o">/</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;gpu_num&quot;</span><span class="p">])</span>                  <span class="c1"># the locally batchsize for all GPUs</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;table_names&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;table&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">])]</span>                            <span class="c1"># embedding table names</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_sizes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">1200</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">])</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;combiner&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">]</span><span class="o">*</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">]</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;sok_backend_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;hybrid&quot;</span>               <span class="c1"># selcet sok backend type , hybrid means use HKV, hbm means use DET </span>
+
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;ps_config_file&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm.json&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm_dense.model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;sparse_model_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm_sparse.model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;sok_embedding_table_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;sok_dlrm_sparse.model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;saved_path&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;dlrm_tf_saved_model&quot;</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_key_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;np_vector_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">int64</span>
+<span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_vector_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">float32</span>
+
+<span class="n">hvd</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+<span class="n">gpus</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">gpus</span><span class="p">:</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_visible_devices</span><span class="p">(</span><span class="n">gpus</span><span class="p">[</span><span class="n">hvd</span><span class="o">.</span><span class="n">local_rank</span><span class="p">()],</span> <span class="s2">&quot;GPU&quot;</span><span class="p">)</span>
+<span class="n">sok</span><span class="o">.</span><span class="n">init</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">generate_random_samples</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span><span class="n">iters</span><span class="p">,</span> <span class="n">vocabulary_range_per_slot</span><span class="p">,</span> <span class="n">max_nnz</span><span class="p">,</span> <span class="n">dense_dim</span><span class="p">):</span>
+    <span class="n">num_samples</span> <span class="o">=</span> <span class="n">batch_size</span><span class="o">*</span><span class="n">iters</span>
+
+    <span class="k">def</span> <span class="nf">generate_ragged_tensor_samples</span><span class="p">(</span><span class="n">embedding_table_sizes</span><span class="p">,</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">lookup_num</span><span class="p">,</span> <span class="n">hotness</span><span class="p">,</span> <span class="n">iters</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">hotness</span><span class="p">)</span> <span class="o">!=</span> <span class="n">lookup_num</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Length of hotness list must be equal to lookup_num&quot;</span><span class="p">)</span>
+        <span class="n">total_indices</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lookup_num</span><span class="p">):</span>
+            <span class="n">offsets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">hotness</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">iters</span> <span class="o">*</span> <span class="n">batch_size</span><span class="p">)</span>
+            <span class="n">offsets</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">offsets</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">embedding_table_sizes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">tf</span><span class="o">.</span><span class="n">reduce_sum</span><span class="p">(</span><span class="n">offsets</span><span class="p">))</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+            <span class="n">total_indices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">RaggedTensor</span><span class="o">.</span><span class="n">from_row_lengths</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">offsets</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">total_indices</span>
+
+    <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">generate_ragged_tensor_samples</span><span class="p">(</span><span class="n">vocabulary_range_per_slot</span><span class="p">,</span><span class="n">batch_size</span><span class="p">,</span><span class="nb">len</span><span class="p">(</span><span class="n">vocabulary_range_per_slot</span><span class="p">),</span><span class="n">max_nnz</span><span class="p">,</span><span class="n">iters</span><span class="p">)</span>
+    <span class="n">dense_features</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="n">num_samples</span><span class="p">,</span> <span class="n">dense_dim</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span>
+
+<span class="k">def</span> <span class="nf">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">batchsize</span><span class="p">):</span>
+    <span class="n">total_data</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">total_data</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">)</span>
+    <span class="n">total_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dense_features</span><span class="p">)</span>
+    <span class="n">total_data</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">from_tensor_slices</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">total_data</span><span class="p">))</span>
+    <span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="n">batchsize</span><span class="p">,</span> <span class="n">drop_remainder</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dataset</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="build-model-with-sok-embedding-layers">
+<h2>Build model with SOK embedding layers<a class="headerlink" href="#build-model-with-sok-embedding-layers" title="Permalink to this heading"></a></h2>
+<p>We define the model graph for training with SOK embedding variables, i.e., <code class="docutils literal notranslate"><span class="pre">sok.DynamicVariable</span></code> and lookup sparse values use <code class="docutils literal notranslate"><span class="pre">sok.lookup_sparse</span></code>，e can then train the model and save the trained weights of the embedding table into file system. As for the dense layers, they are saved as a separate model graph, which can be loaded directly during inference.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MLP</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                <span class="n">arch</span><span class="p">,</span>
+                <span class="n">activation</span><span class="o">=</span><span class="s1">&#39;relu&#39;</span><span class="p">,</span>
+                <span class="n">out_activation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">MLP</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">units</span> <span class="ow">in</span> <span class="n">arch</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">units</span><span class="p">,</span> <span class="n">activation</span><span class="o">=</span><span class="n">activation</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">index</span><span class="p">)))</span>
+            <span class="n">index</span><span class="o">+=</span><span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span><span class="n">arch</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">activation</span><span class="o">=</span><span class="n">out_activation</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{}</span><span class="s2">_</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">],</span> <span class="n">index</span><span class="p">)))</span>
+
+
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">inputs</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">x</span>
+
+<span class="k">class</span> <span class="nc">SecondOrderFeatureInteraction</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">self_interaction</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SecondOrderFeatureInteraction</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">self_interaction</span> <span class="o">=</span> <span class="n">self_interaction</span>
+
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+        <span class="n">batch_size</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">inputs</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">num_feas</span> <span class="o">=</span>  <span class="n">tf</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">inputs</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> 
+
+        <span class="n">dot_products</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">transpose_b</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">ones</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">ones_like</span><span class="p">(</span><span class="n">dot_products</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">band_part</span><span class="p">(</span><span class="n">ones</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">out_dim</span> <span class="o">=</span> <span class="n">num_feas</span> <span class="o">*</span> <span class="p">(</span><span class="n">num_feas</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">self_interaction</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">-</span> <span class="n">tf</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">band_part</span><span class="p">(</span><span class="n">ones</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">out_dim</span> <span class="o">=</span> <span class="n">num_feas</span> <span class="o">*</span> <span class="p">(</span><span class="n">num_feas</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="n">flat_interactions</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">boolean_mask</span><span class="p">(</span><span class="n">dot_products</span><span class="p">,</span> <span class="n">mask</span><span class="p">),</span> <span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">out_dim</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">flat_interactions</span>
+
+<span class="k">class</span> <span class="nc">SokEmbLayer</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Layer</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">embedding_dims</span><span class="p">,</span><span class="n">embedding_table_sizes</span><span class="p">,</span><span class="n">var_type</span><span class="p">,</span><span class="n">combiners</span><span class="p">,</span><span class="n">table_names</span><span class="p">,</span><span class="n">name</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">SokEmbLayer</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">table_num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">embedding_dims</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">combiners</span> <span class="o">=</span> <span class="n">combiners</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initializers</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;uniform&quot;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">table_num</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">sok_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">sok</span><span class="o">.</span><span class="n">DynamicVariable</span><span class="p">(</span>
+            <span class="n">dimension</span><span class="o">=</span><span class="n">embedding_dims</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">var_type</span><span class="o">=</span><span class="n">var_type</span><span class="p">,</span>
+            <span class="n">initializer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">initializers</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">init_capacity</span><span class="o">=</span><span class="n">embedding_table_sizes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">max_capacity</span><span class="o">=</span><span class="n">embedding_table_sizes</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">table_names</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_num</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reshape_layer_list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">table_num</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">reshape_layer_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_sizes&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">]),</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;sok_reshape&quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">concat1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Concatenate</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;sok_concat1&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">):</span>
+        <span class="n">embeddings</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">lookup_sparse</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sok_vars</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">combiners</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">combiners</span><span class="p">)</span>
+        <span class="n">ret_embeddings</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">]):</span>
+            <span class="n">ret_embeddings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reshape_layer_list</span><span class="p">[</span><span class="n">i</span><span class="p">](</span><span class="n">embeddings</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span>
+        <span class="n">ret_embeddings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">concat1</span><span class="p">(</span><span class="n">ret_embeddings</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ret_embeddings</span>
+
+<span class="k">class</span> <span class="nc">DLRM</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">combiners</span><span class="p">,</span>
+                 <span class="n">embedding_table_sizes</span><span class="p">,</span>
+                 <span class="n">embed_vec_dims</span><span class="p">,</span>
+                 <span class="n">sok_backend_type</span><span class="p">,</span>
+                 <span class="n">slot_num</span><span class="p">,</span>
+                 <span class="n">dense_dim</span><span class="p">,</span>
+                 <span class="n">arch_bot</span><span class="p">,</span>
+                 <span class="n">arch_top</span><span class="p">,</span>
+                 <span class="n">self_interaction</span><span class="p">,</span>
+                 <span class="n">table_names</span><span class="p">,</span>
+                 <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DLRM</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">combiners</span> <span class="o">=</span> <span class="n">combiners</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_dims</span> <span class="o">=</span> <span class="n">embed_vec_dims</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sok_backend_type</span> <span class="o">=</span> <span class="n">sok_backend_type</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding_table_sizes</span> <span class="o">=</span> <span class="n">embedding_table_sizes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">combiners</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span> <span class="o">=</span> <span class="n">dense_dim</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span> <span class="o">=</span> <span class="n">SokEmbLayer</span><span class="p">(</span><span class="n">embedding_dims</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">embed_vec_dims</span><span class="p">,</span>
+                                         <span class="n">embedding_table_sizes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_table_sizes</span><span class="p">,</span>
+                                         <span class="n">var_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sok_backend_type</span><span class="p">,</span><span class="n">combiners</span><span class="o">=</span><span class="n">combiners</span><span class="p">,</span><span class="n">table_names</span> <span class="o">=</span> <span class="n">table_names</span><span class="p">,</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;sok_embedding&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">bot_nn</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">(</span><span class="n">arch_bot</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;bottom&quot;</span><span class="p">,</span> <span class="n">out_activation</span><span class="o">=</span><span class="s1">&#39;relu&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">top_nn</span> <span class="o">=</span> <span class="n">MLP</span><span class="p">(</span><span class="n">arch_top</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;top&quot;</span><span class="p">,</span> <span class="n">out_activation</span><span class="o">=</span><span class="s1">&#39;sigmoid&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interaction_op</span> <span class="o">=</span> <span class="n">SecondOrderFeatureInteraction</span><span class="p">(</span><span class="n">self_interaction</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">self_interaction</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">interaction_out_dim</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="k">else</span><span class="p">:</span>
+           <span class="bp">self</span><span class="o">.</span><span class="n">interaction_out_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span> <span class="o">*</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reshape_layer1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Reshape</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">arch_bot</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;dense_reshape1&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">concat1</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Concatenate</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;dense_concat1&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">concat2</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Concatenate</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;dense_concat2&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">input_sparse</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">input_dense</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">embedding_vectors</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="p">(</span><span class="n">input_sparse</span><span class="p">)</span>
+        <span class="n">dense_x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bot_nn</span><span class="p">(</span><span class="n">input_dense</span><span class="p">)</span>
+        <span class="n">concat_features</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">concat1</span><span class="p">([</span><span class="n">embedding_vectors</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">reshape_layer1</span><span class="p">(</span><span class="n">dense_x</span><span class="p">)])</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">interaction_op</span><span class="p">(</span><span class="n">embedding_vectors</span><span class="p">)</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">concat2</span><span class="p">([</span><span class="n">dense_x</span><span class="p">,</span> <span class="n">Z</span><span class="p">])</span>
+        <span class="n">logit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">top_nn</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">embedding_vectors</span>
+
+    <span class="k">def</span> <span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">sparse_inputs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">slot_num</span><span class="p">):</span>
+            <span class="n">sparse_inputs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="p">),</span> <span class="n">sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;tf_key_type&quot;</span><span class="p">]))</span> 
+        <span class="n">dense_input</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dense_dim</span><span class="p">,</span> <span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">tf</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sparse_inputs</span><span class="p">,</span><span class="n">dense_input</span><span class="p">]</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">inputs</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">get_embedding_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span>
+
+    <span class="k">def</span> <span class="nf">get_embedding_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span><span class="o">.</span><span class="n">trainable_variables</span>
+
+    <span class="k">def</span> <span class="nf">get_dense_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">tmp_var</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">trainable_variables</span>
+        <span class="n">sparse_vars</span> <span class="p">,</span> <span class="n">dense_vars</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">filter_variables</span><span class="p">(</span><span class="n">tmp_var</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dense_vars</span>
+
+
+    <span class="k">def</span> <span class="nf">embedding_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">path</span><span class="p">,</span><span class="n">opt</span><span class="p">):</span>
+        <span class="n">embedding_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_embedding_variables</span><span class="p">()</span>
+        <span class="n">sok</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">embedding_vars</span><span class="p">,</span> <span class="n">opt</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">embedding_dump</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">path</span><span class="p">,</span><span class="n">opt</span><span class="p">):</span>
+        <span class="n">embedding_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_embedding_variables</span><span class="p">()</span>
+        <span class="n">sok</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">embedding_vars</span><span class="p">,</span> <span class="n">opt</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="train-with-sok-models">
+<h2>Train with SOK models<a class="headerlink" href="#train-with-sok-models" title="Permalink to this heading"></a></h2>
+<p>Define a Trainer class to wrap the training of SOK. When training SOK, the following points need to be noted:
+1.Two gradient tapes need to be defined because the dense variables may need to be wrapped with Horovod’s hvd.DistributedGradientTape.
+2.
+SOK variables need to be updated using SOK’s optimizer, while the dense variables need to be updated using TensorFlow’s optimizer.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">Trainer</span><span class="p">:</span>
+   <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">args</span><span class="p">):</span>
+       <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+       <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span> <span class="o">=</span> <span class="n">DLRM</span><span class="p">(</span><span class="n">combiners</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;combiner&quot;</span><span class="p">],</span>
+                   <span class="n">embedding_table_sizes</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_sizes&quot;</span><span class="p">],</span>
+                   <span class="n">embed_vec_dims</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_sizes&quot;</span><span class="p">],</span>
+                   <span class="n">sok_backend_type</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;sok_backend_type&quot;</span><span class="p">],</span>
+                   <span class="n">slot_num</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;slot_num&quot;</span><span class="p">],</span>
+                   <span class="n">dense_dim</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">],</span>
+                   <span class="n">arch_bot</span> <span class="o">=</span> <span class="p">[</span><span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embed_vec_sizes&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]],</span>
+                   <span class="n">arch_top</span> <span class="o">=</span> <span class="p">[</span><span class="mi">256</span><span class="p">,</span> <span class="mi">128</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span>
+                   <span class="n">self_interaction</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                   <span class="n">table_names</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;table_names&quot;</span><span class="p">])</span>
+
+       <span class="c1"># initialize optimizer</span>
+       <span class="n">optimizer</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+       <span class="bp">self</span><span class="o">.</span><span class="n">embedding_opt</span> <span class="o">=</span> <span class="n">sok</span><span class="o">.</span><span class="n">OptimizerWrapper</span><span class="p">(</span><span class="n">optimizer</span><span class="p">)</span>
+       <span class="bp">self</span><span class="o">.</span><span class="n">dense_opt</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">optimizers</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">learning_rate</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+
+       <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">BinaryCrossentropy</span><span class="p">()</span>
+
+   
+   <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+       <span class="n">embedding_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="o">.</span><span class="n">get_embedding_variables</span><span class="p">()</span>
+       <span class="n">dense_vars</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="o">.</span><span class="n">get_dense_variables</span><span class="p">()</span>
+
+       <span class="nd">@tf</span><span class="o">.</span><span class="n">function</span>
+       <span class="k">def</span> <span class="nf">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">):</span>
+           <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">tape</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">GradientTape</span><span class="p">()</span> <span class="k">as</span> <span class="n">emb_tape</span><span class="p">:</span>
+               <span class="n">logit</span><span class="p">,</span> <span class="n">embedding_vector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+               <span class="n">loss</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loss_fn</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">logit</span><span class="p">)</span>
+
+           <span class="n">tape</span> <span class="o">=</span> <span class="n">hvd</span><span class="o">.</span><span class="n">DistributedGradientTape</span><span class="p">(</span><span class="n">tape</span><span class="p">)</span>
+           <span class="n">dense_grads</span> <span class="o">=</span> <span class="n">tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">dense_vars</span><span class="p">)</span>
+           <span class="n">embedding_grads</span> <span class="o">=</span> <span class="n">emb_tape</span><span class="o">.</span><span class="n">gradient</span><span class="p">(</span><span class="n">loss</span><span class="p">,</span> <span class="n">embedding_vars</span><span class="p">)</span>
+
+           <span class="bp">self</span><span class="o">.</span><span class="n">embedding_opt</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">embedding_grads</span><span class="p">,</span> <span class="n">embedding_vars</span><span class="p">))</span>
+           <span class="bp">self</span><span class="o">.</span><span class="n">dense_opt</span><span class="o">.</span><span class="n">apply_gradients</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">dense_grads</span><span class="p">,</span> <span class="n">dense_vars</span><span class="p">))</span>
+
+           <span class="k">return</span> <span class="n">logit</span><span class="p">,</span> <span class="n">embedding_vector</span><span class="p">,</span> <span class="n">loss</span>
+
+       <span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">generate_random_samples</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;local_batch_size&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;iter_num&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_vocabulary_sizes&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;max_nnz&quot;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_dim&quot;</span><span class="p">])</span>
+       <span class="n">dataset</span> <span class="o">=</span> <span class="n">tf_dataset</span><span class="p">(</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;local_batch_size&quot;</span><span class="p">])</span>
+       <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">input_tuple</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dataset</span><span class="p">):</span>
+           <span class="n">sparse_keys</span> <span class="o">=</span> <span class="n">input_tuple</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+           <span class="n">dense_features</span> <span class="o">=</span> <span class="n">input_tuple</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+           <span class="n">labels</span> <span class="o">=</span> <span class="n">input_tuple</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+           <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">sparse_keys</span><span class="p">,</span> <span class="n">dense_features</span><span class="p">]</span>
+           <span class="n">logit</span><span class="p">,</span> <span class="n">embedding_vector</span><span class="p">,</span> <span class="n">loss</span> <span class="o">=</span> <span class="n">_train_step</span><span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+           <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;Step </span><span class="si">{}</span><span class="s2">, loss: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">loss</span><span class="p">),</span>  <span class="s2">&quot;-&quot;</span><span class="o">*</span><span class="mi">20</span><span class="p">)</span>
+       <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+
+   <span class="k">def</span> <span class="nf">dump_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+       <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="o">.</span><span class="n">embedding_dump</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;sok_embedding_table_path&quot;</span><span class="p">],</span><span class="bp">self</span><span class="o">.</span><span class="n">embedding_opt</span><span class="p">)</span>
+    
+
+       
+       <span class="n">dense_model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="o">.</span><span class="n">get_layer</span><span class="p">(</span><span class="s2">&quot;sok_embedding&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">output</span><span class="p">,</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="o">.</span><span class="n">get_layer</span><span class="p">(</span><span class="s2">&quot;bottom&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">input</span><span class="p">],</span>
+                             <span class="bp">self</span><span class="o">.</span><span class="n">dlrm</span><span class="o">.</span><span class="n">get_layer</span><span class="p">(</span><span class="s2">&quot;top&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+       <span class="n">dense_model</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+       <span class="n">dense_model</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="s2">&quot;dense_model_path&quot;</span><span class="p">])</span>
+
+<span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+<span class="n">trainer</span><span class="o">.</span><span class="n">dump_model</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="o">!</span>mkdir<span class="w"> </span>-p<span class="w"> </span>dlrm_sparse.model
+<span class="n">embedding_saver</span><span class="o">.</span><span class="n">dump_to_file</span><span class="p">(</span><span class="n">trained_model</span><span class="o">.</span><span class="n">embedding_layer</span><span class="o">.</span><span class="n">embedding_variable</span><span class="p">,</span> <span class="n">args</span><span class="p">[</span><span class="s2">&quot;embedding_table_path&quot;</span><span class="p">])</span>
+<span class="o">!</span>mv<span class="w"> </span>dlrm_sparse.model/EmbeddingVariable_keys.file<span class="w"> </span>dlrm_sparse.model/key
+<span class="o">!</span>mv<span class="w"> </span>dlrm_sparse.model/EmbeddingVariable_values.file<span class="w"> </span>dlrm_sparse.model/emb_vector
+<span class="o">!</span>ls<span class="w"> </span>-l<span class="w"> </span>dlrm_sparse.model
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>2022-07-29 07:17:01.079021: I sparse_operation_kit/kit_cc/kit_cc_infra/src/parameters/raw_manager.cc:192] Saving EmbeddingVariable to dlrm_sparse.model..
+2022-07-29 07:17:01.079021: I sparse_operation_kit/kit_cc_impl/embedding/common/src/dumping_functions.cc:60] Worker: 0, GPU: 0 key-index count = 260000
+2022-07-29 07:17:01.079021: I sparse_operation_kit/kit_cc_impl/embedding/common/src/dumping_functions.cc:147] Worker: 0, GPU: 0: dumping parameters from hashtable..
+2022-07-29 07:17:01.079021: I sparse_operation_kit/kit_cc/kit_cc_infra/src/parameters/raw_manager.cc:200] Saved EmbeddingVariable to dlrm_sparse.model.
+total 18360
+-rw-r--r-- 1 nobody nogroup 16640000 Jul 29 07:17 emb_vector
+-rw-r--r-- 1 nobody nogroup  2080000 Jul 29 07:17 key
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, NVIDIA.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+<div class="rst-versions" data-toggle="rst-versions" role="note" aria-label="versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    <span class="fa fa-book"> Other Versions</span>
+    v: main
+    <span class="fa fa-caret-down"></span>
+  </span>
+  <div class="rst-other-versions">
+    <dl>
+      <dt>Tags</dt>
+      <dd><a href="../../../v23.06.00/index.html">v23.06.00</a></dd>
+      <dd><a href="../../../v23.06.01/index.html">v23.06.01</a></dd>
+      <dd><a href="../../../v23.08.00/index.html">v23.08.00</a></dd>
+      <dd><a href="../../../v23.09.00/index.html">v23.09.00</a></dd>
+      <dd><a href="../../../v23.12.00/index.html">v23.12.00</a></dd>
+      <dd><a href="../../../v24.04.00/index.html">v24.04.00</a></dd>
+    </dl>
+    <dl>
+      <dt>Branches</dt>
+      <dd><a href="sok_train_demo.html">main</a></dd>
+    </dl>
+  </div>
+</div><script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+    <!-- Theme Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NVJ1Y1YJHK"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-NVJ1Y1YJHK', {
+          'anonymize_ip': false,
+      });
+    </script> 
+
+</body>
+</html>

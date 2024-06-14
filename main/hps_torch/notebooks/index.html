@@ -121,7 +121,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <section id="pull-the-ngc-docker">
 <h3>Pull the NGC Docker<a class="headerlink" href="#pull-the-ngc-docker" title="Permalink to this heading"></a></h3>
 <p>Pull the container using the following command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>pull<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:24.04
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>pull<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:24.06
 </pre></div>
 </div>
 </section>
@@ -136,7 +136,7 @@ If you prefer to build the HugeCTR Docker image on your own, refer to <a class="
 <h3>Start the Jupyter Notebook<a class="headerlink" href="#start-the-jupyter-notebook" title="Permalink to this heading"></a></h3>
 <ol class="arabic">
 <li><p>Launch the container in interactive mode (mount the HugeCTR root directory into the container for your convenience) by running this command:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="o">=</span>nvidia<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>-u<span class="w"> </span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span>:<span class="k">$(</span>id<span class="w"> </span>-g<span class="k">)</span><span class="w"> </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr<span class="w"> </span>-w<span class="w"> </span>/hugectr<span class="w"> </span>-p<span class="w"> </span><span class="m">8888</span>:8888<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:24.04
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>docker<span class="w"> </span>run<span class="w"> </span>--runtime<span class="o">=</span>nvidia<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--cap-add<span class="w"> </span>SYS_NICE<span class="w"> </span>-u<span class="w"> </span><span class="k">$(</span>id<span class="w"> </span>-u<span class="k">)</span>:<span class="k">$(</span>id<span class="w"> </span>-g<span class="k">)</span><span class="w"> </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>:/hugectr<span class="w"> </span>-w<span class="w"> </span>/hugectr<span class="w"> </span>-p<span class="w"> </span><span class="m">8888</span>:8888<span class="w"> </span>nvcr.io/nvidia/merlin/merlin-hugectr:24.06
 </pre></div>
 </div>
 </li>
