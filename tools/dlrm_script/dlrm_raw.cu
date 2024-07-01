@@ -156,7 +156,7 @@ void process_kaggle_dataset(const std::string &input_dir_path, const std::string
       if (col.type().id() == cudf::type_id::STRING) {
         auto str_col = cudf::strings_column_view(col.view());
         int64_t num_strings = str_col.size();
-        char *char_array = const_cast<char *>(str_col.chars().data<char>());
+        char *char_array = const_cast<char *>(str_col.chars_begin(cudf::get_default_stream()));
         int32_t *offsets = const_cast<int32_t *>(str_col.offsets().data<int32_t>());
 
         build_categorical_index<key_type, value_type><<<grid, block>>>(
@@ -517,7 +517,7 @@ void process_terabyte_dataset(const std::string &input_dir_path, const std::stri
         if (col.type().id() == cudf::type_id::STRING) {
           auto str_col = cudf::strings_column_view(col.view());
           int64_t num_strings = str_col.size();
-          char *char_array = const_cast<char *>(str_col.chars().data<char>());
+          char *char_array = const_cast<char *>(str_col.chars_begin(cudf::get_default_stream()));
           int32_t *offsets = const_cast<int32_t *>(str_col.offsets().data<int32_t>());
 
           build_categorical_index<key_type, value_type><<<grid, block>>>(
