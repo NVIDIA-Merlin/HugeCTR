@@ -18,7 +18,6 @@
 #include <thrust/pair.h>
 
 #include <cassert>
-#include <cudf/detail/nvtx/ranges.hpp>
 #include <cudf/detail/utilities/device_atomics.cuh>
 #ifndef CUDF_GE_2306
 #include <cudf/detail/utilities/hash_functions.cuh>
@@ -56,8 +55,8 @@ struct packed {
   using type = void;
 };
 template <>
-struct packed<sizeof(uint64_t)> {
-  using type = uint64_t;
+struct packed<sizeof(unsigned long long)> {
+  using type = unsigned long long;
 };
 template <>
 struct packed<sizeof(uint32_t)> {
@@ -170,7 +169,6 @@ class concurrent_unordered_map {
                      const key_type unused_key = std::numeric_limits<key_type>::max(),
                      const Hasher& hash_function = hasher(), const Equality& equal = key_equal(),
                      const allocator_type& allocator = allocator_type(), cudaStream_t stream = 0) {
-    CUDF_FUNC_RANGE();
     using Self = concurrent_unordered_map<Key, Element, Hasher, Equality, Allocator>;
 
     // Note: need `(*p).destroy` instead of `p->destroy` here
