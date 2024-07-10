@@ -10,6 +10,26 @@ comment = 'We do not use and are not planning on using the Hadoop Yarn Web UI'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-timelineservice-hbase/hadoop-yarn-server-timelineservice-hbase-*'] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-tools/*'] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-common/*'] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-services/*'] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
 paths = ['third_party/rocksdb/docs'] 
 comment = 'The package is for the RocksDB documentation and its hosting on the GitHub pages. We never use it.'
 nspect_ids = ['NSPECT-OZP9-WUQA']
