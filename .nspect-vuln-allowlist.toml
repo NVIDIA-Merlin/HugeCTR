@@ -3,11 +3,6 @@ version = "24.06"
 [oss]
  
 [oss.excluded]
- 
-[[oss.excluded.directories]]
-paths = ['third_party/hadoop', 'third_party/hadoop/*'] 
-comment = 'No Use'
-nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
 paths = ['third_party/hadoop/hadoop-mapreduce-project'] 
@@ -15,8 +10,28 @@ comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
-paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn', 'third_party/hadoop/hadoop-yarn-project/hadoop-yarn
-/hadoop-yarn-api', 'third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-services/hadoop-yarn-services-core', 'third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server
+paths = ['third_party/hadoop/hadoop-tools/hadoop-azure'] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn'] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn
+/hadoop-yarn-api] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-services/hadoop-yarn-services-core'] 
+comment = 'No Use'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server
 /hadoop-yarn-server-timelineservice'] 
 comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
@@ -50,4 +65,9 @@ nspect_ids = ['NSPECT-OZP9-WUQA']
 [[oss.excluded.directories]]
 paths = ['third_party/protobuf/*']
 comment = 'We never use csharp, java, php, the thir party googletest, etc., inside ptotobuf'
+nspect_ids = ['NSPECT-OZP9-WUQA']
+
+[[oss.excluded.directories]]
+paths = ['third_party/hadoop', 'third_party/hadoop/*'] 
+comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
