@@ -33,7 +33,7 @@ class HKVVariable : public VariableBase<KeyType, ValueType> {
               size_t max_capacity = 0, size_t max_hbm_for_vectors = 0, size_t max_bucket_size = 128,
               float max_load_factor = 0.5f, int block_size = 128, int device_id = 0,
               bool io_by_cpu = false, const std::string &evict_strategy = "kLru",
-              cudaStream_t stream = 0);
+              cudaStream_t stream = 0, float filter_ratio = 1.0);
 
   ~HKVVariable() override;
   int64_t rows() override;
@@ -61,12 +61,15 @@ class HKVVariable : public VariableBase<KeyType, ValueType> {
                    cudaStream_t stream = 0) override;
   void scatter_update(const KeyType *keys, const ValueType *values, size_t num_keys,
                       cudaStream_t stream = 0) override;
+  void ratio_filter(const KeyType *keys, bool *filtered, size_t num_keys,
+                    cudaStream_t stream = 0) override;
 
  private:
   using HKVTable = nv::merlin::HashTable<KeyType, ValueType, uint64_t>;
   std::unique_ptr<HKVTable> hkv_table_ = std::make_unique<HKVTable>();
   nv::merlin::HashTableOptions hkv_table_option_;
 
+  float filter_ratio_;
   size_t dimension_;
   size_t initial_capacity_;
   std::string initializer_;

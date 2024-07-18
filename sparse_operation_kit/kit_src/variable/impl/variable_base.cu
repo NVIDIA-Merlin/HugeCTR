@@ -87,9 +87,16 @@ std::shared_ptr<VariableBase<KeyType, ValueType>> VariableFactory::create(
     if (evict_strategy_it != config_json.end()) {
       evict_strategy = io_by_cpu_it->get<std::string>();
     }
+    // When we encounter a feature that is not already in our model, we only add it to
+    // the model with probability p.
+    float filter_ratio = 1.0f;  ///< low_frequency_filter probability p. default 100%
+    auto filter_ratio_it = config_json.find("filter_ratio");
+    if (filter_ratio_it != config_json.end()) {
+      filter_ratio = filter_ratio_it->get<float>();
+    }
     return std::make_shared<HKVVariable<KeyType, ValueType>>(
         cols, init_capacity, initializer, max_capacity, max_hbm_for_vectors, max_bucket_size,
-        max_load_factor, block_size, device_id, io_by_cpu, evict_strategy, stream);
+        max_load_factor, block_size, device_id, io_by_cpu, evict_strategy, stream, filter_ratio);
   }
 }
 template <>

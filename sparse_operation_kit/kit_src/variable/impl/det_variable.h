@@ -56,10 +56,13 @@ class DETVariable : public VariableBase<KeyType, ValueType> {
                    cudaStream_t stream = 0) override;
   void scatter_update(const KeyType *keys, const ValueType *values, size_t num_keys,
                       cudaStream_t stream = 0) override;
+  void ratio_filter(const KeyType *keys, bool *filtered, size_t num_keys,
+                    cudaStream_t stream = 0) override;
 
  private:
   std::unique_ptr<cuco::dynamic_map<KeyType, ValueType, cuco::initializer>> map_;
 
+  float filter_ratio_;
   size_t dimension_;
   size_t initial_capacity_;
   std::string initializer_;

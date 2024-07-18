@@ -72,6 +72,7 @@ class EmbeddingCollectionBase : public OpKernel {
   int global_gpu_id_;
   int num_local_lookups_;
   bool use_sp_weight_;
+  bool use_filter_;
   HugeCTR::core23::KernelParams kernel_params_;
 
   std::unique_ptr<sok::EmbeddingCollectionParam> ebc_param_;
@@ -143,6 +144,7 @@ class EmbeddingCollectionBase : public OpKernel {
     OP_REQUIRES_OK(ctx, ctx->GetAttr("id_in_local_rank", &id_in_local_rank_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("num_gpus", &num_gpus_));
     OP_REQUIRES_OK(ctx, ctx->GetAttr("use_sp_weight", &use_sp_weight_));
+    OP_REQUIRES_OK(ctx, ctx->GetAttr("use_filter", &use_filter_));
 
     // check rank/num_ranks/id_in_local_rank/num_gpus
     OP_REQUIRES(ctx, rank_ >= 0 && rank_ < num_ranks_, errors::InvalidArgument("Invalid rank."));
@@ -477,13 +479,13 @@ class LookupFowardBase : public EmbeddingCollectionBase<KeyType, OffsetType, DTy
           tf_backend, *this->meta_, this->global_gpu_id_, key_recv_buffer_tensor,
           row_length_recv_buffer_tensor, sp_weight_recv_buffer_tensor, &adapter_,
           emb_vec_model_buffer, &num_model_key, &num_model_offsets, ret_model_key, ret_model_offset,
-          ret_sp_weight);
+          ret_sp_weight,this->use_filter_);
 
     } else {
       ::embedding::tf::model_forward::sparse_forward_per_gpu(
           tf_backend, *this->ebc_param_, *this->meta_, key_recv_buffer_tensor,
           row_length_recv_buffer_tensor, &adapter_, emb_vec_model_buffer, &num_model_key,
-          &num_model_offsets, &ret_model_key, &ret_model_offset);
+          &num_model_offsets, &ret_model_key, &ret_model_offset,this->use_filter_);
     }
 
     // Prepare model_key & model_offsets

@@ -248,6 +248,12 @@ void DETVariable<KeyType, ValueType>::scatter_update(const KeyType* keys, const 
   map_->scatter_update(keys, values, num_keys, stream);
 }
 
+template <typename KeyType, typename ValueType>
+void DETVariable<KeyType, ValueType>::ratio_filter(const KeyType* keys, bool* filtered,
+                                                   size_t num_keys, cudaStream_t stream) {
+  throw std::runtime_error("SOK dynamic variable with DET backend don't support ratio_filter!");
+}
+
 template class DETVariable<int32_t, float>;
 template class DETVariable<int64_t, float>;
 
