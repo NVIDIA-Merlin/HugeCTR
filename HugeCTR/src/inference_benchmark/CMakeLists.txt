@@ -20,11 +20,7 @@ file(GLOB hps_benchmark_src
 )
 
 if(ENABLE_HDFS)
-  target_link_libraries(
-    huge_ctr_inference
-    PUBLIC
-      ${DB_LIB_PATHS}/libhdfs.so # from Hugectr
-  )
+  target_link_libraries(huge_ctr_inference PUBLIC hdfs)
 endif()
 
 if(ENABLE_S3)

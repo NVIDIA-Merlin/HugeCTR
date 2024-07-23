@@ -36,11 +36,7 @@ add_compile_definitions(LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE)
 add_library(huge_ctr_hps SHARED ${huge_ctr_hps_src})
 
 if(ENABLE_HDFS)
-  target_link_libraries(
-    huge_ctr_hps
-    PUBLIC
-      ${DB_LIB_PATHS}/libhdfs.so # from Hugectr
-  )
+  target_link_libraries(huge_ctr_hps PUBLIC hdfs)
 endif()
 
 if(ENABLE_S3)

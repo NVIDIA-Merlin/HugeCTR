@@ -14,6 +14,7 @@
 #
 
 cmake_minimum_required(VERSION 3.17)
+
 project(HugeCTR LANGUAGES CXX CUDA)
 
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
@@ -351,17 +352,57 @@ add_subdirectory(gpu_cache/src)
 
 option(ENABLE_HDFS "Enable HDFS" OFF)
 if(ENABLE_HDFS)
-  if(ENABLE_HDFS STREQUAL "MINIMAL")
-    message("HDFS build mode: Client only")
-  else()
-    message("HDFS build mode: Full")
-  endif()
+  message(STATUS "HDFS build mode: Client only")
   set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -DENABLE_HDFS")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_HDFS")
+  
+  set(FETCHCONTENT_QUIET OFF)
 
-  # Build and Install Hadoop
-  include(SetupHadoop)
-  hadoop_setup(${ENABLE_HDFS})
+  # Java.
+  if (NOT EXISTS /usr/bin/mvn)
+    execute_process(WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+      COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/install-jdk-and-maven.sh
+      COMMAND_ERROR_IS_FATAL ANY
+    )
+  endif()
+
+  # Hadoop.
+  # sudo apt install libboost-date-time-dev
+  # sudo apt install libboost-program-options-dev
+  # sudo apt install libprotobuf-dev
+  # sudo apt install libfuse-dev
+  # sudo apt install libprotoc-dev
+  FetchContent_Declare(hadoop
+    DOWNLOAD_COMMAND git clone
+      --branch rel/release-3.4.0
+      --depth 1
+      --progress https://github.com/apache/hadoop.git
+      "${CMAKE_BINARY_DIR}/_deps/hadoop-src"
+  )
+  FetchContent_Populate(hadoop)
+  set(hadoop_SOURCE_DIR "${hadoop_SOURCE_DIR}/hadoop-hdfs-project/hadoop-hdfs-native-client")
+  set(hadoop_BINARY_DIR "${hadoop_SOURCE_DIR}/target/hadoop-hdfs-native-client-3.4.0")
+  if(EXISTS ${hadoop_BINARY_DIR}/include/hdfs.h AND EXISTS ${hadoop_BINARY_DIR}/lib/native/libhdfs.a)
+    message(STATUS "Found hdfs library in ${hadoop_BINARY_DIR}")
+  else()
+    execute_process(WORKING_DIRECTORY "${hadoop_SOURCE_DIR}"
+      COMMAND mvn clean package
+        -Pdist,native
+        -DskipTests
+        -Dtar
+        -Dmaven.javadoc.skip=true
+        -Drequire.snappy
+        -Drequire.zstd
+        -Drequire.openssl
+        -Drequire.pmdk
+      COMMAND_ERROR_IS_FATAL ANY
+    )
+  endif()
+  set(FETCHCONTENT_QUIET ON)
+
+  include_directories("${hadoop_BINARY_DIR}/include")
+  link_directories("${hadoop_BINARY_DIR}/lib/native")
+  
   set(ENABLE_HDFS ON)
 endif()
 

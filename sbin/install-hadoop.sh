@@ -40,7 +40,7 @@ if [[ ! -f "${HADOOP_HOME}/include/hdfs.h" ]]; then
   cp hadoop-hdfs-project/hadoop-hdfs-native-client/src/main/native/libhdfs/include/hdfs/hdfs.h ${HADOOP_HOME}/include
 fi
 
-# Cleanup reundant files.
+# Cleanup redundant files.
 for f in $(find ${HADOOP_HOME} -name *.cmd); do
   rm -rf $f
 done
