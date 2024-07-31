@@ -35,6 +35,12 @@ AIOContext::AIOContext(size_t io_depth) : io_depth_(io_depth), iocb_buffer_(io_d
   if (io_queue_init(io_depth, &ctx_) < 0) {
     throw std::runtime_error("io_queue_init failed");
   }
+
+  long page_size = sysconf(_SC_PAGESIZE);
+  if (page_size == -1) {
+    throw std::runtime_error("sysconf failed to return page size.");
+  }
+  alignment_ = static_cast<size_t>(page_size);
 }
 
 AIOContext::~AIOContext() {
@@ -118,8 +124,6 @@ IOError AIOContext::errno_to_enum(int err) {
   }
 }
 
-size_t AIOContext::get_alignment() const {
-  return 4096;  // O_DIRECT requirement
-}
+size_t AIOContext::get_alignment() const { return alignment_; }
 
 }  // namespace HugeCTR
