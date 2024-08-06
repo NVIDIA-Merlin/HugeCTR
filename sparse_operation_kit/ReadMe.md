@@ -87,7 +87,7 @@ You can also build the SOK module from source code. Here are the steps to follow
 ### Pre-requisites ###
 CUDA Version:>= 11.2
 
-TF2 Version:2.6.0~2.14.0
+TF2 Version:2.6.0~2.16.0
 
 TF1 Version:1.15
 
