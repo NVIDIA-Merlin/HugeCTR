@@ -20,25 +20,22 @@ comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
-paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn
-/hadoop-yarn-api] 
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-api]
 comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
-paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-services/hadoop-yarn-services-core'] 
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-applications/hadoop-yarn-services/hadoop-yarn-services-core']
 comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
-paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server
-/hadoop-yarn-server-timelineservice'] 
+paths = ['third_party/hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-timelineservice']
 comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
 [[oss.excluded.directories]]
-paths = ['hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-timelineservice-hbase
-/hadoop-yarn-server-timelineservice-hbase-server'] 
+paths = ['hadoop/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-timelineservice-hbase/hadoop-yarn-server-timelineservice-hbase-server']
 comment = 'No Use'
 nspect_ids = ['NSPECT-OZP9-WUQA']
 
