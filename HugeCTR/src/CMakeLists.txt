@@ -97,5 +97,5 @@ endif()
 target_compile_features(huge_ctr_shared PUBLIC cxx_std_17 cuda_std_17)
 
 add_library(hugectr MODULE pybind/module_main.cpp)
-target_link_libraries(hugectr PUBLIC pybind11::module python$ENV{PYTHON_VERSION} huge_ctr_shared)
+target_link_libraries(hugectr PUBLIC pybind11::module python3.10 huge_ctr_shared)
 set_target_properties(hugectr PROPERTIES PREFIX "")

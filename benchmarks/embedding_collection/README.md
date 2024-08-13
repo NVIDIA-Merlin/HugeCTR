@@ -1,25 +1,16 @@
 # Introduction
-This folder contains the scripts used to compare perf between HugeCTR and TorchRec.
+This folder contains the scripts used to reproduce performance result in paper `Embedding Optimization for Training Large-scale Deep Learning Recommendation Systems with EMBark` published in RecSys 24.
 
-You can use docker image `gitlab-master.nvidia.com:5005/dl/hugectr/hugectr/devel_optimized_torchrec:latest`, which containes torchrec v0.5.0-rc1 and fbgemm v0.5.0-rc0.
+You can use dockerfile unster this folder to build image for testing, which containes torchrec v0.6.0-rc2 and fbgemm v0.6.0-rc2.
 
-About the data, you should map `/lustre/fsw/devtech/hpc-hugectr/aleliu1/benchmark_ebc/dataset` to `/workdir/dataset` when you do benchmarking on selene. Currently data is only accessible on selene.
+About the data, you can use scripts under dataset to generate syncthetic dataset. Or you can refer [torchrec_dlrm](https://github.com/mlcommons/training/tree/master/recommendation_v2/torchrec_dlrm) to generate dataset used for MLPerf DLRM v2 benchmark.
 
-You can use `benchmark.sh` to run the benchmark. It supports following use case:
+You can use `benchmark.sh` to run the benchmark. It supports using in this way:
 ```
-bash benchmark.sh $framework $test_case $batchsize $nsys_result_path
+bash benchmark.sh $test_case $batchsize
 ```
 args:
-$framework: required. can be hugectr or torchrec, when using torchrec, please note you should add `--ntasks-per-node=8` because torchrec is using 1 process 1 GPU mode
-$test_case: required. right now can be middle, middle_only_sparse, middle_small_vec, middle_small_vec_only_sparse, middle20, middle70. Different test_case uses different data or model
-$batchsize: required. The global batchsize for training
-$nsys_result_path: optional. If set, will run nsys and generate profiling result on the specified path.
+$test_case: required. right now can be utest, 180table_70B_hotness80, 7table_470B_hotness20, dcnv2, 510table_110B_hotness5, 200table_100B_hotness20. Different test_case uses different data or model. Please make sure you have generated corresponding data and placed them as the same place configured in benchmark.sh.
 
-# ENV
-SKIP_ALL2ALL
-SKIP_ALLREDUCE
-SKIP_BOTTOM_MLP
-SKIP_TOP_MLP
-SKIP_DATA_DISTRIBUTOR:
-SKIP_EMBEDDING
-SKIP_H2D
+$batchsize: required. The global batchsize for training
+

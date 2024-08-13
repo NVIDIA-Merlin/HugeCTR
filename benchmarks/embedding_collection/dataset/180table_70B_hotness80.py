@@ -51,6 +51,7 @@ def Zipf(a: np.float64, min: np.uint64, max: np.uint64, size=None):
     v = np.arange(min + 1, max + 1)  # values to sample
     p = 1.0 / np.power(v, a)  # probabilities
     p /= np.sum(p)  # normalized
+    print(p)
     k = np.arange(min, max)
     np.random.shuffle(k)
 
@@ -71,7 +72,7 @@ random_cate = np.concatenate(random_cate_list, axis=1).astype(np.int32)
 random_label = np.random.randint(2, size=(n, 1)).astype(np.int32)
 random_dense = np.random.uniform(size=(n, num_dense_features)).astype(np.float32)
 
-with open(output_filename, "wb") as file:
+with open(output_file, "wb") as file:
     for i in range(n):
         label = random_label[i].tolist()
         dense = random_dense[i].tolist()

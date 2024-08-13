@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-output_dir="/lustre/fsw/coreai_devtech_all/aleliu/hugectr/benchmarks/embedding_collection/dataset/"
+output_dir="/lustre/fsw/coreai_devtech_all/aleliu/dataset"
 dataset_name="7table_470B_hotness20"
 # dataset_name="180table_70B_hotness80"
 # dataset_name="200table_100B_hotness20"

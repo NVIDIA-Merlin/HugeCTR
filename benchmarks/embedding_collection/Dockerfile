@@ -17,13 +17,13 @@ FROM nvcr.io/nvidia/pytorch:23.09-py3
 WORKDIR /workspace/dlrm
 
 RUN cd /workspace/dlrm && \
-    git clone --recursive -b v0.5.0-rc0 https://github.com/pytorch/FBGEMM.git && \
+    git clone --recursive -b v0.6.0-rc2 https://github.com/pytorch/FBGEMM.git && \
     cd FBGEMM/fbgemm_gpu && pip install -r requirements.txt && \
     python setup.py install -DTORCH_CUDA_ARCH_LIST="7.5;8.0;9.0" && rm -rf /workspace/dlrm/FBGEMM
 
 RUN pip install torchmetrics==1.1.0 pyre_extensions iopath
 RUN cd /workspace/dlrm && \
-    git clone --recursive -b v0.5.0-rc1 https://github.com/pytorch/torchrec.git && \
+    git clone --recursive -b v0.6.0-rc2 https://github.com/pytorch/torchrec.git && \
     cd torchrec && \
     python3 setup.py install && rm -rf /workspace/dlrm/torchrec
 

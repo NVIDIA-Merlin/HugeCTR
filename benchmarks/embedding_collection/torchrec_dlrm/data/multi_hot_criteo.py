@@ -4,135 +4,168 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import zipfile
-from typing import Dict, Iterator, List, Optional
+import itertools
+import sys
+from typing import cast, Iterator, List, Optional
+import struct
 
-import numpy as np
 import torch
-from torch.utils.data import IterableDataset
+from torch.utils.data.dataset import IterableDataset
 from torchrec.datasets.utils import Batch
 from torchrec.sparse.jagged_tensor import KeyedJaggedTensor
 
-import struct
-import os
+
+class _CriteoRecBatch:
+    def __init__(
+        self,
+        dataset_path: str,
+        keys: List[str],
+        batch_size: int,
+        num_dense: int,
+        ids_per_features: List[int],
+        rank: int,
+    ) -> None:
+        self.dataset_path = dataset_path
+        self.keys = keys
+        self.keys_length: int = len(keys)
+        self.batch_size = batch_size
+        self.ids_per_features = ids_per_features
+        self.num_dense = num_dense
+        self.num_generated_batches = 100
+
+        self._generated_batches: List[Batch] = [
+            self._generate_batch(_ * rank) for _ in range(self.num_generated_batches)
+        ]
+        self.batch_index = 0
+        self.num_batches = None
+
+    def __iter__(self) -> "_CriteoRecBatch":
+        self.batch_index = 0
+        return self
+
+    def __next__(self) -> Batch:
+        if self.batch_index == self.num_batches:
+            raise StopIteration
+        if self.num_generated_batches >= 0:
+            batch = self._generated_batches[
+                self.batch_index % len(self._generated_batches)
+            ]
+        else:
+            batch = self._generate_batch()
+        self.batch_index += 1
+        return batch
+
+    def _generate_batch(self, batch_index) -> Batch:
+        sample_format = (
+            r"1I" + str(self.num_dense) + "f" + str(sum(self.ids_per_features)) + "I"
+        )
+        num_item_per_sample = 1 + self.num_dense + sum(self.ids_per_features)
+        sample_size_in_bytes = num_item_per_sample * 4
+
+        with open(self.dataset_path, "rb") as f:
+            f.seek(sample_size_in_bytes * (batch_index * self.batch_size % 65536))
+            values = [[] for _ in range(len(self.keys))]
+            lengths = [[] for _ in range(len(self.keys))]
+            dense_features = []
+            labels = []
+            for _ in range(self.batch_size):
+                buffer = f.read(sample_size_in_bytes)
+                data = struct.unpack(sample_format, buffer)
+                labels.append(int(data[0]))
+                for i in range(1, 1 + self.num_dense):
+                    dense_features.append(float(data[i]))
+
+                offset = 1 + self.num_dense
+                for key_idx in range(len(self.keys)):
+                    ids_in_current_feature = self.ids_per_features[key_idx]
+                    lengths[key_idx].append(ids_in_current_feature)
+                    for i in range(ids_in_current_feature):
+                        values[key_idx].append(int(data[offset + i]))
+                    offset += ids_in_current_feature
+
+            values = list(itertools.chain.from_iterable(values))
+            lengths = list(itertools.chain.from_iterable(lengths))
+
+            sparse_features = KeyedJaggedTensor.from_lengths_sync(
+                keys=self.keys,
+                values=torch.tensor(values, dtype=torch.int64),
+                lengths=torch.tensor(lengths, dtype=torch.int32),
+            )
+            dense_features = torch.tensor(dense_features, dtype=torch.float32).reshape(
+                -1, self.num_dense
+            )
+
+            labels = torch.tensor(labels, dtype=torch.int64)
+
+            batch = Batch(
+                dense_features=dense_features,
+                sparse_features=sparse_features,
+                labels=labels,
+            )
+            return batch.pin_memory()
 
 
-class RawDataIterDataPipe(IterableDataset):
+class CriteoRecDataset(IterableDataset[Batch]):
+    """
+    Random iterable dataset used to generate batches for recommender systems
+    (RecSys). Currently produces unweighted sparse features only. TODO: Add
+    weighted sparse features.
+
+    Args:
+        keys (List[str]): List of feature names for sparse features.
+        batch_size (int): batch size.
+        hash_size (Optional[int]): Max sparse id value. All sparse IDs will be taken
+            modulo this value.
+        hash_sizes (Optional[List[int]]): Max sparse id value per feature in keys. Each
+            sparse ID will be taken modulo the corresponding value from this argument. Note, if this is used, hash_size will be ignored.
+        ids_per_feature (int): Number of IDs per sparse feature.
+        ids_per_features (int): Number of IDs per sparse feature in each key. Note, if this is used, ids_per_feature will be ignored.
+        num_dense (int): Number of dense features.
+        manual_seed (int): Seed for deterministic behavior.
+        num_batches: (Optional[int]): Num batches to generate before raising StopIteration
+        num_generated_batches int: Num batches to cache. If num_batches > num_generated batches, then we will cycle to the first generated batch.
+                                   If this value is negative, batches will be generated on the fly.
+        min_ids_per_feature (int): Minimum number of IDs per features.
+
+    Example::
+
+        dataset = RandomRecDataset(
+            keys=["feat1", "feat2"],
+            batch_size=16,
+            hash_size=100_000,
+            ids_per_feature=1,
+            num_dense=13,
+        ),
+        example = next(iter(dataset))
+    """
+
     def __init__(
         self,
         dataset_path: str,
         batch_size_per_gpu: int,
-        dense_dim: int,
-        sparse_dim: List[int],
+        keys,
+        num_dense: int,
+        ids_per_features: List[int],
         rank: int,
-        world_size: int,
     ) -> None:
-        self.dataset_path = dataset_path
-        self.batch_size_per_gpu = batch_size_per_gpu
-        self.dense_dim = dense_dim
-        self.sparse_dim = sparse_dim
-        self.rank = rank
-        self.world_size = world_size
+        super().__init__()
 
-        self.num_cate_features = sum(sparse_dim)
-        self.item_num_per_sample = 1 + dense_dim + self.num_cate_features
-        self.sample_format = r"1I" + str(dense_dim) + "f" + str(self.num_cate_features) + "I"
-        self.sample_size_in_bytes = self.item_num_per_sample * 4
-        self.file_size = os.path.getsize(dataset_path)
-        self.num_full_batches = self.file_size // self.sample_size_in_bytes
-        self.num_table = len(sparse_dim)
-        self.keys = ["table{}".format(i) for i in range(self.num_table)]
-        self.index_per_key: Dict[str, int] = {key: i for (i, key) in enumerate(self.keys)}
-        self._init_cache()
+        assert len(ids_per_features) == len(
+            keys
+        ), "length of ids_per_features must be equal to the number of keys"
 
-    def _np_arrays_to_batch(
-        self,
-        dense: np.ndarray,
-        sparse: List[np.ndarray],
-        labels: np.ndarray,
-    ) -> Batch:
-        batch_size = self.batch_size_per_gpu
-        lengths = torch.ones((self.num_table * batch_size), dtype=torch.int32)
-        for k, multi_hot_size in enumerate(self.sparse_dim):
-            lengths[k * batch_size : (k + 1) * batch_size] = multi_hot_size
-        offsets = torch.cumsum(torch.concat((torch.tensor([0]), lengths)), dim=0)
-        length_per_key = [batch_size * multi_hot_size for multi_hot_size in self.sparse_dim]
-        offset_per_key = torch.cumsum(
-            torch.concat((torch.tensor([0]), torch.tensor(length_per_key))), dim=0
+        self.batch_generator = _CriteoRecBatch(
+            dataset_path=dataset_path,
+            keys=keys,
+            batch_size=batch_size_per_gpu,
+            num_dense=num_dense,
+            ids_per_features=ids_per_features,
+            rank=rank,
         )
-        values = torch.concat([torch.from_numpy(feat).flatten() for feat in sparse])
-        return Batch(
-            dense_features=torch.from_numpy(dense.copy()),
-            sparse_features=KeyedJaggedTensor(
-                keys=self.keys,
-                values=values,
-                lengths=lengths,
-                offsets=offsets,
-                stride=batch_size,
-                length_per_key=length_per_key,
-                offset_per_key=offset_per_key.tolist(),
-                index_per_key=self.index_per_key,
-            ),
-            labels=torch.from_numpy(labels.reshape(-1).copy()),
-        ).to("cuda")
-
-    def _init_cache(self):
-        self.cache = []
-        num_cache = 10
-
-        batch_idx = 0
-        with open(self.dataset_path, "rb") as file:
-            while batch_idx < self.num_full_batches:
-                if len(self.cache) >= num_cache:
-                    break
-                if batch_idx % self.world_size == self.rank:
-                    offset = self.sample_size_in_bytes * batch_idx
-                    file.seek(offset)
-                    data_buffer = file.read(self.batch_size_per_gpu * self.sample_size_in_bytes)
-                    data = struct.unpack(self.sample_format * self.batch_size_per_gpu, data_buffer)
-                    data = [
-                        list(
-                            data[i * self.item_num_per_sample : (i + 1) * self.item_num_per_sample]
-                        )
-                        for i in range(self.batch_size_per_gpu)
-                    ]
-                    labels = np.asarray(
-                        [data[i][0] for i in range(self.batch_size_per_gpu)]
-                    ).astype(np.int32)
-                    dense = np.asarray(
-                        [data[i][1 : 1 + self.dense_dim] for i in range(self.batch_size_per_gpu)]
-                    ).astype(np.float32)
-                    sparse = []
-                    for sparse_idx in range(len(self.sparse_dim)):
-                        cumsum = sum(self.sparse_dim[:sparse_idx])
-                        cur_sparse_dim = self.sparse_dim[sparse_idx]
-                        sparse += [
-                            np.asarray(
-                                [
-                                    data[i][
-                                        1
-                                        + self.dense_dim
-                                        + cumsum : 1
-                                        + self.dense_dim
-                                        + cumsum
-                                        + cur_sparse_dim
-                                    ]
-                                    for i in range(self.batch_size_per_gpu)
-                                ]
-                            ).astype(np.int32)
-                        ]
-                    self.cache.append(self._np_arrays_to_batch(dense, sparse, labels))
-                else:
-                    batch_idx += 1
+        self.num_batches: int = cast(int, sys.maxsize)
 
     def __iter__(self) -> Iterator[Batch]:
-        batch_idx = 0
-        local_cache_idx = 0
-        while batch_idx < self.num_full_batches:
-            if batch_idx % self.world_size == self.rank:
-                yield self.cache[local_cache_idx % len(self.cache)]
-                local_cache_idx += 1
-            batch_idx += 1
+        return itertools.islice(iter(self.batch_generator), self.num_batches)
 
     def __len__(self) -> int:
-        return self.num_full_batches // self.world_size
+        return self.num_batches
