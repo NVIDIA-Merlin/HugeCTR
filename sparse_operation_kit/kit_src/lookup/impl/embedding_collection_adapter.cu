@@ -380,6 +380,56 @@ void DummyVarAdapter<KeyType, OffsetType, DType>::lookup(
   }
 }
 
+template <typename KeyType, typename OffsetType, typename DType>
+void DummyVarAdapter<KeyType, OffsetType, DType>::ratio_filter(
+    const core23::Tensor& keys, size_t num_keys, const core23::Tensor& id_space_offset,
+    size_t num_id_space_offset, const core23::Tensor& id_space, core23::Tensor& filtered) {
+  // clang-format off
+  id_space_offset_.clear();
+  id_space_.clear();
+  id_space_offset_.resize(num_id_space_offset);
+  CUDACHECK(cudaMemcpyAsync(id_space_offset_.data(),
+                            id_space_offset.data<OffsetType>(),
+                            sizeof(OffsetType) * (num_id_space_offset),
+                            cudaMemcpyDeviceToHost, stream_));
+  id_space_.resize(num_id_space_offset - 1);
+  CUDACHECK(cudaMemcpyAsync(id_space_.data(),
+                            id_space.data<int>(),
+                            sizeof(int) * (num_id_space_offset - 1),
+                            cudaMemcpyDeviceToHost, stream_));
+  // clang-format on
+  CUDACHECK(cudaStreamSynchronize(stream_));
+  const KeyType* input = keys.data<KeyType>();
+  bool* output_filtered = filtered.data<bool>();
+  int start_index = 0;
+  size_t num = 0;
+  bool is_lookup = false;
+
+  for (int i = 0; i < num_id_space_offset - 1; ++i) {
+    if (i == num_id_space_offset - 2) {
+      num += id_space_offset_[i + 1] - id_space_offset_[i];
+      is_lookup = true;
+    } else {
+      if (same_table_[i + 1] != same_table_[i]) {
+        num += id_space_offset_[i + 1] - id_space_offset_[i];
+        is_lookup = true;
+      } else {
+        num += id_space_offset_[i + 1] - id_space_offset_[i];
+      }
+    }
+    if (num != 0 && is_lookup) {
+      auto var = vars_[id_space_[start_index]];
+      var->ratio_filter(input, output_filtered, num, stream_);
+      CUDACHECK(cudaStreamSynchronize(stream_));
+      input += num;
+      output_filtered += num;
+      num = 0;
+      is_lookup = false;
+      start_index = i + 1;
+    }
+  }
+}
+
 template class DummyVarAdapter<int32_t, int32_t, float>;
 template class DummyVarAdapter<int32_t, int64_t, float>;
 // template class DummyVarAdapter<int32_t, __half>;

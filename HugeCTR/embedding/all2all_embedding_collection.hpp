@@ -57,7 +57,7 @@ void weighted_sparse_forward_per_gpu(
     const core23::Tensor &sp_weights_all_gather_recv_buffer, ILookup *emb_storage,
     std::vector<core23::Tensor> &emb_vec_model_buffer, int64_t *num_model_key,
     int64_t *num_model_offsets, core23::Tensor &ret_model_key, core23::Tensor &ret_model_offset,
-    core23::Tensor &ret_sp_weight);
+    core23::Tensor &ret_sp_weight, bool use_filter);
 
 void weighted_copy_model_keys_and_offsets(
     std::shared_ptr<CoreResourceManager> core, const core23::Tensor &model_key,
@@ -71,7 +71,8 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             const core23::Tensor &row_lengths_all_gather_recv_buffer,
                             ILookup *emb_storage, std::vector<core23::Tensor> &emb_vec_model_buffer,
                             int64_t *num_model_key, int64_t *num_model_offsets,
-                            core23::Tensor *ret_model_key, core23::Tensor *ret_model_offset);
+                            core23::Tensor *ret_model_key, core23::Tensor *ret_model_offset,
+                            bool use_filter);
 
 void copy_model_keys_and_offsets(std::shared_ptr<CoreResourceManager> core,
                                  const core23::Tensor &model_key,

@@ -232,6 +232,7 @@ def _LookupBackward(op, *top_grads):
         "id_in_local_rank",
         # "Toffsets",
         "use_sp_weight",
+        "use_filter",
     ]
     kwargs = {}
     for attr in attr_list:
@@ -268,6 +269,7 @@ def _LookupBackward(op, *top_grads):
         "id_in_local_rank",
         # "Toffsets",
         "use_sp_weight",
+        "use_filter",
     ]
     kwargs = {}
     for attr in attr_list:
@@ -304,6 +306,7 @@ def _LookupDynamicBackward(op, *top_grads):
         "id_in_local_rank",
         # "Toffsets",
         "use_sp_weight",
+        "use_filter",
     ]
     kwargs = {}
     for attr in attr_list:
@@ -342,6 +345,7 @@ def _LookupBackwardEmbeddingVarGPU(op, *top_grads):
         "id_in_local_rank",
         # "Toffsets",
         "use_sp_weight",
+        "use_filter",
     ]
     kwargs = {}
     for attr in attr_list:
@@ -385,7 +389,8 @@ def _PostprocessingBackward(op, *top_grads):
         "id_in_local_rank",
         "num_gpus",
         "Tindices",
-        "use_sp_weight"
+        "use_sp_weight",
+        "use_filter",
         # "Toffsets",
     ]
     kwargs = {}
@@ -412,7 +417,7 @@ def to_list(any_obj):
         return any_obj
 
 
-def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
+def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None, use_filter=False):
     shard, dimensions = [], []
     for param in params:
         shard.append(param.target_gpu)
@@ -467,6 +472,7 @@ def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
         "num_ranks": num_ranks(),
         "id_in_local_rank": id_in_rank(),
         "use_sp_weight": use_sp_weight,
+        "use_filter": use_filter,
     }
 
     # Step1
@@ -529,7 +535,7 @@ def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None):
     return emb_vec
 
 
-def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
+def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None, use_low_frequency_filter=False):
     """
     Abbreviated as ``sok.lookup_sparse``.
 
@@ -552,6 +558,8 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
     combiners: list, tuple,optional
             a list or tuple of string to specify the combiner of each lookup,for now only suupport "mean" "sum".
             if don't specify , indicate all elements(numbero of elements is same with number of sok.Variables) in combiners will should be set to be mean.
+    use_low_frequency_filter: bool,optional
+            For new indices that are not in the embedding table, should low-frequency filtering be performed to enter the embedding table
 
     Returns
     -------
@@ -655,7 +663,11 @@ def lookup_sparse(params, sp_ids, sp_weights=None, combiners=None):
             selected_combiners = [combiners[i] for i in selected_idx]
 
             selected_emb_vec = lookup_sparse_impl(
-                selected_params, selected_sp_ids, selected_sp_weights, selected_combiners
+                selected_params,
+                selected_sp_ids,
+                selected_sp_weights,
+                selected_combiners,
+                use_low_frequency_filter,
             )
             for ii, i in enumerate(selected_idx):
                 emb_vec[i] = selected_emb_vec[ii]

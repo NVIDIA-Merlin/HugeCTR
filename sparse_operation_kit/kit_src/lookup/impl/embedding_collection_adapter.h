@@ -88,6 +88,10 @@ class DummyVarAdapter : public ::embedding::ILookup {
               size_t num_id_space_offset, const core23::Tensor& id_space,
               core23::Tensor& embedding_vec) override;
 
+  void ratio_filter(const core23::Tensor& keys, size_t num_keys,
+                    const core23::Tensor& id_space_offset, size_t num_id_space_offset,
+                    const core23::Tensor& id_space, core23::Tensor& filtered) override;
+
  private:
   std::shared_ptr<sok::CoreResourceManager> tf_backend_;
   int sm_count_;
