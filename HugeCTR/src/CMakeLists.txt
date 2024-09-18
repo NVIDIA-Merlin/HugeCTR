@@ -67,7 +67,7 @@ target_link_libraries(huge_ctr_shared PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)
 
 if(ENABLE_HDFS)
-  target_link_libraries(huge_ctr_shared PUBLIC ${DB_LIB_PATHS}/libhdfs.so)
+  target_link_libraries(huge_ctr_shared PUBLIC hdfs)
 endif()
 
 if(ENABLE_S3)

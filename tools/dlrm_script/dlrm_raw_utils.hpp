@@ -574,7 +574,7 @@ size_t convert_input_binaries(rmm::mr::device_memory_resource *mr, std::string i
 
     for (int k = 0; k < num_categoricals; k++) {
       auto str_col_view = cudf::strings_column_view((col_logs[k + num_numericals]->view()));
-      char_ptrs.push_back(const_cast<char *>(str_col_view.chars().data<char>()));
+      char_ptrs.push_back(const_cast<char *>(str_col_view.chars_begin(cudf::get_default_stream())));
       offset_ptrs.push_back(const_cast<int32_t *>(str_col_view.offsets().data<int32_t>()));
     }
 
