@@ -27,6 +27,10 @@
 #include "tensorflow/core/common_runtime/gpu_device_context.h"
 #endif
 
+#ifdef TF_GE_216
+#include "tensorflow/c/experimental/stream_executor/stream_executor_internal.h"
+#endif
+
 #include "tensorflow/core/framework/device_base.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/core/platform/stream_executor.h"
@@ -49,6 +53,16 @@ class GPUResource final : public GPUResourceBase {
       LOG(FATAL) << "Get DeviceContext fail! please check OpKernel running on GPU.";
     }
     const GPUDeviceContext *gpu_dc = static_cast<GPUDeviceContext *>(dc);
+
+#ifdef TF_GE_216
+    cudaStream_t stream =
+        reinterpret_cast<cudaStream_t>(gpu_dc->stream()->platform_specific_handle().stream);
+
+    if (!stream) {
+      LOG(FATAL) << "Get default CUDA stream fail!";
+    }
+    stream_map_[current_stream_name_] = stream;
+#else
     cudaStream_t *stream =
         reinterpret_cast<cudaStream_t *>(gpu_dc->stream()->implementation()->GpuStreamMemberHack());
 
@@ -62,6 +76,8 @@ class GPUResource final : public GPUResourceBase {
       LOG(FATAL) << "Get default CUDA stream fail!";
     }
     stream_map_[current_stream_name_] = *stream;
+
+#endif
   }
 
   void set_stream(const std::string &name) override { current_stream_name_ = name; }

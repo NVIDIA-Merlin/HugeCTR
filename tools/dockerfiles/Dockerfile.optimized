@@ -26,6 +26,11 @@ ARG RELEASE=true
 
 RUN apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        libboost-date-time-dev \
+        libboost-program-options-dev \
+        libprotobuf-dev \
+        libprotoc-dev \
+        libfuse-dev \
         clang-format \
         libtbb-dev \
         libaio-dev && \

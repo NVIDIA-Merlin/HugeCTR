@@ -380,7 +380,7 @@ __global__ void cal_lookup_idx(size_t lookup_num, offset_t *bucket_after_filter,
 }
 
 template <typename offset_t>
-__global__ void count_ratio_filter(size_t bucket_num, char *filterd, const offset_t *bucket_range,
+__global__ void count_ratio_filter(size_t bucket_num, char *filtered, const offset_t *bucket_range,
                                    offset_t *bucket_after_filter) {
   int32_t i = blockIdx.x * blockDim.x + threadIdx.x;
   int32_t step = blockDim.x * gridDim.x;
@@ -389,7 +389,7 @@ __global__ void count_ratio_filter(size_t bucket_num, char *filterd, const offse
     offset_t end = bucket_range[i + 1];
     bucket_after_filter[i + 1] = 0;
     for (offset_t idx = start; idx < end; idx++) {
-      if (filterd[idx] == 1) {
+      if (filtered[idx] == 1) {
         bucket_after_filter[i + 1]++;
       }
     }
@@ -400,7 +400,7 @@ __global__ void count_ratio_filter(size_t bucket_num, char *filterd, const offse
 }
 
 void filter(std::shared_ptr<CoreResourceManager> core,
-            const UniformModelParallelEmbeddingMeta &meta, const core23::Tensor &filterd,
+            const UniformModelParallelEmbeddingMeta &meta, const core23::Tensor &filtered,
             core23::Tensor &bucket_range, core23::Tensor &bucket_after_filter,
             core23::TensorParams &params, EmbeddingInput &emb_input, core23::Tensor &lookup_offset,
             core23::Tensor &temp_scan_storage, core23::Tensor &temp_select_storage,
@@ -416,7 +416,7 @@ void filter(std::shared_ptr<CoreResourceManager> core,
     DISPATCH_INTEGRAL_FUNCTION_CORE23(keys_after_filter.data_type().type(), key_t, [&] {
       offset_t *bucket_after_filter_ptr = bucket_after_filter.data<offset_t>();
       const offset_t *bucket_range_ptr = bucket_range.data<offset_t>();
-      char *filterd_ptr = filterd.data<char>();
+      char *filterd_ptr = filtered.data<char>();
       count_ratio_filter<<<grid_size, block_size, 0, stream>>>(
           bucket_num, filterd_ptr, bucket_range_ptr, bucket_after_filter_ptr);
       cub::DeviceScan::InclusiveSum(

@@ -36,6 +36,7 @@ class AIOContext : public IOContext {
 
   size_t io_depth_ = 0;
   size_t num_inflight_ = 0;
+  size_t alignment_ = 0;
   io_context_t ctx_ = 0;
   std::vector<IOEvent> tmp_events_;  // prevent dynamic memory allocation
   std::vector<iocb> iocb_buffer_;
