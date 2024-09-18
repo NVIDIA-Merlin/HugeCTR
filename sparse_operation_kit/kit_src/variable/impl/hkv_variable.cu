@@ -276,12 +276,13 @@ HKVVariable<KeyType, ValueType>::HKVVariable(int64_t dimension, int64_t initial_
                                              size_t max_hbm_for_vectors, size_t max_bucket_size,
                                              float max_load_factor, int block_size, int device_id,
                                              bool io_by_cpu, const std::string& evict_strategy,
-                                             cudaStream_t stream)
+                                             cudaStream_t stream, float filter_ratio)
     : dimension_(dimension),
       initial_capacity_(initial_capacity),
       initializer_(initializer),
       stream_(stream),
-      curand_states_(nullptr) {
+      curand_states_(nullptr),
+      filter_ratio_(filter_ratio) {
   if (dimension_ <= 0) {
     throw std::invalid_argument("dimension must > 0 but got " + std::to_string(dimension));
   }
@@ -557,6 +558,35 @@ void HKVVariable<KeyType, ValueType>::scatter_update(const KeyType* keys, const 
   hkv_table_->assign(num_keys, keys, values, nullptr, stream);
 
   CUDACHECK(cudaStreamSynchronize(stream));
+}
+
+template <typename KeyType>
+__global__ void ratio_filter_flag(curandState* state, const KeyType *keys, bool *filtered, size_t num_keys, float filter_ratio) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  curandState localState;
+  localState = state[GlobalThreadId()];
+  for (int i = idx; i < num_keys; i += blockDim.x * gridDim.x) {
+    if (!filtered[i]) {
+      auto ratio = curand_uniform(&localState);
+      if (ratio < filter_ratio) {
+        filtered[i] = true;
+      }
+    }
+  }
+  state[GlobalThreadId()] = localState;
+}
+template <typename KeyType, typename ValueType>
+void HKVVariable<KeyType, ValueType>::ratio_filter(const KeyType *keys, bool *filtered,
+                                            size_t num_keys, cudaStream_t stream) {
+  // TODO: update hkv, use exist;
+  ValueType** p_values;
+  CUDACHECK(cudaMallocAsync(&p_values,  num_keys * sizeof(ValueType*),stream));
+  hkv_table_->find(num_keys, keys, p_values, filtered, nullptr, stream);
+  uint32_t grid_dim = SM_NUM * (NTHREAD_PER_SM/256);
+  // filter
+  ratio_filter_flag<<<grid_dim, 256, 0, stream>>>(curand_states_, keys, filtered, num_keys, filter_ratio_);
+  CUDACHECK(cudaFreeAsync(p_values,stream));
+  //CUDACHECK(cudaStreamSynchronize(stream));
 }
 
 template class HKVVariable<int64_t, float>;

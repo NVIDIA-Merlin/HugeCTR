@@ -206,7 +206,7 @@ void weighted_sparse_forward_per_gpu(
     const core23::Tensor &sp_weights_all_gather_recv_buffer, ILookup *emb_storage,
     std::vector<core23::Tensor> &emb_vec_model_buffer, int64_t *num_model_key,
     int64_t *num_model_offsets, core23::Tensor &ret_model_key, core23::Tensor &ret_model_offset,
-    core23::Tensor &ret_sp_weight) {
+    core23::Tensor &ret_sp_weight, bool use_filter) {
   HugeCTR::CudaDeviceContext context(core->get_device_id());
 
   int tensor_device_id = core->get_device_id();
@@ -369,6 +369,79 @@ void weighted_sparse_forward_per_gpu(
   *num_model_offsets = model_offsets.num_elements();
 }
 
+template <typename offset_t>
+__global__ void cal_lookup_idx(size_t lookup_num, offset_t *bucket_after_filter, size_t batch_size,
+                               offset_t *lookup_offset, size_t bucket_num) {
+  int32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_t step = blockDim.x * gridDim.x;
+  for (; i < (lookup_num); i += step) {
+    lookup_offset[i] = bucket_after_filter[i * batch_size];
+  }
+}
+
+template <typename offset_t>
+__global__ void count_ratio_filter(size_t bucket_num, char *filtered, const offset_t *bucket_range,
+                                   offset_t *bucket_after_filter) {
+  int32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  int32_t step = blockDim.x * gridDim.x;
+  for (; i < (bucket_num); i += step) {
+    offset_t start = bucket_range[i];
+    offset_t end = bucket_range[i + 1];
+    bucket_after_filter[i + 1] = 0;
+    for (offset_t idx = start; idx < end; idx++) {
+      if (filtered[idx] == 1) {
+        bucket_after_filter[i + 1]++;
+      }
+    }
+    if (i == 0) {
+      bucket_after_filter[i] = 0;
+    }
+  }
+}
+
+void filter(std::shared_ptr<CoreResourceManager> core,
+            const UniformModelParallelEmbeddingMeta &meta, const core23::Tensor &filtered,
+            core23::Tensor &bucket_range, core23::Tensor &bucket_after_filter,
+            core23::TensorParams &params, EmbeddingInput &emb_input, core23::Tensor &lookup_offset,
+            core23::Tensor &temp_scan_storage, core23::Tensor &temp_select_storage,
+            size_t temp_scan_bytes, size_t temp_select_bytes, core23::Tensor &keys_after_filter) {
+  auto stream = core->get_local_gpu()->get_stream();
+  // bucket_range length = bucket_num+1 , so here we minus 1.
+  int bucket_num = bucket_range.num_elements() - 1;
+  const int block_size = 256;
+  const int grid_size =
+      core->get_kernel_param().num_sms * core->get_kernel_param().max_thread_per_block / block_size;
+
+  DISPATCH_INTEGRAL_FUNCTION_CORE23(bucket_range.data_type().type(), offset_t, [&] {
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(keys_after_filter.data_type().type(), key_t, [&] {
+      offset_t *bucket_after_filter_ptr = bucket_after_filter.data<offset_t>();
+      const offset_t *bucket_range_ptr = bucket_range.data<offset_t>();
+      char *filterd_ptr = filtered.data<char>();
+      count_ratio_filter<<<grid_size, block_size, 0, stream>>>(
+          bucket_num, filterd_ptr, bucket_range_ptr, bucket_after_filter_ptr);
+      cub::DeviceScan::InclusiveSum(
+          temp_scan_storage.data(), temp_scan_bytes, bucket_after_filter.data<offset_t>(),
+          bucket_after_filter.data<offset_t>(), bucket_after_filter.num_elements(), stream);
+
+      key_t *keys_ptr = emb_input.keys.data<key_t>();
+
+      cub::DeviceSelect::Flagged(temp_select_storage.data(), temp_select_bytes, keys_ptr,
+                                 filterd_ptr, keys_after_filter.data<key_t>(),
+                                 emb_input.num_keys.data<uint64_t>(), emb_input.h_num_keys, stream);
+
+      size_t batch_size = (bucket_num) / meta.num_lookup_;
+
+      cal_lookup_idx<<<1, block_size, 0, stream>>>(meta.num_lookup_ + 1,
+                                                   bucket_after_filter.data<offset_t>(), batch_size,
+                                                   lookup_offset.data<offset_t>(), bucket_num);
+      HCTR_LIB_THROW(cudaStreamSynchronize(stream));
+      emb_input.h_num_keys = static_cast<size_t>(emb_input.num_keys.data<uint64_t>()[0]);
+      emb_input.keys = keys_after_filter;
+      emb_input.bucket_range = bucket_after_filter;
+    });
+  });
+}
+
 void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             const EmbeddingCollectionParam &ebc_param,
                             const UniformModelParallelEmbeddingMeta &meta,
@@ -376,7 +449,8 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
                             const core23::Tensor &row_lengths_all_gather_recv_buffer,
                             ILookup *emb_storage, std::vector<core23::Tensor> &emb_vec_model_buffer,
                             int64_t *num_model_key, int64_t *num_model_offsets,
-                            core23::Tensor *ret_model_key, core23::Tensor *ret_model_offset) {
+                            core23::Tensor *ret_model_key, core23::Tensor *ret_model_offset,
+                            bool use_filter) {
   /*
   There are some steps in this function:
   1.reorder key to feature major
@@ -500,8 +574,56 @@ void sparse_forward_per_gpu(std::shared_ptr<CoreResourceManager> core,
   compress_offset_.compute(embedding_input.bucket_range, batch_size, &num_key_per_lookup_offset);
   HCTR_LIB_THROW(cudaStreamSynchronize(stream));
 
+  if (use_filter) {
+    core23::Tensor bucket_range_after_filter;
+    core23::Tensor keys_after_filter;
+    core23::Tensor filtered;
+
+    filtered = core23::Tensor(
+        params.shape({(int64_t)embedding_input.h_num_keys}).data_type(core23::ScalarType::Char));
+    bucket_range_after_filter =
+        core23::Tensor(params.shape({embedding_input.bucket_range.num_elements()})
+                           .data_type(embedding_input.bucket_range.data_type().type()));
+    keys_after_filter = core23::Tensor(params.shape({(int64_t)embedding_input.h_num_keys + 1})
+                                           .data_type(embedding_input.keys.data_type().type()));
+
+    core23::Tensor temp_scan_storage;
+    core23::Tensor temp_select_storage;
+
+    size_t temp_scan_bytes = 0;
+    size_t temp_select_bytes = 0;
+
+    DISPATCH_INTEGRAL_FUNCTION_CORE23(
+        embedding_input.bucket_range.data_type().type(), offset_t, [&] {
+          DISPATCH_INTEGRAL_FUNCTION_CORE23(embedding_input.keys.data_type().type(), key_t, [&] {
+            cub::DeviceScan::InclusiveSum(nullptr, temp_scan_bytes, (offset_t *)nullptr,
+                                          (offset_t *)nullptr,
+                                          bucket_range_after_filter.num_elements());
+
+            temp_scan_storage = core23::Tensor(params.shape({static_cast<int64_t>(temp_scan_bytes)})
+                                                   .data_type(core23::ScalarType::Char));
+
+            cub::DeviceSelect::Flagged(nullptr, temp_select_bytes, (key_t *)nullptr,
+                                       (char *)nullptr, (key_t *)nullptr, (uint64_t *)nullptr,
+                                       embedding_input.h_num_keys);
+
+            temp_select_storage =
+                core23::Tensor(params.shape({static_cast<int64_t>(temp_select_bytes)})
+                                   .data_type(core23::ScalarType::Char));
+          });
+        });
+
+    emb_storage->ratio_filter(embedding_input.keys, embedding_input.h_num_keys,
+                              num_key_per_lookup_offset, meta.num_local_lookup_ + 1,
+                              meta.d_local_table_id_list_, filtered);
+
+    filter(core, meta, filtered, embedding_input.bucket_range, bucket_range_after_filter, params,
+           embedding_input, num_key_per_lookup_offset, temp_scan_storage, temp_select_storage,
+           temp_scan_bytes, temp_select_bytes, keys_after_filter);
+  }
   core23::Tensor embedding_vec = core23::init_tensor_list<float>(
       key_all_gather_recv_buffer.num_elements(), params.device().index());
+
   emb_storage->lookup(embedding_input.keys, embedding_input.h_num_keys, num_key_per_lookup_offset,
                       meta.num_local_lookup_ + 1, meta.d_local_table_id_list_, embedding_vec);
 
