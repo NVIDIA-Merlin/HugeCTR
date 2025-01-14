@@ -180,6 +180,8 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 
 ### Publications  ###
 
+*Shijie Liu, Nan Zheng, Hui Kang, Xavier Simmons, Junjie Zhang, Matthias Langer, Wenjing Zhu, Minseok Lee, and Zehuan Wang*. "[Embedding Optimization for Training Large-scale Deep Learning Recommendation Systems with EMBark](https://dl.acm.org/doi/abs/10.1145/3640457.3688111)." In Proceedings of the 18th ACM Conference on Recommender Systems, pp. 622-632. 2024.
+
 *Yingcan Wei, Matthias Langer, Fan Yu, Minseok Lee, Jie Liu, Ji Shi and Zehuan Wang*, "[A GPU-specialized Inference Parameter Server for Large-Scale Deep Recommendation Models](https://dl.acm.org/doi/10.1145/3523227.3546765)," Proceedings of the 16th ACM Conference on Recommender Systems, pp. 408-419, 2022.
 
 *Zehuan Wang, Yingcan Wei, Minseok Lee, Matthias Langer, Fan Yu, Jie Liu, Shijie Liu, Daniel G. Abel, Xu Guo, Jianbing Dong, Ji Shi and Kunlun Li*, "[Merlin HugeCTR: GPU-accelerated Recommender System Training and Inference](https://dl.acm.org/doi/10.1145/3523227.3547405)," Proceedings of the 16th ACM Conference on Recommender Systems, pp.  534-537, 2022.
@@ -206,6 +208,10 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 ### Blogs ###
 |Conference / Website|Title|Date|Authors|Language|
 |--------------------|-----|----|-------|--------|
+|NVIDIA Devblog|[Boost Large-Scale Recommendation System Training Embedding Using EMBark](https://developer.nvidia.com/blog/boost-large-scale-recommendation-system-training-embedding-using-embark/)|Nov. 2024|Shijie Liu|English|
+|Wechat Blog|[RecSys'24：使用 EMBark 进行大规模推荐系统训练 Embedding 加速](https://mp.weixin.qq.com/s/qpIoVSnePgYZd2X1BSoVyA)|Nov. 2024|Shijie Liu|中文|
+|Wechat Blog|[利用 NVIDIA Merlin HierarchicalKV 实现唯品会在搜推广场景中的 GPU 推理实践](https://mp.weixin.qq.com/s/02032v2bORzcKsNCPEVwrA)|Apr. 2024|Haidong Rong, Zehuan Wang|中文|
+|Wechat Blog|[NVIDIA Merlin 助力陌陌推荐业务实现高性能训练优化](https://mp.weixin.qq.com/s/6bTOIiG9FI0XjvuIuTT5mw)|Nov. 2023|Hui Kang|中文|
 |Wechat Blog|[Merlin HugeCTR 分级参数服务器系列之三：集成到TensorFlow](https://mp.weixin.qq.com/s/sFmJXZ53Qj4J7iGkzGvQbw)|Nov. 2022|Kingsley Liu|中文|
 |NVIDIA Devblog|[Scaling Recommendation System Inference with Merlin Hierarchical Parameter Server/使用 Merlin 分层参数服务器扩展推荐系统推理](https://developer.nvidia.com/zh-cn/blog/scaling-recommendation-system-inference-with-merlin-hierarchical-parameter-server/)|August 2022|Shashank Verma, Wenwen Gao, Yingcan Wei, Matthias Langer, Jerry Shi, Fan Yu, Kingsley Liu, Minseok Lee|English/中文|
 |NVIDIA Devblog|[Merlin HugeCTR Sparse Operation Kit 系列之二](https://developer.nvidia.cn/zh-cn/blog/merlin-hugectr-sparse-operation-kit-series-2/)|June 2022|Kunlun Li|中文|
