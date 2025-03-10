@@ -1,5 +1,12 @@
 # Release Notes
 
+## What's New in Version 24.06
++ **Sparse Operation Kit (SOK) Updates:**
+    + A new API `sok.incremental_dump` has been added, which allows users to dump newly added keys and values into a numpy array by specifying a time threshold. Currently it only supports `sok.DynamicVariable` that uses HKV as the backend.
+    + Fixed the issue of wgrad using too much GPU memory.
+    + Fixed an illegal memory access issue in a CUDA kernel during backward propagation.
+    + The documentation and examples for SOK (Sparse Operation Kit) have been updated. For more details, refer to the [SOK Documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).
+
 ## What's New in Version 23.12
 
 
