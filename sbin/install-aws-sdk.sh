@@ -16,7 +16,7 @@
 #
 
 #Clone the aws-sdk-cpp git repo
-git clone --branch 1.10.0 --depth 1 --recurse-submodules https://github.com/aws/aws-sdk-cpp.git aws-sdk-cpp
+git clone --branch 1.10.53 --depth 1 --recurse-submodules https://github.com/aws/aws-sdk-cpp.git aws-sdk-cpp
 
 #Build aws-cpp-sdk- with only the s3 components
 mkdir -p build

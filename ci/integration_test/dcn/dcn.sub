@@ -1,14 +1,195 @@
 #!/bin/bash
 
+# dcnv1 mixed precision + single gpu + distributed embedding
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
       cd /dataset/criteo_kaggle/dcn_parquet && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_fp16_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_distributed_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_localized_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_localized_2gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcnv2_parquet_distributed_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcnv2_parquet_localized_1gpu.json && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV1 \
+        --max_eval_batches=2048 \
+        --batchsize_eval=2048 \
+        --eval_interval 1000 \
+        --vvgpu=0 \
+        --learning_rate=0.001 \
+        --batchsize=2048 \
+        --display=200 \
+        --max_iter=18000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=0.0001 \
+        --learning_rate=0.001 \
+        --update_type=Global \
+        --use_mixed_precision \
+        --scaler=1024"
+# dcnv1 fp32 + single gpu + distributed embedding
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV1 \
+        --max_eval_batches=2048 \
+        --batchsize_eval=2048 \
+        --eval_interval 1000 \
+        --vvgpu=0 \
+        --learning_rate=0.001 \
+        --batchsize=2048 \
+        --display=200 \
+        --max_iter=18000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+# dcnv1 fp32 + 2 gpus + distributed embedding
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV1 \
+        --max_eval_batches=2048 \
+        --batchsize_eval=2048 \
+        --eval_interval 1000 \
+        --vvgpu=0,1 \
+        --learning_rate=0.001 \
+        --batchsize=2048 \
+        --display=200 \
+        --max_iter=18000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+# dcnv1 fp32 + 8 gpus + distributed embedding
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV1 \
+        --max_eval_batches=2048 \
+        --batchsize_eval=2048 \
+        --eval_interval 1000 \
+        --vvgpu=0,1,2,3,4,5,6,7 \
+        --learning_rate=0.001 \
+        --batchsize=2048 \
+        --display=200 \
+        --max_iter=18000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+# dcnv2 fp32 + single gpu + distributed embedding
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV2 \
+        --max_eval_batches=16384 \
+        --batchsize_eval=4096 \
+        --eval_interval 2000 \
+        --vvgpu=0 \
+        --learning_rate=0.001 \
+        --batchsize=4096 \
+        --display=100 \
+        --max_iter=6000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+# dcnv2 fp32 + 2 gpus + distributed embedding
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV2 \
+        --max_eval_batches=16384 \
+        --batchsize_eval=4096 \
+        --eval_interval 2000 \
+        --vvgpu=0,1 \
+        --learning_rate=0.001 \
+        --batchsize=4096 \
+        --display=100 \
+        --max_iter=6000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+# dcnv2 fp32 + 8 gpus + distributed embedding
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV2 \
+        --max_eval_batches=16384 \
+        --batchsize_eval=4096 \
+        --eval_interval 2000 \
+        --vvgpu=0,1,2,3,4,5,6,7 \
+        --learning_rate=0.001 \
+        --batchsize=4096 \
+        --display=100 \
+        --max_iter=6000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+# dcnv2 fp32 + single gpu + distributed embedding + List cudf type
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
       cd /dataset/criteo_kaggle/dcn_parquet_vec_column && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_distributed_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/dcn_parquet_localized_1gpu.json"
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV2 \
+        --max_eval_batches=16384 \
+        --batchsize_eval=4096 \
+        --eval_interval 2000 \
+        --vvgpu=0 \
+        --learning_rate=0.001 \
+        --batchsize=4096 \
+        --display=100 \
+        --max_iter=6000  \
+        --max_iter=18000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+# dcnv2 fp32 + 8 gpus + distributed embedding + List cudf type
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/dcn_parquet_vec_column && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=DCNV2 \
+        --max_eval_batches=16384 \
+        --batchsize_eval=4096 \
+        --eval_interval 2000 \
+        --vvgpu=0,1,2,3,4,5,6,7 \
+        --learning_rate=0.001 \
+        --batchsize=4096 \
+        --display=100 \
+        --max_iter=6000  \
+        --max_iter=18000  \
+        --i64_input_key \
+        --source=./_file_list.txt \
+        --eval_source=./_file_list.txt \
+        --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"

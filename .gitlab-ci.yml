@@ -53,7 +53,7 @@ nightly_build_optimized:
     REMOTE_REPO: https://${RD_CI_JOB_TOKEN}gitlab-master.nvidia.com/dl/mlperf/optimized.git
     DST_IMAGE: ${IMAGE_OPTIMIZED}
     DOCKER_FILE: Dockerfile
-    BUILD_ARGS: --build-arg RELEASE=false --build-arg FROM_IMAGE_NAME=gitlab-master.nvidia.com:5005/dl/dgx/pytorch:master-py3-devel
+    BUILD_ARGS: --build-arg RELEASE=false
     OPTIMIZED: 1
   rules:
     - if: $NIGHTLY_OPTIMIZED == "1"
@@ -66,7 +66,7 @@ build_optimized:
     REMOTE_REPO: https://${RD_CI_JOB_TOKEN}gitlab-master.nvidia.com/dl/mlperf/optimized.git
     DST_IMAGE: ${IMAGE_OPTIMIZED}.${CI_PIPELINE_ID}
     DOCKER_FILE: Dockerfile
-    BUILD_ARGS: --build-arg FROM_IMAGE_NAME=gitlab-master.nvidia.com:5005/dl/dgx/pytorch:master-py3-devel
+    BUILD_ARGS: " --build-arg GITLAB_CLONE_ACCESS_TOKEN=${GITLAB_CLONE_ACCESS_TOKEN}"
     OPTIMIZED: 1
   rules:
     - if: $NIGHTLY_OPTIMIZED == "1"
@@ -97,25 +97,7 @@ build_train_single_node:
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF"
-    BUILD_HUGECTR: 1
-    BUILD_HUGECTR2ONNX: 1
-
-build_train_single_node_latest:
-  extends: .build_hugectr_daily
-  variables:
-    FROM_IMAGE: ${MERLIN_NIGHTLY_DEVEL}
-    DST_IMAGE: $TRAIN_IMAGE_VERSIONED_LATEST
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF"
-    BUILD_HUGECTR: 1
-    BUILD_HUGECTR2ONNX: 1
-
-build_train_single_node_with_hdfs_minimal:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: $TRAIN_IMAGE_VERSIONED_WITH_HDFS_MINI
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF -DENABLE_HDFS=ON"
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90;100\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
 
@@ -124,25 +106,26 @@ build_train_single_node_with_hdfs_full:
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_VERSIONED_WITH_HDFS
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF -DENABLE_HDFS=ON"
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90;100\" -DCLANGFORMAT=OFF -DENABLE_HDFS=ON"
+    BUILD_HDFS: 1
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
 
 build_train_single_node_with_s3:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: ${TRAIN_IMAGE_VERSIONED_WITH_S3}
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF -DENABLE_S3=ON"
-    BUILD_HUGECTR: 1
-    BUILD_HUGECTR2ONNX: 1
+ extends: .build_hugectr
+ variables:
+   FROM_IMAGE: ${IMAGE_ALL}
+   DST_IMAGE: ${TRAIN_IMAGE_VERSIONED_WITH_S3}
+   CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90;100\" -DCLANGFORMAT=OFF -DENABLE_S3=ON"
+   BUILD_HUGECTR: 1
+   BUILD_HUGECTR2ONNX: 1
 
 build_train_single_node_with_gcs:
   extends: .build_hugectr
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: ${TRAIN_IMAGE_VERSIONED_WITH_GCS}
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF -DENABLE_GCS=ON"
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90;100\" -DCLANGFORMAT=OFF -DENABLE_GCS=ON"
     BUILD_HUGECTR: 1
     BUILD_HUGECTR2ONNX: 1
 
@@ -151,35 +134,15 @@ build_train_multi_node:
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DENABLE_MULTINODES=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF"
+    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DENABLE_MULTINODES=ON -DSM=\"60;61;70;75;80;90;100\" -DCLANGFORMAT=OFF"
     BUILD_HUGECTR: 1
-
-build_train_inference:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: $TRAIN_INFER_IMAGE_VERSIONED
-    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF"
-    BUILD_HUGECTR: 1
-
-### Stage: test
-build_inference:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: $INFER_IMAGE_VERSIONED
-    CMAKE_OPTION: "-DENABLE_INFERENCE=ON -DCMAKE_BUILD_TYPE=Release -DSM=\"70;75;80;90\" -DCLANGFORMAT=OFF"
-    BUILD_HUGECTR: 1
-    BUILD_HPS_BACKEND: 1
-    HUGECTR_BACKEND_VER: main
-    TRITON_BRANCH: ${TARGET_TRITON_BRANCH}
 
 build_sok_tf2:
   extends: .build_sok
   variables:
     FROM_IMAGE: ${IMAGE_ALL}
     DST_IMAGE: $SOK_IMAGE_VERSIONED_TF2
-    CMAKE_OPTION: "-DSM=\"60;61;70;75;80;90\""
+    CMAKE_OPTION: "70;75;80;90;100"
     BUILD_SOK: 1
 
 build_sok_tf1:
@@ -187,46 +150,8 @@ build_sok_tf1:
   variables:
     FROM_IMAGE: ${IMAGE_SOK_TF1}
     DST_IMAGE: $SOK_IMAGE_VERSIONED_TF1
-    CMAKE_OPTION: "-DSM=\"60;61;70;75;80;90\""
+    CMAKE_OPTION: "70;75;80;90"
     BUILD_SOK: 1
-
-build_hugectr_hps_trt_plugin:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: $HUGECTR_TRT_IMAGE_VERSIONED
-    CMAKE_OPTION: "-DCMAKE_BUILD_TYPE=Release -DKEY_HIT_RATIO=ON -DSM=\"60;61;70;75;80;90\" -DCLANGFORMAT=OFF"
-    BUILD_HUGECTR: 1
-    BUILD_HUGECTR2ONNX: 1
-    BUILD_TRT_PLUGIN: 1
-    TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
-    #BUILD_HPS_BACKEND: 1
-    #HUGECTR_BACKEND_VER: main
-    #TRITON_BRANCH: ${TRITON_BRANCH}
-
-build_tf_hps_trt_plugin:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: $TF_TRT_IMAGE_VERSIONED
-    BUILD_TF_PLUGIN: 1
-    BUILD_TRT_PLUGIN: 1
-    TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
-    #BUILD_HPS_BACKEND: 1
-    #HUGECTR_BACKEND_VER: main
-    #TRITON_BRANCH: r22.11
-
-build_pytorch_hps_trt_plugin:
-  extends: .build_hugectr
-  variables:
-    FROM_IMAGE: ${IMAGE_ALL}
-    DST_IMAGE: $PYTORCH_TRT_IMAGE_VERSIONED
-    BUILD_TORCH_PLUGIN: 1
-    BUILD_TRT_PLUGIN: 1
-    TRT_CMAKE_OPTION: "-DSM=\"70;75;80;90\""
-    #BUILD_HPS_BACKEND: 1
-    #HUGECTR_BACKEND_VER: main
-    #TRITON_BRANCH: r22.11
 
 # Check cluster busy or not
 check_cluster_status:
@@ -337,16 +262,6 @@ dcn_multi_node:
     SLURM_JOB_NUM_NODES: 4
     TEST_CMD: ./ci/integration_test/dcn/dcn_multi_node.sub
 
-py_low_level:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_single_node
-  variables:
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: /raid:/raid,${DRACO_OCI_DATASET_NEW_CRITEO}:${NEW_CRITEO_MOUNT}
-    CI_SLURM_TIME: "01:00:00"
-    TEST_CMD: ./ci/integration_test/py_interface/py_low_level.sub
-
 ebc_single_node:
   extends: .cluster_test_job_daily
   needs:
@@ -357,88 +272,6 @@ ebc_single_node:
     CI_SLURM_TIME: "02:00:00"
     TEST_CMD: ./ci/integration_test/ebc/ebc.sub
 
-py_multi_node:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_multi_node
-  variables:
-    CONT: $TRAIN_IMAGE_MULTINODE_VERSIONED
-    MOUNTS: ${DRACO_OCI_DATASET}:${DATASET_MOUNT}
-    CI_SLURM_TIME: "00:15:00"
-    CI_SLURM_NODES: 4
-    SLURM_JOB_NUM_NODES: 4
-    TEST_CMD: ./ci/integration_test/py_interface/py_multi_node.sub
-
-inference_benchmark:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_inference
-  before_script:
-    - export BZ=1
-    - export MIXED_PRECISION=FP32
-  variables:
-    CONT: $INFER_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/keynote_inference/perf_data:/perf_data
-    WORKDIR: /workdir
-    CI_SLURM_TIME: "00:15:00"
-    TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
-
-inference_ps_test:
-  extends: .computelab_test_job_daily
-  allow_failure: false
-  stage: test
-  needs:
-    - build_inference
-  script:
-    - export CONT=${INFER_IMAGE_VERSIONED}
-    - bash ./ci/integration_test/inference/ps_test.sh
-
-inference_embedding_cache_update_test:
-  extends: .computelab_test_job_daily
-  allow_failure: false
-  stage: test
-  needs:
-    - build_inference
-  script:
-    - export CONT=${INFER_IMAGE_VERSIONED}
-    - bash ./ci/integration_test/inference/embedding_cache_update_test.sh
-
-#hdfs backend test
-hdfs_backend_test:
-  extends: .computelab_test_job_daily
-  needs:
-    - build_train_single_node_with_hdfs_full
-  script:
-    - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
-    - bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
-
-continuous_training_inference:
-  extends: .test_local
-  variables:
-    CONT: ${UNIFIED_CTR_LATEST}
-    MOUNTS: -v /opt/ci/demo:/scripts -v /opt/ci/wdl_infer:/wdl_infer
-    CMD: "apt update -y --fix-missing && apt install bc && cd /scripts && bash run_continuouse_test.sh"
-
-# NVT regression
-e2e_nvt_regression_test:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_single_node_latest
-  variables:
-    CONT: $TRAIN_IMAGE_VERSIONED_LATEST
-    MOUNTS: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/criteo_1TB/day_1:/workdir/tools/day_1,/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/inference/nvt_regression:/workdir/samples/din/raw_data,/lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/criteo_1TB/day_0:/dir/to/criteo/day_0
-    CI_SLURM_TIME: "01:00:00"
-    TEST_CMD: ./ci/integration_test/nvt/nvt_regression_test.sub
-
-nb_hps_demo:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_train_single_node
-  variables:
-    CONT: $TRAIN_IMAGE_VERSIONED
-    CI_SLURM_TIME: "00:45:00"
-    TEST_CMD: ./ci/integration_test/notebooks/hps_demo.sub
-
 test_sok_pypi:
   extends: .cluster_test_job_daily
   needs:
@@ -447,6 +280,14 @@ test_sok_pypi:
     CONT: $SOK_IMAGE_VERSIONED_TF2
     CI_SLURM_TIME: "00:30:00"
     TEST_CMD: ./ci/integration_test/sok/test_sok_pypi.sub
+
+hdfs_backend_test:
+  extends: .computelab_test_job_daily
+  needs:
+    - build_train_single_node_with_hdfs_full
+  script:
+    - export CONT=${TRAIN_IMAGE_VERSIONED_WITH_HDFS}
+    - bash ./ci/integration_test/hdfs/hdfs_backend_test.sh
 
 wdl_check:
   # Push logs to gitlab
@@ -459,43 +300,6 @@ wdl_check:
     CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_wdl.sub
 
-inference_benchmark_check:
-  extends: .cluster_post_test_job_daily
-  needs:
-    - inference_benchmark
-    - build_train_single_node
-  variables:
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS:  ${DRACO_OCI_LOGDIR}/inference_benchmark:/logs
-    CI_SLURM_TIME: "00:15:00"
-    TEST_CMD: ./ci/post_test/check_inference_benchmark.sub
-
-inference_cpu_memory_usage:
-  extends: .cluster_test_job_daily
-  needs:
-    - build_inference
-  before_script:
-    - export BZ=1
-    - export MIXED_PRECISION=FP32
-    - mkdir -p ${DRACO_OCI_LOGDIR}/inference_cpu_memory
-  variables:
-    CONT: $INFER_IMAGE_VERSIONED
-    MOUNTS: /lustre/fsw/portfolios/coreai/projects/coreai_devtech_all/hugectr/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,${DRACO_OCI_LOGDIR}/inference_cpu_memory:/logs
-    WORKDIR: /workdir
-    CI_SLURM_TIME: "00:30:00"
-    TEST_CMD: ./ci/benchmark/hps_memory_check/run.sub
-
-inference_CPU_Memory_check:
-  extends: .cluster_post_test_job_daily
-  needs:
-    - inference_cpu_memory_usage
-    - build_train_single_node
-  variables:
-    CONT: $TRAIN_IMAGE_VERSIONED
-    MOUNTS: ${DRACO_OCI_LOGDIR}/inference_cpu_memory:/logs
-    CI_SLURM_TIME: "00:15:00"
-    TEST_CMD: ./ci/post_test/check_cpu_usage.sub
-
 dlrm_dcnv2_8node_check:
   # Push logs to gitlab
   extends: .cluster_post_test_job_daily
@@ -506,16 +310,4 @@ dlrm_dcnv2_8node_check:
     MOUNTS: ${DRACO_OCI_LOGDIR}/dlrm_dcnv2_benchmark_8node:/logs
     CI_SLURM_TIME: "00:15:00"
     TEST_CMD: ./ci/post_test/check_dcnv2_dlrm_8node.sub
-
-# rm_logs:
-#   extends: .cluster_test_job
-#   variables:
-#     GPFSFOLDER: "$LOGDIR"
-#     GIT_CLONE_PATH: /lustre/fsw/devtech/hpc-hugectr/hugectr-ci/$CI_CONCURRENT_ID/$CI_PROJECT_NAME
-#     CONT: $TRAIN_IMAGE_VERSIONED
-#     MOUNTS: /lustre/fsw/devtech:/logs
-#     SLURM_ACCOUNT: devtech
-#     WALLTIME: "00:15:00"
-#     DGXNNODES: 1
-#     TEST_CMD: ./ci/common/clean_logs.sub
 

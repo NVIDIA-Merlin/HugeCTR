@@ -19,6 +19,7 @@ from tensorflow.python.framework import ops
 from sparse_operation_kit import tf_version
 from sparse_operation_kit.dynamic_variable import DynamicVariable
 from sparse_operation_kit.utils import SOK_IndexedSlices
+from sparse_operation_kit import tf_version
 
 
 def OptimizerWrapper(optimizer):
@@ -27,6 +28,9 @@ def OptimizerWrapper(optimizer):
 
     This is a wrapper for tensorflow optimizer so that it can update
     sok.DynamicVariable.
+
+    Note: When using TensorFlow version >=2.17, optimizers must be imported from
+    ``tf_keras.optimizers.legacy``. For earlier versions, use the standard ``tf.optimizers``.
 
     Parameters
     ----------
@@ -67,6 +71,16 @@ def OptimizerWrapper(optimizer):
             return OptimizerWrapperV2(optimizer)
     except:
         pass
+
+    # a specific code path for dl framework tf2.17.0
+    if tf_version[0] == 2 and tf_version[1] >= 17:
+        try:
+            import tf_keras as tfk
+
+            if isinstance(optimizer, tfk.src.optimizers.legacy.optimizer_v2.OptimizerV2):
+                return OptimizerWrapperV2(optimizer)
+        except:
+            pass
 
     if isinstance(optimizer, tf.keras.optimizers.Optimizer):
         return OptimizerWrapperV2(optimizer)

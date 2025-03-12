@@ -72,7 +72,19 @@ if __name__ == "__main__":
     else:
         optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
 
-    sok_optimizer = sok.OptimizerWrapper(optimizer)
+    if sok.tf_version[0] == 2 and sok.tf_version[1] >= 17:
+        import tf_keras as tfk
+
+        optimizer_for_sok = tfk.optimizers.legacy.SGD(learning_rate=1.0)
+    else:
+
+        if tf.keras.optimizers.legacy.Optimizer.__name__ == "OptimizerV2":
+            optimizer_for_sok = tf.keras.optimizers.legacy.SGD(learning_rate=1.0)
+        else:
+            optimizer_for_sok = tf.keras.optimizers.SGD(learning_rate=1.0)
+
+    sok_optimizer = sok.OptimizerWrapper(optimizer_for_sok)
+
     tf_vars = [
         tf.Variable(tf.constant(initial_vals[i], shape=[rows[i], cols[i]], dtype=tf.float32))
         for i in range(len(rows))

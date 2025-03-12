@@ -15,7 +15,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <test/prims/test_utils.h>
 #include <utest/prims/reduce.h>
 
 #include <cuda_utils.cuh>

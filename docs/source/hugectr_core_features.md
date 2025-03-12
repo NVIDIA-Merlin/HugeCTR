@@ -19,7 +19,7 @@ are described in the following topics.
 
 ## Model Parallel Training
 
-HugeCTR natively supports both model parallel and data parallel training, making it possible to train very large models on GPUs. Features and categories of embeddings can be distributed across multiple GPUs and nodes. For example, if you have two nodes with 8xA100 80GB GPUs, you can train models that are as large as 1TB fully on GPU. By using the [embedding training cache](#embedding-training-cache), you can train even larger models on the same nodes.
+HugeCTR natively supports both model parallel and data parallel training, making it possible to train very large models on GPUs. Features and categories of embeddings can be distributed across multiple GPUs and nodes. For example, if you have two nodes with 8xA100 80GB GPUs, you can train models that are as large as 1TB fully on GPU.
 
 To achieve the best performance on different embeddings, use various embedding layer implementations. Each of these implementations target different practical training cases such as:
 
@@ -79,18 +79,10 @@ For more information, refer to the `onnx_converter` directory of the HugeCTR [re
 
 HugeCTR supports interactions with HDFS during training, e.g. loading and dumping models and optimizer states from HDFS.
 
-If you use the [Merlin NGC container](https://catalog.ngc.nvidia.com/containers), you can build Hadoop by running the [build-hadoop.sh](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/build-hadoop.sh) script.
-If you want to build [HugeCTR from scratch](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch), you should make sure that Hadoop is correctly built in your system and specify `-DENABLE_HDFS=ON` when you build HugeCTR with `cmake`.
+If you use the [Merlin NGC container](https://catalog.ngc.nvidia.com/containers), you can install Hadoop by running the [install-hadoop.sh](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/install-hadoop.sh) script.
+If you want to build [HugeCTR from scratch](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_user_guide.html#building-hugectr-from-scratch), you should make sure that Hadoop is correctly installed in your system and specify `-DENABLE_HDFS=ON` when you build HugeCTR with `cmake`.
 
 After HDFS is successfully enabled, you are able to use our [Python API](https://nvidia-merlin.github.io/HugeCTR/master/api/python_interface.html#data-source-api) to train with HDFS. An end-to-end demo notebook can be found at [here](./notebooks/training_and_inference_with_remote_filesystem.ipynb).
-
-## Hierarchical Parameter Server
-
-HugeCTR Hierarchical Parameter Server (HPS), an industry-leading distributed recommendation inference framework,that combines a high-performance GPU embedding cache with an hierarchical storage architecture, to realize low-latency retrieval ofembeddings for online model inference tasks. Among other things, our HPS features (1) redundant hierarchical storage, (2) a novelGPU-enabled high-bandwidth cache to accelerate parallel embedding lookup, (3) online training support and (4) light-weight APIs forintegration into existing large-scale recommendation workflow.
-
-Try out our [hugectr_wdl_prediction.ipynb Notebook](../notebooks/hugectr_wdl_prediction.ipynb). For more information, refer to [Distributed Deployment](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#distributed-deployment-with-hierarchical-hugectr-parameter-server).
-
-For more information about Hierrachical Parameter Server, see the details for [HPS Backend](https://github.com/triton-inference-server/hugectr_backend/blob/main/hps_backend/docs/architecture.md) and [HPS Database Backend](hierarchical_parameter_server/hps_database_backend.md).
 
 ## Sparse Operation Kit
 
@@ -109,3 +101,10 @@ As a result, it is difficult to fully utilize all available GPUs in
 a cluster to accelerate the whole training process.
 
 For more information, see the Sparse Operation Kit [documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).
+
+
+## Hierarchical Parameter Server [Deprecated]
+
+> **Deprecation Note** HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.02. Please refer to prior version if you need such features.
+
+HugeCTR Hierarchical Parameter Server (HPS), an industry-leading distributed recommendation inference framework,that combines a high-performance GPU embedding cache with an hierarchical storage architecture, to realize low-latency retrieval ofembeddings for online model inference tasks. Among other things, our HPS features (1) redundant hierarchical storage, (2) a novelGPU-enabled high-bandwidth cache to accelerate parallel embedding lookup, (3) online training support and (4) light-weight APIs forintegration into existing large-scale recommendation workflow.

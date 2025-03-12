@@ -1,4 +1,6 @@
-# Hierarchical Parameter Server
+# Hierarchical Parameter Server [Deprecated]
+
+> **Deprecation Note** HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.02. Please refer to prior version if you need such features.
 
 The Hierarchical Parameter Server (HPS) library is a native C++ library that provides
 caching and hierarchical storage for embeddings.
@@ -19,22 +21,3 @@ the HPS library, and the subcomponents of the library.
 <img src="../user_guide_src/hps_library.svg" alt="HPS Library and subcomponents" style="display:block;margin-left:auto;margin-right:auto;"/>
 
 <div style="text-align:center"><figcaption>Fig. 1: HPS Library and subcomponents</figcaption></div>
-
-[HPS Database Backend](hps_database_backend.md)
-:  Provides a three-level storage architecture.
-   The first and highest performing level is GPU memory and is followed by CPU memory.
-   The third layer can be high-speed local SSDs with or without a distributed database.
-   The key benefit of the HPS database backend is serving embedding tables that exceed GPU and CPU memory while providing the highest possible performance.
-
-[HPS plugin for TensorFlow](hps_tf_user_guide.md)
-:  Provides high-performance, scalability, and low-latency access to embedding tables for deep learning models that have large embedding tables in TensorFlow.
-
-[HPS plugin for TensorRT](hps_trt_user_guide.md)
-:  Provides a unified solution to build and deploy HPS-integrated TensorRT engines for models trained with different frameworks.
-
-[HPS plugin for Torch](hps_torch_user_guide.md)
-:  Provides HPS as a Torch extension to deploy Torch models with large embedding tables.
-
-[HPS Backend for Triton Inference Server](https://github.com/triton-inference-server/hugectr_backend/tree/main/hps_backend)
-:  The backend for Triton Inference Server is an inference deployment framework that integrates HPS for end-to-end inference on Triton.
-   Documentation for the backend is available from the `hugectr_backend` repository at the preceding URL.

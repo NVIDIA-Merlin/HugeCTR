@@ -102,7 +102,6 @@ templates_path = ["_templates"]
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = [
     "notebooks/prototype_indices.ipynb",
-    "hierarchical_parameter_server/hps_tf_benchmark.md",
 ]
 
 
@@ -183,9 +182,6 @@ autosummary_generate = True
 copydirs_additional_dirs = [
     "../../notebooks",
     "../../release_notes.md",
-    "../../hps_tf/notebooks",
-    "../../hps_trt/notebooks",
-    "../../hps_torch/notebooks",
 ]
 copydirs_file_rename = {
     "README.md": "index.md",

@@ -43,7 +43,7 @@ static void producer_thread_func_(const std::shared_ptr<IDataReaderWorker>& data
   try {
     // this thread needs numa bind for higher IO bandwidth
     CudaCPUDeviceContext context(device_id);
-    while (!p_loop_flag->load()) {
+    while (!p_loop_flag->load() && !*end_flag) {
       usleep(2);
     }
     // parquet reader will hangs over here until end_flag is set true

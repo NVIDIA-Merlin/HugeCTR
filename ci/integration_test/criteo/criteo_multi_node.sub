@@ -1,7 +1,21 @@
 #!/bin/bash
-
-#TODO: add restriction of NCCL_IB_HCA for draco-oci, may need remove it for other cluster
+# single slot, 2x4 gpus
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" --network sharp bash -cx " \
     export NCCL_IB_HCA=\"=mlx5_1\" && \
     cd /dataset/criteo_kaggle/criteo_parquet && \
-    python3 /workdir/test/pybind_test/multi_node_test.py --json-file=/workdir/test/scripts/criteo_2node_4gpu.json"
+    python3 /workdir/test/pybind_test/model_test.py \
+      --model_type=CRITEO \
+      --max_eval_batches=100 \
+      --batchsize_eval=40960 \
+      --eval_interval 1000 \
+      --vvgpu=0,1,2,3:0,1,2,3 \
+      --learning_rate=0.001 \
+      --batchsize=40960 \
+      --display=200 \
+      --max_iter=1000  \
+      --i64_input_key \
+      --source=./_file_list.txt \
+      --eval_source=./_file_list.txt \
+      --slot_size_array 1000000000 \
+      --single_slot \
+      --optimizer_type=Adam"

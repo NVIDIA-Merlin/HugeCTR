@@ -23,14 +23,6 @@ You can view the generated [HugeCTR documentation here](https://nvidia-merlin.gi
    python -m pip install -r docs/requirements-doc.txt
    ```
 
-1. (Optional) Build the HPS software:
-
-   ```shell
-   pushd hierarchical_parameter_server
-   python setup.py install --user
-   popd
-   ```
-
 1. Build the documentation:
 
    ```shell
@@ -144,7 +136,6 @@ Some files that we publish as docs, such as the `release_notes.md` file, refer r
 that are not published as docs. For example, we currently do not publish information from the following
 directories:
 
-* `gpu_cache`
 * `onnx_converter`
 * `samples`
 * `tools`
