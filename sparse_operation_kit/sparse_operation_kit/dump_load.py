@@ -42,6 +42,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from sparse_operation_kit.utils import get_nano_time
 from sparse_operation_kit import raw_ops
+from sparse_operation_kit import tf_version
 
 # length:byte
 integer_length = 4
@@ -1092,16 +1093,37 @@ def load_per_table(var, optimizer, path):
 
 
 def load_table(path, load_vars, optimizer):
-    if optimizer is not None:
-        if (
-            (not isinstance(optimizer, tf.keras.optimizers.Optimizer))
-            and (not isinstance(optimizer, tf.optimizers.Optimizer))
-            and ("sparse_operation_kit.optimizer.OptimizerWrapper" not in str(type(optimizer)))
-        ):
-            raise Exception(
-                "the type of your input optimizer is not tf.optimizers.Optimizer or sok.optimizer.OptimizerWrapper, please checkout your dump optimizer input"
-            )
-        activate_optimizer_state(optimizer, load_vars)
+
+    if tf_version[0] == 2 and tf_version[1] >= 17:
+        try:
+            import tf_keras as tfk
+
+            if optimizer is not None:
+                if (
+                    not isinstance(optimizer, tfk.src.optimizers.legacy.optimizer_v2.OptimizerV2)
+                ) and (
+                    "sparse_operation_kit.optimizer.OptimizerWrapper" not in str(type(optimizer))
+                ):
+                    raise Exception(
+                        "the type of your input optimizer is not tf_keras.src.optimizers.legacy.optimizer_v2.OptimizerV2 or sok.optimizer.OptimizerWrapper, please checkout your dump optimizer input"
+                    )
+                activate_optimizer_state(optimizer, load_vars)
+
+        except Exception as e:
+            print(f"load optimizer failure {repr(e)}", file=sys.stderr)
+            sys.exit(1)
+
+    else:
+        if optimizer is not None:
+            if (
+                (not isinstance(optimizer, tf.keras.optimizers.Optimizer))
+                and (not isinstance(optimizer, tf.optimizers.Optimizer))
+                and ("sparse_operation_kit.optimizer.OptimizerWrapper" not in str(type(optimizer)))
+            ):
+                raise Exception(
+                    "the type of your input optimizer is not tf.optimizers.Optimizer or sok.optimizer.OptimizerWrapper, please checkout your dump optimizer input"
+                )
+            activate_optimizer_state(optimizer, load_vars)
     for var in load_vars:
         load_per_table(var, optimizer, path)
 
@@ -1112,15 +1134,35 @@ def load_table(path, load_vars, optimizer):
 
 
 def dump_table(path, dump_vars, optimizer):
-    if optimizer is not None:
-        if (
-            (not isinstance(optimizer, tf.keras.optimizers.Optimizer))
-            and (not isinstance(optimizer, tf.optimizers.Optimizer))
-            and ("sparse_operation_kit.optimizer.OptimizerWrapper" not in str(type(optimizer)))
-        ):
-            raise Exception(
-                "the type of your input optimizer is not tf.optimizers.Optimizer or sok.optimizer.OptimizerWrapper, please checkout your dump optimizer input"
-            )
+
+    if tf_version[0] == 2 and tf_version[1] >= 17:
+        try:
+            import tf_keras as tfk
+
+            if optimizer is not None:
+                if (
+                    not isinstance(optimizer, tfk.src.optimizers.legacy.optimizer_v2.OptimizerV2)
+                ) and (
+                    "sparse_operation_kit.optimizer.OptimizerWrapper" not in str(type(optimizer))
+                ):
+                    raise Exception(
+                        "the type of your input optimizer is not tf_keras.src.optimizers.legacy.optimizer_v2.OptimizerV2 or sok.optimizer.OptimizerWrapper, please checkout your dump optimizer input"
+                    )
+        except Exception as e:
+            print(f"dump optimizer failure {repr(e)}", file=sys.stderr)
+            sys.exit(1)
+
+    else:
+
+        if optimizer is not None:
+            if (
+                (not isinstance(optimizer, tf.keras.optimizers.Optimizer))
+                and (not isinstance(optimizer, tf.optimizers.Optimizer))
+                and ("sparse_operation_kit.optimizer.OptimizerWrapper" not in str(type(optimizer)))
+            ):
+                raise Exception(
+                    "the type of your input optimizer is not tf.optimizers.Optimizer or sok.optimizer.OptimizerWrapper, please checkout your dump optimizer input"
+                )
     # have_states: first element is all_var_have_state, second element is all_var_not_have_state
     have_states = check_optimizer_is_valid(optimizer, dump_vars)
     for var in dump_vars:
@@ -1142,6 +1184,9 @@ def dump(path, dump_vars, optimizer=None):
     Now is only support ``SGD,Adamax,Adadelta,Adagrad,Ftrl,Adam`` optimizers.
 
     Note: for ``Adam`` optimizers , it functions in the same way as ``LazyAdam`` in SOK, rather than TensorFlow's ``Adam``
+
+    Note: When using TensorFlow version >=2.17, optimizers must be imported from
+    ``tf_keras.optimizers.legacy``. For earlier versions, use the standard ``tf.optimizers``.
 
     Parameters
     ----------
@@ -1223,6 +1268,9 @@ def load(path, load_vars, optimizer=None):
     Now is only support ``SGD,Adamax,Adadelta,Adagrad,Ftrl,Adam`` optimizers.
 
     Note: for ``Adam`` optimizers , it functions in the same way as ``LazyAdam`` in SOK, rather than TensorFlow's ``Adam``
+
+    Note: When using TensorFlow version >=2.17, optimizers must be imported from
+    ``tf_keras.optimizers.legacy``. For earlier versions, use the standard ``tf.optimizers``.
 
     Parameters
     ----------

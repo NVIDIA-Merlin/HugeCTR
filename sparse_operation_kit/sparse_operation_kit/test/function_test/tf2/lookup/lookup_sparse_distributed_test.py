@@ -74,6 +74,7 @@ if __name__ == "__main__":
 
     # initialize optimizer
     optimizer = tf.keras.optimizers.SGD(learning_rate=1.0)
+    optimizer_sok = tf.keras.optimizers.SGD(learning_rate=1.0)
     reg_var = []
     reg_var.extend(tf_vars)
     reg_var.extend(sok_vars)
@@ -116,7 +117,7 @@ if __name__ == "__main__":
                 loss = loss + tf.reduce_sum(embedding)
         grads = tape.gradient(loss, params)
         grads = [hvd.allreduce(grad, op=hvd.Sum) for grad in grads]
-        optimizer.apply_gradients(zip(grads, params))
+        optimizer_sok.apply_gradients(zip(grads, params))
         loss = hvd.allreduce(loss, op=hvd.Sum)
         return loss
 

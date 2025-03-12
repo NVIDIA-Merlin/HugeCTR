@@ -36,7 +36,6 @@ if [ "$container" == "merlin-hugectr" ]; then
 	 auc_test
     fi
     # Deactivated until it is self-contained and it runs
-    # inference_test
 ### TensorFlow Training container
 elif [ "$container" == "merlin-tensorflow" ]; then
     pushd /hugectr/sparse_operation_kit/sparse_operation_kit/test/function_test && \

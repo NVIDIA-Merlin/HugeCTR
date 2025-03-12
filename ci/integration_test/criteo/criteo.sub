@@ -1,10 +1,71 @@
 #!/bin/bash
-
+# single slot, single gpu
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
-      cd ${DATASET_MOUNT}/criteo_parquet && \
-      mkdir /workdir/export_predictions_criteo_1gpu/ && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/criteo_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/criteo_8gpu.json && \
-      cd /dataset/criteo_kaggle/criteo_parquet_multi_slots && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/criteo_parquet_multi_slots_1gpu.json && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/criteo_parquet_multi_slots_8gpu.json"
+      cd ${DATASET_MOUNT}/criteo_parquet && python3 /workdir/test/pybind_test/model_test.py \
+      --model_type=CRITEO \
+      --max_eval_batches=2048 \
+      --batchsize_eval=2048 \
+      --eval_interval 1000 \
+      --vvgpu=0 \
+      --learning_rate=0.001 \
+      --batchsize=2048 \
+      --display=200 \
+      --max_iter=10000  \
+      --i64_input_key \
+      --source=./_file_list.txt \
+      --eval_source=./_file_list.txt \
+      --slot_size_array 1000000000 \
+      --single_slot \
+      --optimizer_type=Adam"
+# single slot, 8 gpus
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd ${DATASET_MOUNT}/criteo_parquet && python3 /workdir/test/pybind_test/model_test.py \
+      --model_type=CRITEO \
+      --max_eval_batches=2048 \
+      --batchsize_eval=2048 \
+      --eval_interval 1000 \
+      --vvgpu=0,1,2,3,4,5,6,7 \
+      --learning_rate=0.001 \
+      --batchsize=2048 \
+      --display=200 \
+      --max_iter=10000  \
+      --i64_input_key \
+      --source=./_file_list.txt \
+      --eval_source=./_file_list.txt \
+      --slot_size_array 1000000000 \
+      --single_slot \
+      --optimizer_type=Adam"
+# 26 slots, single gpu
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd ${DATASET_MOUNT}/criteo_parquet_multi_slots && python3 /workdir/test/pybind_test/model_test.py \
+      --model_type=CRITEO \
+      --max_eval_batches=100 \
+      --batchsize_eval=512 \
+      --eval_interval 1000 \
+      --vvgpu=0 \
+      --learning_rate=0.001 \
+      --batchsize=2048 \
+      --display=200 \
+      --max_iter=10000  \
+      --i64_input_key \
+      --source=./_file_list.txt \
+      --eval_source=./_file_list.txt \
+      --slot_size_array 132,421,1398,1787,53,10,3043,78,4,2192,2130,1432,1805,25,1854,1559,10,1113,515,4,1473,9,15,1579,40,1193  \
+      --optimizer_type=Adam"
+# 26 slots, 8 gpus
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd ${DATASET_MOUNT}/criteo_parquet_multi_slots && python3 /workdir/test/pybind_test/model_test.py \
+      --model_type=CRITEO \
+      --max_eval_batches=100 \
+      --batchsize_eval=4096 \
+      --eval_interval 1000 \
+      --vvgpu=0,1,2,3,4,5,6,7 \
+      --learning_rate=0.001 \
+      --batchsize=4096 \
+      --display=200 \
+      --max_iter=10000  \
+      --i64_input_key \
+      --source=./_file_list.txt \
+      --eval_source=./_file_list.txt \
+      --slot_size_array 132,421,1398,1787,53,10,3043,78,4,2192,2130,1432,1805,25,1854,1559,10,1113,515,4,1473,9,15,1579,40,1193  \
+      --optimizer_type=Adam"

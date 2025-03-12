@@ -10,6 +10,8 @@ backlinks: none
 
 ## About the HugeCTR Python Interface
 
+> **Deprecation Note** HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.02. Please refer to prior version if you need such features.
+
 As a recommendation system domain specific framework, HugeCTR has a set of high level abstracted Python Interface which includes training API and inference API. Users only need to focus on algorithm design, the training and inference jobs can be automatically deployed on the specific hardware topology in the optimized manner. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to [HugeCTR Python Interface Notebook](../notebooks/hugectr_criteo.ipynb) to get familiar with the workflow of HugeCTR training and inference. Meanwhile we have a lot of samples for demonstration in the [`samples`](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples) directory of the HugeCTR repository.
 
 ## High-level Training API
@@ -214,8 +216,6 @@ hugectr.DataReaderParams()
 
 **Arguments**
 
-> **Deprecation Warning**: Norm and Raw data reader will be deprecated in a future release. Please check out the Parquet and RawAsync for alternatives.
-
 * `data_reader_type`: The type of the data reader which should be consistent with the dataset format.
 Specify one of the following types:
   * `hugectr.DataReaderType_t.Parquet` can read Parquet format dataset
@@ -224,10 +224,9 @@ Specify one of the following types:
 * `source`: List[str] or String, the training dataset source.
 For Norm or Parquet dataset, specify the file list of training data, such as `source = "file_list.txt"`.
 For Raw dataset, specify a single training file, such as `source = "train_data.bin"`.
-When using the embedding training cache, you can specify several file lists, such as `source = ["file_list.1.txt", "file_list.2.txt"]`.
 This argument has no default value and you must specify a value.
 
-* `keyset`: List[str] or String, the keyset files.
+* `keyset`: **[Deprecated]** List[str] or String, the keyset files.
 This argument is only valid when you use the embedding training cache.
 The value should correspond to the value for the `source` argument.
 For example, you can specify `source = ["file_list.1.txt", "file_list.2.txt"]` and `keyset = ["file_list.1.keyset", "file_list.2.keyset"]`
@@ -281,7 +280,7 @@ The default value is an empty list.
 
 We support the following dataset formats within our `DataReaderParams`.
 
-> **Deprecation Warning**: Norm format will be deprecated in a future release. Please check out the Parquet and Raw for alternatives.
+> **Deprecation Note**: Norm format will be deprecated in a future release. Please check out the Parquet and Raw for alternatives.
 
 * [Raw](#raw)
 * [Parquet](#parquet)
@@ -655,9 +654,9 @@ It trains the model for a fixed number of epochs (epoch mode) or iterations (non
 
 * `eval_interval`: Integer, the interval of iterations at which the evaluation will be executed. The default value is 1000.
 
-* `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is 10000.
+* `snapshot`: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. The default value is 10000.
 
-* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is `''`. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
+* `snapshot_prefix`: String, the prefix of the file names for the saved model weights and optimizer states. The default value is `''`. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be `hdfs://localhost:9000/dir/to/model`. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html). For GCS, both URI (`gs://bucket/object`) and URL (`https://https://storage.googleapis.com/bucket/object`) are supported.
 **Please note that dumping models to remote file system when enabled MPI is not supported yet.**
 
 ***
@@ -1047,7 +1046,7 @@ This method takes no extra arguments and returns the average evaluation metrics 
 hugectr.Model.save_params_to_files()
 ```
 
-This method save the model parameters to files. If Embedding Training Cache is utilized, this method will save sparse weights, dense weights and dense optimizer states. Otherwise, this method will save sparse weights, sparse optimizer states, dense weights and dense optimizer states.
+This method save the model parameters to files: sparse weights, sparse optimizer states, dense weights and dense optimizer states.
 
 The stored sparse model can be used for both the later training and inference cases. Each sparse model will be dumped as a separate folder that contains two files (`key`, `emb_vector`) for the DistributedSlotEmbedding or three files (`key`, `slot_id`, `emb_vector`) for the LocalizedSlotEmbedding. Details of these files are:
 * `key`: The unique keys appeared in the training data. All keys are stored in `long long` format, and HugeCTR will handle the datatype conversion internally for the case when `i64_input_key = False`.
@@ -1107,125 +1106,6 @@ model.fit(...)
 sparse_embedding1_train_flow = model.check_out_tensor("sparse_embedding1", hugectr.Tensor_t.Train) 
 # Return a numpy array of (1024, 1024)
 fc1_evaluate_flow = model.check_out_tensor("fc1", hugectr.Tensor_t.Evaluate)
-```
-
-## Inference API
-
-> **Deprecation Warning**: the offline inference based on `InferenceSession` and `InferenceModel` will be deprecated in a future release. Please check out the [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html) for alternatives based on TensorFlow and TensorRT.
-
-For HugeCTR inference API, the core data structures are `InferenceParams` and `InferenceModel`. They are designed and implemented for the purpose of multi-GPU offline inference. Please refer to [HugeCTR Backend](https://github.com/triton-inference-server/hugectr_backend) if online inference with Triton is needed.
-
-Please **NOTE** that Inference API requires a configuration JSON file of the model graph, which can derived from the `Model.graph_to_json()` method. Besides, `model_name` within `CreateSolver` should be specified during training in order to correctly dump the JSON file.
-
-### InferenceParams
-
-#### InferenceParams class
-
-```python
-hugectr.inference.InferenceParams()
-```
-
-`InferenceParams` specifies the parameters related to the inference. An `InferenceParams` instance is required to initialize the `InferenceModel` instance.
-
-Refer to the [HPS Configuration](../hierarchical_parameter_server/hps_database_backend.md#configuration) documentation for the parameters.
-
-### InferenceModel
-
-#### InferenceModel class
-
-```bash
-hugectr.inference.InferenceModel()
-```
-
-`InferenceModel` is a collection of inference sessions deployed on multiple GPUs, which can leverage [Hierarchical Parameter Server Database Backend](../hierarchical_parameter_server/hps_database_backend.md) and enable concurrent execution. The construction of `InferenceModel` requires a model configuration file and an `InferenceParams` instance.
-
-**Arguments**
-* `model_config_path`: String, the inference model configuration file (which can be derived from `Model.graph_to_json`). There is NO default value and it should be specified by users.
-
-* `inference_params`: InferenceParams, the InferenceParams object. There is NO default value and it should be specified by users.
-***
-
-#### predict method
-
-```python
-hugectr.inference.InferenceModel.predict()
-```
-
-The `predict` method of InferenceModel makes predictions based on the dataset of Norm or Parquet format. It will return the 2-D numpy array of the shape `(max_batchsize*num_batches, label_dim)`, whose order is consistent with the sample order in the dataset. If `max_batchsize*num_batches` is greater than the total number of samples in the dataset, it will loop over the dataset. For example, there are totally 40000 samples in the dataset, `max_batchsize` equals 4096, `num_batches` equals 10 and `label_dim` equals 2. The returned array will be of the shape `(40960, 2)`, of which first 40000 rows should be desired results and the last 960 rows correspond to the first 960 samples in the dataset.
-
-**Arguments**
-* `num_batches`: Integer, the number of prediction batches.
-
-* `source`: String, the source of prediction dataset. It should be the file list for Norm or Parquet format data.
-
-* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Parquet`.
-
-* `check_type`: `hugectr.Check_t`, the check type for the data source. We currently support `hugectr.Check_t.Sum` and `hugectr.Check_t.Non`.
-
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
-
-* `data_source_params`: [DataSourceParams()](python_interface.md#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
-***
-
-#### evaluate method
-
-```python
-hugectr.inference.InferenceModel.evaluate()
-```
-
-The `evaluate` method of InferenceModel does evaluations based on the dataset of Norm or Parquet format. It requires that the dataset contains the label field. This method returns the AUC value for the specified evaluation batches.
-
-**Arguments**
-* `num_batches`: Integer, the number of evaluation batches.
-
-* `source`: String, the source of evaluation dataset. It should be the file list for Norm or Parquet format data.
-
-* `data_reader_type`: `hugectr.DataReaderType_t`, the data reader type. We support `hugectr.DataReaderType_t.Parquet`.
-
-* `slot_size_array`: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.
-
-* `data_source_params`: [DataSourceParams()](python_interface.md#datasourceparams-class), specify the configurations of the data sources(Local, HDFS, or others) for data reading.
-***
-
-#### check_out_tensor method
-
-```python
-hugectr.inference.InferenceModel.check_out_tensor()
-```
-
-This method check out the tensor values for the latest inference iteration. The tensor values will be returned via a numpy array that has the same dimensions as the tensor. The data type of returned numpy array will always be float32, while the data type of the tensor can be float32 or float16 depending on `use_mixed_precision`. This method can be helpful for debugging and verifying the correctness, given that the values of intermediate tensors can be easily checked out.
-
-**Arguments**
-* `tensor_name`: String, the name of the tensor that needs to be checked out. It should be within the tensor names of the graph JSON file that is used to create the InferenceModel object.
-
-Example:
-
-```python
-model_config = "dcn.json"
-inference_params = hugectr.inference.InferenceParams(
-    model_name = "dcn",
-    max_batchsize = 16,
-    hit_rate_threshold = 1.0,
-    dense_model_file = "dcn_dense_1000.model",
-    sparse_model_files = ["dcn0_sparse_1000.model"],
-    deployed_devices = [0,1,2,3],
-    use_gpu_embedding_cache = True,
-    cache_size_percentage = 0.5,
-    i64_input_key = True,
-    use_mixed_precision = False,
-    use_cuda_graph = True,
-    number_of_worker_buffers_in_pool = 16
-)
-inference_model = hugectr.inference.InferenceModel(model_config, inference_params)
-pred = inference_model.predict(
-    1,
-    EVAL_SOURCE,
-    hugectr.DataReaderType_t.Parquet,
-    hugectr.Check_t.Non,
-    SLOT_SIZE_ARRAY
-)
-# Return a numpy array of (16, 26, 16), assuming slot_num is 26, embed_vec_size is 16
-sparse_embedding1_inference_flow = inference_model.check_out_tensor("sparse_embedding1")
 ```
 
 ## Data Generator API

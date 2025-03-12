@@ -21,7 +21,6 @@
 #include <collectives/all_reduce_comm.hpp>
 #include <common.hpp>
 #include <device_map.hpp>
-#include <hps/inference_utils.hpp>
 #include <io/filesystem.hpp>
 #include <metrics.hpp>
 
@@ -214,36 +213,6 @@ void CommonPybind(pybind11::module& m) {
   pybind11::enum_<HugeCTR::Tensor_t>(m, "Tensor_t")
       .value("Train", HugeCTR::Tensor_t::Train)
       .value("Evaluate", HugeCTR::Tensor_t::Evaluate)
-      .export_values();
-
-  // Inference / parameter server related.
-  pybind11::enum_<HugeCTR::DatabaseType_t>(m, "DatabaseType_t")
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::Disabled),
-             HugeCTR::DatabaseType_t::Disabled)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::HashMap),
-             HugeCTR::DatabaseType_t::HashMap)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::ParallelHashMap),
-             HugeCTR::DatabaseType_t::ParallelHashMap)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::MultiProcessHashMap),
-             HugeCTR::DatabaseType_t::MultiProcessHashMap)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RedisCluster),
-             HugeCTR::DatabaseType_t::RedisCluster)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseType_t::RocksDB),
-             HugeCTR::DatabaseType_t::RocksDB)
-      .export_values();
-  pybind11::enum_<HugeCTR::DatabaseOverflowPolicy_t>(m, "DatabaseOverflowPolicy_t")
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictRandom),
-             HugeCTR::DatabaseOverflowPolicy_t::EvictRandom)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictLeastUsed),
-             HugeCTR::DatabaseOverflowPolicy_t::EvictLeastUsed)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::DatabaseOverflowPolicy_t::EvictOldest),
-             HugeCTR::DatabaseOverflowPolicy_t::EvictOldest)
-      .export_values();
-  pybind11::enum_<HugeCTR::UpdateSourceType_t>(m, "UpdateSourceType_t")
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::Null),
-             HugeCTR::UpdateSourceType_t::Null)
-      .value(HugeCTR::hctr_enum_to_c_str(HugeCTR::UpdateSourceType_t::KafkaMessageQueue),
-             HugeCTR::UpdateSourceType_t::KafkaMessageQueue)
       .export_values();
 }
 

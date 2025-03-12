@@ -100,7 +100,7 @@ model.add(
         layer_type=hugectr.Layer_t.Reshape,
         bottom_names=["embedding"],
         top_names=["reshape_embedding"],
-        leading_dim=512,
+        shape=[-1, 512],
     )
 )
 

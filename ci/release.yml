@@ -11,7 +11,7 @@
 #   stage: test
 #   variables: &release_test_job_selene_variables
 #     CONTAINER_IMAGE: ${TRAIN_IMAGE_RELEASE_ENROOT}
-#     CONTS: ${CI_PROJECT_DIR}:${CI_PROJECT_DIR},${DATASET_CRITEO_SELENE}:${CRITEO_MOUNT},${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DLRM_DATASET}:${DLRM_MOUNT},/lustre/fsw/devtech/hpc-hugectr/inference/:/hugectr/test/utest/
+#     CONTS: ${CI_PROJECT_DIR}:${CI_PROJECT_DIR},${DATASET_CRITEO_SELENE}:${CRITEO_MOUNT},${DATASET_NEW_CRITEO_SELENE}:${NEW_CRITEO_MOUNT},${DLRM_DATASET}:${DLRM_MOUNT}
 
 # .release_test_job_circe: &release_test_job_circe
 #   extends: .circe_job

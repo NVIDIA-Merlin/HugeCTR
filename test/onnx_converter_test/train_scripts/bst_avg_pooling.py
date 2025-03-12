@@ -18,7 +18,7 @@ import hugectr
 
 solver = hugectr.CreateSolver(
     max_eval_batches=1,
-    batchsize_eval=4096,
+    batchsize_eval=6400,
     batchsize=64,
     lr=0.00001,
     vvgpu=[[0]],
@@ -139,9 +139,10 @@ model.add(
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.SequenceMask,
-        bottom_names=["dense"],
+        bottom_names=["dense", "dense"],
         top_names=["sequence_mask"],
-        max_sequence_len=10,
+        max_sequence_len_from=10,
+        max_sequence_len_to=10,
     )
 )
 model.add(
@@ -179,25 +180,9 @@ model.add(
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.MultiHeadAttention,
-        bottom_names=["query_emb", "key_emb", "value_emb"],
-        top_names=["attention_score", "attn_value_4d"],
-        num_attention_heads=4,
-        transpose_b=True,
-    )
-)
-model.add(
-    hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.Softmax,
-        bottom_names=["attention_score", "sequence_mask"],
-        top_names=["attention_score_softmax"],
-    )
-)
-model.add(
-    hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.MultiHeadAttention,
-        bottom_names=["attention_score_softmax", "attn_value_4d"],
+        bottom_names=["query_emb", "key_emb", "value_emb", "sequence_mask"],
         top_names=["attention_out"],
-        transpose_b=False,
+        num_attention_heads=4,
     )
 )
 model.add(
@@ -370,7 +355,12 @@ model.summary()
 model.fit(
     max_iter=88000,
     display=1000,
-    eval_interval=1000,
+    eval_interval=80000,
     snapshot=80000,
     snapshot_prefix="/onnx_converter/hugectr_models/bst_avg_pooling",
 )
+
+import numpy as np
+
+preds = model.check_out_tensor("fc_bst_i4", hugectr.Tensor_t.Evaluate)
+np.save("/onnx_converter/hugectr_models/bst_avg_pooling_preds.npy", preds)

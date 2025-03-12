@@ -2,5 +2,21 @@
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
     cd /etc/workspace/bst && \
-    python3 /workdir/test/pybind_test/bst_fp32_1gpu.py"
-
+    python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=BST \
+        --max_eval_batches=1 \
+        --batchsize_eval=4096 \
+        --eval_interval 1000 \
+        --vvgpu=0 \
+        --learning_rate=0.001 \
+        --batchsize=64 \
+        --display=1000 \
+        --max_iter=88000  \
+        --i64_input_key \
+        --source=./bst_data/train/_file_list.txt \
+        --eval_source=./bst_data/valid/_file_list.txt \
+        --slot_size_array 192403,0,0,0,0,0,0,0,0,0,0,63001,0,0,0,0,0,0,0,0,0,0,801 \
+        --optimizer_type=Adam \
+        --epsilon=1e-09 \
+        --update_type=Global \
+        --auc_threshold  0.75"

@@ -15,16 +15,29 @@
 """
 
 import hugectr
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("--vvgpu", type=str, required=True, help="vvgpu `:` as node sep `,` as gpu sep")
+args = parser.parse_args()
+gpus_per_node = args.vvgpu.split(":")
+vvgpu = []
+for gpus in gpus_per_node:
+    gpus_str = gpus.split(",")
+    gpus_int = [int(g) for g in gpus_str]
+    vvgpu.append(gpus_int)
+args.vvgpu = vvgpu
 
 solver = hugectr.CreateSolver(
     max_eval_batches=1,
     batchsize_eval=4096,
     batchsize=64,
-    lr=0.00001,
-    vvgpu=[[0]],
+    lr=0.001,
+    vvgpu=args.vvgpu,
     repeat_dataset=True,
     i64_input_key=True,
-    use_cuda_graph=True,
+    use_cuda_graph=False,
 )
 reader = hugectr.DataReaderParams(
     data_reader_type=hugectr.DataReaderType_t.Parquet,
@@ -174,7 +187,7 @@ model.add(
         layer_type=hugectr.Layer_t.Reshape,
         bottom_names=["fc_att_i3"],
         top_names=["reshape_score"],
-        shape=[-1, 1, 10],
+        shape=[-1, 10],
     )
 )
 model.add(
@@ -184,41 +197,39 @@ model.add(
         top_names=["softmax_att_i"],
     )
 )
-# model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.Scale,
-#                            bottom_names = ["softmax_att_i"],
-#                            top_names = ["Scale_i"],
-#                            axis = 0, factor = 36))
+model.add(
+    hugectr.DenseLayer(
+        layer_type=hugectr.Layer_t.Scale,
+        bottom_names=["softmax_att_i"],
+        top_names=["Scale_i"],
+        axis=0,
+        factor=36,
+    )
+)
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.Reshape,
         bottom_names=["FusedReshapeConcat_item_his_em"],
         top_names=["reshape_item_his"],
-        shape=[-1, 10, 36],
+        shape=[-1, 360],
     )
 )
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.MatrixMultiply,  # matmul
-        bottom_names=["softmax_att_i", "reshape_item_his"],
-        top_names=["MatrixMultiply_ih"],
+        layer_type=hugectr.Layer_t.ElementwiseMultiply,
+        bottom_names=["Scale_i", "reshape_item_his"],
+        top_names=["ElementwiseMul_ih"],
     )
 )
-# model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceSum,
-#                            bottom_names = ["MatrixMultiply_ih"],
-#                            top_names = ["reduce_ih"],
-#                            axis = 1))
 model.add(
     hugectr.DenseLayer(
-        layer_type=hugectr.Layer_t.Reshape,
-        bottom_names=["MatrixMultiply_ih"],
-        top_names=["reshape_reduce_ih"],
-        shape=[-1, 36],
+        layer_type=hugectr.Layer_t.ReduceSum,
+        bottom_names=["ElementwiseMul_ih"],
+        top_names=["reduce_ih"],
+        axis=1,
     )
 )
-# model.add(hugectr.DenseLayer(layer_type = hugectr.Layer_t.ReduceSum,
-#                            bottom_names = ["reshape_reduce_ih"],
-#                            top_names = ["reduce_ih"],
-#                            axis = 1))
+
 model.add(
     hugectr.DenseLayer(
         layer_type=hugectr.Layer_t.Reshape,
@@ -258,7 +269,7 @@ model.add(
         bottom_names=[
             "reshape_user",
             "reshape_reduce_item_his",
-            "reshape_reduce_ih",
+            "reduce_ih",
             "FusedReshapeConcat_item",
         ],
         top_names=["concat_din_i"],
@@ -316,13 +327,13 @@ model.add(
 )
 model.compile()
 model.summary()
-model.fit(max_iter=88000, display=1000, eval_interval=1000, snapshot=1000000, snapshot_prefix="din")
+model.fit(max_iter=6000, display=1000, eval_interval=1000, snapshot=2000000, snapshot_prefix="din")
 
 model.eval()
 metrics = model.get_eval_metrics()
 print("[HUGECTR][INFO] iter: {}, metrics: {}".format(iter, metrics[0][1]))
-if metrics[0][1] < 0.75:
-    raise RuntimeError("Cannot reach the AUC threshold {}".format(0.75))
+if metrics[0][1] < 0.8:
+    raise RuntimeError("Cannot reach the AUC threshold {}".format(0.8))
     sys.exit(1)
 else:
     print("Successfully reach the AUC threshold {}".format(metrics[0][1]))

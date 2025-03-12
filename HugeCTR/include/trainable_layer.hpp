@@ -59,16 +59,16 @@ class TrainableLayer : public Layer {
     return std::make_unique<ConstantDataSimulator>(0.0f);
   }
   virtual std::unique_ptr<DataSimulator> get_uniform_initializer(const int index) {
-    return std::move(get_default_initializer(index));
+    return get_default_initializer(index);
   };
   virtual std::unique_ptr<DataSimulator> get_xavier_uniform_initializer(const int index) {
-    return std::move(get_default_initializer(index));
+    return get_default_initializer(index);
   };
   virtual std::unique_ptr<DataSimulator> get_xavier_norm_initializer(const int index) {
-    return std::move(get_default_initializer(index));
+    return get_default_initializer(index);
   };
   virtual std::unique_ptr<DataSimulator> get_default_initializer(const int index) {
-    return std::move(get_zero_initializer(index));
+    return get_zero_initializer(index);
   };
 
  protected:

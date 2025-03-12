@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 
 #include <core23/mpi_init_service.hpp>
 #include <core23_helper.hpp>

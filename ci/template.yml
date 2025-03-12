@@ -4,13 +4,11 @@ stages:
   - build
   - pre_test
   - test
-  - inference_benchmark
   - sok_benchmark
   - wdl_benchmark
   - dcn_benchmark
   - deepfm_benchmark
   - dlrm_benchmark
-  - hps_benchmark
   - post_test
 
 .python_format:
@@ -79,6 +77,7 @@ stages:
   script:
     - docker login -u "\$oauthtoken" -p "${NVSTAGE_KEY}" "${NVSTAGE_REGISTRY}"
     - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" "${CI_REGISTRY}"
+    - docker login -u ${CI_PRIVATE_USER} -p "${CI_PRIVATE_KEY}" gitlab-master.nvidia.com
     - if [[ "$MERLIN_REMOTE_REPO" == "" ]]; then
         git clone $REMOTE_REPO;
       else
@@ -161,7 +160,7 @@ stages:
         echo "RUN cd /workdir && rm -rf build && mkdir -p build && cd build && cmake ${CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
       fi
     - if [[ "$BUILD_SOK" == 1 ]]; then
-        echo "RUN cd /workdir/sparse_operation_kit/ && python setup.py install" >> ${JOB_DOCKERFILE};
+        echo "RUN cd /workdir/sparse_operation_kit/ && SOK_COMPILE_GPU_SM=\"${CMAKE_OPTION}\" python setup.py install" >> ${JOB_DOCKERFILE};
         echo "RUN pip install nvtx" >> ${JOB_DOCKERFILE};
         echo "ENV LD_LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LD_LIBRARY_PATH" >> ${JOB_DOCKERFILE};
         echo "ENV LIBRARY_PATH=/usr/local/hugectr/lib:/usr/local/lib:\$LIBRARY_PATH" >> ${JOB_DOCKERFILE};
@@ -170,25 +169,8 @@ stages:
     - if [[ "$BUILD_HUGECTR2ONNX" == 1 ]]; then
         echo "RUN cd /workdir/onnx_converter && python3 setup.py install" >> ${JOB_DOCKERFILE};
       fi
-    #- if [[ "$BUILD_HPS_BACKEND" == 1 ]]; then
-    #    echo "RUN git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend && git checkout hugectr_performance_test && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
-    #  fi
-    - if [[ "$BUILD_HPS_BACKEND" == 1 ]]; then
-        echo "RUN git clone --branch $HUGECTR_BACKEND_VER https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab-master.nvidia.com/dl/hugectr/hugectr_inference_backend.git hugectr_inference_backend && cd hugectr_inference_backend/hps_backend && mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr/local/hugectr -DTRITON_COMMON_REPO_TAG=$TRITON_BRANCH  -DTRITON_CORE_REPO_TAG=$TRITON_BRANCH -DTRITON_BACKEND_REPO_TAG=$TRITON_BRANCH .. && make -j\$(nproc) && make install && cd ../../.. && rm -rfv hugectr_inference_backend" >> ${JOB_DOCKERFILE};
-        echo "RUN ln -s /usr/local/hugectr/backends/hps /opt/tritonserver/backends/hps" >> ${JOB_DOCKERFILE};
-      fi
-    - if [[ "$BUILD_TF_PLUGIN" == 1 ]]; then
-        echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
-        echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
-        echo "RUN cd /workdir/hps_tf/ && python setup.py install" >> ${JOB_DOCKERFILE};
-      fi
-    - if [[ "$BUILD_TORCH_PLUGIN" == 1 ]]; then
-        echo "RUN pip install ninja" >> ${JOB_DOCKERFILE};
-        echo "RUN cd /workdir/hps_torch/ && TORCH_CUDA_ARCH_LIST=\"7.0 7.5 8.0 9.0\" python setup.py install" >> ${JOB_DOCKERFILE};
-      fi
-    - if [[ "$BUILD_TRT_PLUGIN" == 1 ]]; then
-        echo "RUN pip install tf2onnx" >> ${JOB_DOCKERFILE};
-        echo "RUN mkdir /workdir/hps_trt/build && cd /workdir/hps_trt/build && cmake ${TRT_CMAKE_OPTION} .. && make -j\$(nproc) && make install" >> ${JOB_DOCKERFILE};
+    - if [[ "$BUILD_HDFS" == 1 ]]; then
+        echo "RUN apt update -y && apt install -y --no-install-recommends sudo" >> ${JOB_DOCKERFILE};
       fi
     - echo "RUN rm /usr/local/lib/libcuda.so.1" >> ${JOB_DOCKERFILE};
     - cat ${JOB_DOCKERFILE}
@@ -363,7 +345,7 @@ stages:
     - .dlcluster_job
     - .default:rules:daily-test
   variables:
-    CI_SLURM_PARTITION: "a100-pcie-40gb-product,a100-pcie-80gb-product"
+    CI_SLURM_PARTITION: "a100-pcie-80gb-product,h100-pcie-80gb-preprod,h100-pcie-80gb-production"
     CI_SLURM_ACCOUNT: "cag"
     CI_SCHEDULER_TYPE: docker
     GIT_DEPTH: "1"
@@ -455,28 +437,6 @@ stages:
     DRACO_OCI_LOGDIR: /lustre/fsw/portfolios/coreai/users/svcnvdlfw/hugectr_ci/${CI_PIPELINE_ID}
   stage: post_test
 
-.inference_benchmark:
-  extends:
-    - .selene_luna_job
-    - .benchmark:rules:weekly
-  stage: inference_benchmark
-  before_script:
-    - export PARAM=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
-    - export BZ=$(echo ${PARAM} | awk -Fx '{print $1}')
-    - export MIXED_PRECISION=$(echo ${PARAM} | awk -Fx '{print $2}')
-    - export GPFSFOLDER=$LOGDIR/inference_benchmark_${BZ}x${MIXED_PRECISION}
-  variables:
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: ${UNIFIED_CTR_LATEST}
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/inference/dlrm_regression/dlrm/1:/model/dlrm/1,/lustre/fsw/devtech/hpc-hugectr/keynote_inference/perf_data:/perf_data,${CI_PROJECT_DIR}:/hugectr
-    WORKDIR: /hugectr
-    SLURM_ACCOUNT: coreai_devtech_hugectr
-    OLD_SLURM_ACCOUNT: "devtech"
-    GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
-    WALLTIME: "00:15:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/benchmark/inference_benchmark/run.sub
-
 .sok_benchmark:
   extends:
     - .selene_luna_job
@@ -520,26 +480,6 @@ stages:
     GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
     WALLTIME: "00:15:00"
     TEST_CMD: ./ci/benchmark/train_benchmark/run.sub
-
-.hps_backend_benchmark:
-  extends:
-    - .selene_luna_job
-    - .benchmark:rules:weekly
-  stage: hps_benchmark
-  before_script:
-    - export BZ=$(echo ${CI_JOB_NAME} | awk -F-- '{print $2}')
-    - export GPFSFOLDER=$LOGDIR/hps_backend_benchmark_${BZ}
-    - rm -rf /hps_backend_benchmark/*.out
-  variables:
-    GIT_CLONE_PATH: ${GIT_CLONE_PATH_SELENE}
-    CONT: ${UNIFIED_TF_LATEST}
-    MOUNTS: /lustre/fsw/devtech/hpc-hugectr/emmaq/yingcan_benchmark:/hps_backend_benchmark,${CI_PROJECT_DIR}:/hugectr
-    SLURM_ACCOUNT: coreai_devtech_hugectr
-    OLD_SLURM_ACCOUNT: "devtech"
-    GPFSFOLDER: "/lustre/fsw/$OLD_SLURM_ACCOUNT"
-    WALLTIME: "00:30:00"
-    DGXNNODES: 1
-    TEST_CMD: ./ci/benchmark/hps_backend_benchmark/run.sub
 
 collect_benchmark_result:
   extends:

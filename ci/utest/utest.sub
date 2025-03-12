@@ -1,7 +1,9 @@
 #!/bin/bash
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx "\
+      export NCCL_NET_PLUGIN=None && \
       cd /workdir/build/bin && \
+      ./resource_manager_test && \
       ./checker_test && \
       ./data_reader_test && \
       ./device_map_test && \

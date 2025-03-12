@@ -2,6 +2,45 @@
 
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
       cd /dataset/criteo_kaggle/ && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/wdl_8gpu.json && \
-      mkdir /workdir/export_predictions_wdl_fp16_8gpu/ && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/wdl_fp16_8gpu.json"
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=WDL \
+        --max_eval_batches=2048 \
+        --batchsize_eval=16384 \
+        --eval_interval 1000 \
+        --vvgpu=0,1,2,3,4,5,6,7 \
+        --learning_rate=0.001 \
+        --batchsize=16384 \
+        --display=200 \
+        --max_iter=3000  \
+        --i64_input_key \
+        --source=./wdl_data_parquet/train/_file_list.txt \
+        --eval_source=./wdl_data_parquet/val/_file_list.txt \
+        --slot_size_array 203750,18573,14082,7020,18966,4,6382,1246,49,185920,71354,67346,11,2166,7340,60,4,934,15,204208,141572,199066,60940,9115,72,34,278899,355877 \
+        --optimizer_type=Adam \
+        --epsilon=1e-07 \
+        --learning_rate=0.001 \
+        --update_type=Global"
+
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
+      cd /dataset/criteo_kaggle/ && \
+      python3 /workdir/test/pybind_test/model_test.py \
+        --model_type=WDL \
+        --max_eval_batches=2048 \
+        --batchsize_eval=16384 \
+        --eval_interval 1000 \
+        --vvgpu=0,1,2,3,4,5,6,7 \
+        --learning_rate=0.001 \
+        --batchsize=16384 \
+        --display=200 \
+        --max_iter=3000  \
+        --i64_input_key \
+        --source=./wdl_data_parquet/train/_file_list.txt \
+        --eval_source=./wdl_data_parquet/val/_file_list.txt \
+        --slot_size_array 203750,18573,14082,7020,18966,4,6382,1246,49,185920,71354,67346,11,2166,7340,60,4,934,15,204208,141572,199066,60940,9115,72,34,278899,355877 \
+        --optimizer_type=Adam \
+        --epsilon=0.0001 \
+        --learning_rate=0.001 \
+        --update_type=Global \
+        --use_mixed_precision \
+        --scaler=1024
+        "

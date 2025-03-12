@@ -14,25 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 SCRIPT_DIR=$(dirname ${BASH_SOURCE[0]})
-cd ${SCRIPT_DIR}/../third_party
-HDFS_BUILD_MODE="$1"
 
+HDFS_BUILD_MODE="$1"
 if [[ -z "${HADOOP_HOME}" ]]; then
   HADOOP_HOME=/opt/hadoop
 fi
 
-# Find hadoop full version.
-cd hadoop
-HADOOP_TAR=$(ls hadoop-dist/target/hadoop-*.tar.gz | head -n 1)
-if [[ -z "$HADOOP_TAR" ]]; then
-  HADOOP_TAR=$(ls hadoop-hdfs-project/hadoop-hdfs-native-client/target/hadoop-hdfs-native-client-*.tar.gz | head -n 1)
+
+HADOOP_TAR=/tmp/hadoop-3.4.0.tar.gz
+if [[ ! -f ${HADOOP_TAR} ]]; then
+  wget https://dlcdn.apache.org/hadoop/common/hadoop-3.4.0/hadoop-3.4.0.tar.gz -O ${HADOOP_TAR}
+  if [[ $? -ne 0 ]]; then
+    echo "Failed to download Hadoop."
+    exit 1
+  fi
 fi
 
 # Extract files and delete archive.
 mkdir -p ${HADOOP_HOME}/logs
-tar xf ${HADOOP_TAR} --strip-components 1 --directory ${HADOOP_HOME}
+tar zxf ${HADOOP_TAR} --strip-components 1 --directory ${HADOOP_HOME}
 
 # Install header files if not yet installed.
 mkdir -p ${HADOOP_HOME}/include
@@ -41,7 +42,7 @@ if [[ ! -f "${HADOOP_HOME}/include/hdfs.h" ]]; then
 fi
 
 # Cleanup redundant files.
-for f in $(find ${HADOOP_HOME} -name *.cmd); do
+for f in $(find ${HADOOP_HOME} -name "*.cmd"); do
   rm -rf $f
 done
 
@@ -55,6 +56,7 @@ ln -sf ${HADOOP_HOME}/lib/native/libhadoop.so.1.0.0 /usr/local/lib/libhadoop.so.
 # Create minimalist single-node "default" configuration.
 # Skip if install with minimal mode.
 if [[ "${HDFS_BUILD_MODE}" != "MINIMAL" ]]; then
+
   sed -i "s/^# export JAVA_HOME=$/export JAVA_HOME=${JAVA_HOME//\//\\\/}/g" ${HADOOP_HOME}/etc/hadoop/hadoop-env.sh
 
   echo '<?xml version="1.0" encoding="UTF-8"?>

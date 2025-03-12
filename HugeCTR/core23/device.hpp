@@ -17,6 +17,7 @@
 #pragma once
 
 #include <core23/device_type.hpp>
+#include <cstdint>
 #include <string>
 
 namespace HugeCTR {

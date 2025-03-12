@@ -1,5 +1,5 @@
 variables:
-  IMAGE_ALL: ${BASE_DEVEL_REGISTRY}:devel_all
+  IMAGE_ALL: ${BASE_DEVEL_REGISTRY}:devel
   MERLIN_NIGHTLY_DEVEL: ${BASE_DEVEL_REGISTRY}:merlin_nightly
   IMAGE_SOK_TF2: ${BASE_DEVEL_REGISTRY}:devel_embedding_tf2
   IMAGE_SOK_TF1: ${BASE_DEVEL_REGISTRY}:devel_embedding_tf1

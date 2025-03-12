@@ -1,8 +1,0 @@
-infernece--256xFP32:
-  extends: .inference_benchmark
-infernece--1024xFP32:
-  extends: .inference_benchmark
-#infernece--8192xFP16:
-#  extends: .inference_benchmark
-#infernece--131072xFP16:
-#  extends: .inference_benchmark

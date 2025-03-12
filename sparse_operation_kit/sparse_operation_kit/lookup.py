@@ -38,7 +38,12 @@ from sparse_operation_kit.distributed_variable import LocalizedVariable
 
 from sparse_operation_kit.dynamic_variable import DynamicVariable
 from sparse_operation_kit.utils import SOK_IndexedSlices
-import importlib
+import sys
+
+if sys.version_info < (3, 12):
+    from importlib import find_loader
+else:
+    from importlib.util import find_spec as find_loader
 
 try:
     from tensorflow.python.ops import kv_variable_ops
@@ -164,14 +169,14 @@ def isDynamicVariable(variable):
 
 
 def isEmbeddingVariable(variable):
-    return importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
+    return find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
         variable, kv_variable_ops.EmbeddingVariable
     )
 
 
 def isResourceVariable(variable):
     return (
-        importlib.find_loader("tensorflow.python.ops.resource_variable_ops")
+        find_loader("tensorflow.python.ops.resource_variable_ops")
         and isinstance(variable, resource_variable_ops.ResourceVariable)
         and not isEmbeddingVariable(variable)
         and not isDynamicVariable(variable)
@@ -421,7 +426,7 @@ def lookup_sparse_impl(params, sp_ids, sp_weights=None, combiners=None, use_filt
     shard, dimensions = [], []
     for param in params:
         shard.append(param.target_gpu)
-        if importlib.find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
+        if find_loader("tensorflow.python.ops.kv_variable_ops") and isinstance(
             param, kv_variable_ops.EmbeddingVariable
         ):
             dimensions.append(param.shape[0])

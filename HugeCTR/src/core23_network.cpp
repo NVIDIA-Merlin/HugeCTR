@@ -104,7 +104,7 @@ float Network::get_loss() {
   for (i = 0; i < train_loss_tensor_.size(); ++i) {
     loss_host += loss_temp[i];
   }
-  delete loss_temp;
+  delete[] loss_temp;
   return loss_host;
 }
 

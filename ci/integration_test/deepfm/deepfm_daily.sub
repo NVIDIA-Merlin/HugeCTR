@@ -1,5 +1,21 @@
 #!/bin/bash
-
 srun --ntasks="${SLURM_JOB_NUM_NODES}" --container-image="${CONT}" --container-mounts="${MOUNTS}" bash -cx " \
       cd /dataset/criteo_kaggle/dcn_parquet && \
-      python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/deepfm_8gpu.json"
+      python3 /workdir/test/pybind_test/model_test.py \
+      --model_type=DEEPFM \
+      --max_eval_batches=2048 \
+      --batchsize_eval=16384 \
+      --eval_interval 1000 \
+      --vvgpu=0,1,2,3,4,5,6,7 \
+      --learning_rate=0.001 \
+      --batchsize=16384 \
+      --display=1000 \
+      --max_iter=3000  \
+      --i64_input_key \
+      --source=./_file_list.txt \
+      --eval_source=./_file_list.txt \
+      --slot_size_array 381808,22456,14763,7118,19308,4,6443,1259,54,341642,112151,94957,11,2188,8399,61,4,949,15,382633,246818,370704,92823,9773,78,34 \
+      --optimizer_type=Adam \
+      --epsilon=1e-07 \
+      --learning_rate=0.001 \
+      --update_type=Global"

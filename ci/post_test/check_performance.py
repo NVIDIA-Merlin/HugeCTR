@@ -9,7 +9,7 @@ import math
 expected_result_json = "./ci/post_test/perf_benchmark.json"
 log_pattern = {
     "wdl_8gpu": {
-        "cmd_log": r"python3 /workdir/test/pybind_test/single_node_test.py --json-file=/workdir/test/scripts/wdl_8gpu.json",
+        "cmd_log": r"python3 /workdir/test/pybind_test/model_test.py --model_type=WDL",
         "result_log": r"Finish 3000 iterations with batchsize: 16384 in (\d+\.?\d*)s",
     },
     "dlrm_1node": {
@@ -28,54 +28,10 @@ log_pattern = {
         "cmd_log": r"python3 train.py",
         "result_log": r"/ (\d+) iterations with batchsize (\d+) in (\d+\.?\d*)s. Average speed is (\d+\.?\d*) records/s",
     },
-    "inference_benchmark": {
-        "cmd_log": r"Server:",
-        "result_log": r"Avg request latency: (\d+\.?\d*) usec",
-    },
     "sok": {"cmd_log": r"python3 main.py ", "result_log": r"elapsed_time: (\d+\.?\d*)"},
     "train_bmk": {
         "cmd_log": r"python3 ./benchmark_train.py",
         "result_log": r"Time\(200 iters\): (\d+\.?\d*)s",
-    },
-    "inference_benchmark_avg": {
-        "cmd_log": r"Client:",
-        "result_log": r"Avg latency: (\d+\.?\d*) usec",
-    },
-    "inference_benchmark_p50": {
-        "cmd_log": r"Client:",
-        "result_log": r"p50 latency: (\d+\.?\d*) usec",
-    },
-    "inference_benchmark_p90": {
-        "cmd_log": r"Client:",
-        "result_log": r"p90 latency: (\d+\.?\d*) usec",
-    },
-    "inference_benchmark_p95": {
-        "cmd_log": r"Client:",
-        "result_log": r"p95 latency: (\d+\.?\d*) usec",
-    },
-    "inference_benchmark_p99": {
-        "cmd_log": r"Client:",
-        "result_log": r"p99 latency: (\d+\.?\d*) usec",
-    },
-    "hps_plugin_benchmark": {
-        "cmd_log": r"compute infer",
-        "result_log": r"compute infer (\d+\.?\d*) usec",
-    },
-    "hps_torch_fuse_table_benchmark": {
-        "cmd_log": r"compute infer",
-        "result_log": r"compute infer (\d+\.?\d*) usec",
-    },
-    "hps_tf_fuse_table_benchmark": {
-        "cmd_log": r"compute infer",
-        "result_log": r"compute infer (\d+\.?\d*) usec",
-    },
-    "147gb_model_benchmark": {
-        "cmd_log": r"compute infer",
-        "result_log": r"compute infer (\d+\.?\d*) usec",
-    },
-    "hps_backend_avg_latency": {
-        "cmd_log": r"compute infer",
-        "result_log": r"compute infer (\d+\.?\d*) usec",
     },
 }
 
@@ -102,13 +58,7 @@ def extract_result_from_log(job_name, log_path):
                     else:
                         result = float(match.group(1))
                     results.append(result)
-    if (
-        job_name == "hps_plugin_benchmark"
-        or job_name == "hps_torch_fuse_table_benchmark"
-        or job_name == "hps_tf_fuse_table_benchmark"
-        or job_name == "147gb_model_benchmark"
-    ):
-        return results
+
     return sum(results) / len(results) if len(results) > 0 else float("inf")
 
 
@@ -285,152 +235,8 @@ if __name__ == "__main__":
     else:
         expected_result = extract_result_from_json(args.job_name)
 
-        if args.job_name == "hps_plugin_benchmark":
-            perf_result = extract_result_from_log(args.job_name, args.log_path)
-            idx = 0
-            batch_sizes = ["32", "1024", "16384"]
-            print("DLRM Inference Latency (usec)")
-            print(
-                "-----------------------------------------------------------------------------------------"
-            )
-            print("batch_size\tnative tf\ttf_with_hps\tfp32_trt_with_hps\tfp16_trt_with_hps")
-            print(
-                "-----------------------------------------------------------------------------------------"
-            )
-            for i in range(len(perf_result) // 4):
-                print(
-                    "{}\t\t{}\t\t{}\t\t{}\t\t\t{}".format(
-                        batch_sizes[i],
-                        perf_result[i * 4],
-                        perf_result[i * 4 + 1],
-                        perf_result[i * 4 + 2],
-                        perf_result[i * 4 + 3],
-                    )
-                )
-            print(
-                "-----------------------------------------------------------------------------------------"
-            )
-            for batch_size in batch_sizes:
-                for model_name in [
-                    "native_tf",
-                    "tf_with_hps",
-                    "fp32_trt_with_hps",
-                    "fp16_trt_with_hps",
-                ]:
-                    perf = perf_result[idx]
-                    expected = expected_result[model_name][batch_size]
-                    check_perf_result(perf, expected)
-                    idx += 1
-        elif (
-            args.job_name == "hps_tf_fuse_table_benchmark"
-            or args.job_name == "hps_torch_fuse_table_benchmark"
-        ):
-            perf_result = extract_result_from_log(args.job_name, args.log_path)
-            idx = 0
-            batch_sizes = ["256", "1024", "4096", "16384"]
-            print(f"Job Name: {args.job_name}")
-            print("HPS Fuse Table Model Inference Latency (usec)")
-            print("-" * 137)
-            print(
-                "batch_size\t8_static_table_unfused\t\t8_static_table_autofused\t8_dynamic_table_unfused\t\t8_dynamic_table_autofused"
-            )
-            print("-" * 137)
-            for i in range(len(perf_result) // 4):
-                print(
-                    "{}\t\t{}\t\t\t\t{}\t\t\t\t{}\t\t\t\t{}".format(
-                        batch_sizes[i],
-                        perf_result[i * 4],
-                        perf_result[i * 4 + 1],
-                        perf_result[i * 4 + 2],
-                        perf_result[i * 4 + 3],
-                    )
-                )
-            print("-" * 137)
-            for batch_size in batch_sizes:
-                for model_name in [
-                    "8_static_table_unfused",
-                    "8_static_table_autofused",
-                    "8_dynamic_table_unfused",
-                    "8_dynamic_table_autofused",
-                ]:
-                    perf = perf_result[idx]
-                    expected = expected_result[model_name][batch_size]
-                    check_perf_result(perf, expected)
-                    idx += 1
-        elif args.job_name == "147gb_model_benchmark":
-            perf_result = extract_result_from_log(args.job_name, args.log_path)
-            idx = 0
-            batch_sizes = ["256", "1024", "4096", "16384"]
-            print("147GB Model Inference Latency (usec)")
-            print("-" * 100)
-            print(
-                "batch_size\tdynamic_1fc_lite_hps_trt\tdynamic_3fc_lite_hps_trt\tdynamic_dlrm_hps_trt"
-            )
-            print("-" * 100)
-            for i in range(len(perf_result) // 3):
-                print(
-                    "{}\t\t{}\t\t\t\t{}\t\t\t\t{}".format(
-                        batch_sizes[i],
-                        perf_result[i * 3],
-                        perf_result[i * 3 + 1],
-                        perf_result[i * 3 + 2],
-                    )
-                )
-            print("-" * 100)
-            for batch_size in batch_sizes:
-                for model_name in [
-                    "dynamic_1fc_lite_hps_trt",
-                    "dynamic_3fc_lite_hps_trt",
-                    "dynamic_dlrm_hps_trt",
-                ]:
-                    perf = perf_result[idx]
-                    expected = expected_result[model_name][batch_size]
-                    check_perf_result(perf, expected)
-                    idx += 1
-        elif args.job_name == "hps_backend_benchmark":
-            idx = 0
-            perf_result = []
-            batch_sizes = ["256", "1024", "2048", "8192", "131072"]
-            for bz in batch_sizes:
-                result_log_path = os.path.join(
-                    args.log_path,
-                    "hps_backend_benchmark_{bz}".format(bz=bz),
-                )
-                if os.path.exists(result_log_path):
-                    backend_avg_latency = extract_result_from_log(
-                        "hps_backend_avg_latency", result_log_path
-                    )
-                perf_result.append(backend_avg_latency)
-
-            print("HPS Backend Inference Latency (usec) and Throughput")
-            print(
-                "-----------------------------------------------------------------------------------------"
-            )
-            print("batch_size\tavg_latency\tthroughput")
-            print(
-                "-----------------------------------------------------------------------------------------"
-            )
-            for i in range(len(perf_result)):
-                print(
-                    "{}\t\t{}\t\t{}".format(
-                        batch_sizes[i],
-                        perf_result[i],
-                        int(1000000.0 / perf_result[i] * int(batch_sizes[i])),
-                    )
-                )
-            print(
-                "-----------------------------------------------------------------------------------------"
-            )
-            idx = 0
-            for batch_size in batch_sizes:
-                perf = perf_result[idx]
-                print("Check avg_latency for BZ: {}".format(batch_size))
-                expected_latency = expected_result["avg_latency"][batch_size]
-                check_perf_result(perf, expected_latency)
-                idx += 1
+        perf_result = extract_result_from_log(args.job_name, args.log_path)
+        if args.job_name in ["dlrm_dcnv2_1node", "dlrm_dcnv2_8node"]:
+            check_perf_result(-perf_result, -expected_result)
         else:
-            perf_result = extract_result_from_log(args.job_name, args.log_path)
-            if args.job_name in ["dlrm_dcnv2_1node", "dlrm_dcnv2_8node"]:
-                check_perf_result(-perf_result, -expected_result)
-            else:
-                check_perf_result(perf_result, expected_result)
+            check_perf_result(perf_result, expected_result)

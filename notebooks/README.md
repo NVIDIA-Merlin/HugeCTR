@@ -97,16 +97,14 @@ Refer to the
 The notebooks are located within the container and can be found in the `/HugeCTR/notebooks` directory.
 
 Here's a list of notebooks that you can run:
-- [hugectr_e2e_demo_with_nvtabular.ipynb](hugectr_e2e_demo.ipynb): Notebook to preprocess data using NVTabular, train the model with HugeCTR, and do the offline inference with the HugeCTR HPS.
+- [hugectr_e2e_demo_with_nvtabular.ipynb](hugectr_e2e_demo_with_nvtabular.ipynb): Notebook to preprocess data using NVTabular, train the model with HugeCTR.
 - [continuous_training.ipynb](continuous_training.ipynb) (deprecated): Notebook to introduce how to deploy continued training with HugeCTR.
-- ~multi_gpu_offline_inference.ipynb~: It was deprecated. Check out [this HPS TRT notebook](hps_trt/notebooks/demo_for_tf_trained_model.ipynb) as an alternative.
-- [hps_demo.ipynb](hps_demo.ipynb): Demonstrate how to utilize HPS Python APIs together with ONNX Runtime APIs to create an ensemble inference model.
 - [training_and_inference_with_remote_filesystem.ipynb](training_and_inference_with_remote_filesystem.ipynb): Demonstrates how to train a model with data that is stored in a remote file system such as Hadoop HDFS and AWS S3.
 
 The [multi-modal-data](./multi-modal-data/) series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
 The notebooks use the Movielens-25M dataset.
 
-More notebooks on the Hierarchical Parameter Server (HPS) are available with its [TensorRT](hps_trt/notebooks) and [Tensorflow](hps_tf/notebooks) plugins.
+Notebooks on the Hierarchical Parameter Server (HPS) are deprecated since v25.02, please check out the version prior to v24.06.
 
 For Sparse Operation Kit notebooks, refer to the [sparse_operation_kit/notebooks/](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit/notebooks) directory of the repository or the [documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).
 
@@ -118,6 +116,5 @@ The specifications of the system on which each notebook can run successfully are
 | ---------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------- | ----- | -------------- |
 | [multi-modal-data](multi-modal-data)                                   | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Vinh Nguyen    |
 | [continuous_training.ipynb](continuous_training.ipynb)                 | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Xiaolei Shi    |
-| [hps_demo.ipynb](hps_demo.ipynb)                                       | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Kingsley Liu, Matthias Langer and Yingcan Wei |
 | [training_with_remote_filesystem.ipynb](training_with_remote_filesystem.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |
 | [hugectr_e2e_demo_with_nvtabular.ipynb](hugectr_e2e_demo_with_nvtabular.ipynb) | Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz<br />512 GB Memory | Tesla V100-SXM2-32GB<br />32 GB Memory | 1     | Jerry Shi |
