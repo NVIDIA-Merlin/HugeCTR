@@ -39,9 +39,14 @@ To learn about our latest enhancements, refer to our [release notes](release_not
 ## Getting Started ##
 If you'd like to quickly train a model using the Python interface, do the following:
 
-1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
+1. Build the HugeCTR Docker image:
+   From version 25.03, HugeCTR only provides the Dockerfile source, and users need to build the image by themselves. To build the hugectr image, use the Dockerfile located at `tools/dockerfiles/Dockerfile.base` with the following command:
+   ```sh
+   docker build --build-arg RELEASE=true -t hugectr:release -f tools/dockerfiles/Dockerfile.base .
+
+2. Start the container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-hugectr:24.06
+   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) hugectr:release
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
@@ -51,7 +56,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
    -shm-size=1g -ulimit memlock=-1
    ```
 
-2. Write a simple Python script to generate a synthetic dataset:
+3. Write a simple Python script to generate a synthetic dataset:
    ```
    # dcn_parquet_generate.py
    import hugectr
@@ -228,4 +233,4 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 - HugeCTR Hierarchical Parameter Server (HPS) 
 - Embedding Cache
 
-Above components have been deprecated since v25.02. Please refer to prior version if you need such features.
+Above components have been deprecated since v25.03. Please refer to prior version if you need such features.

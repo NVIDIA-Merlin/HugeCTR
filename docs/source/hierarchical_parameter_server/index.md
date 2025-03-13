@@ -1,6 +1,6 @@
 # Hierarchical Parameter Server [Deprecated]
 
-> **Deprecation Note** HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.02. Please refer to prior version if you need such features.
+> **Deprecation Note** HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.03. Please refer to prior version if you need such features.
 
 The Hierarchical Parameter Server (HPS) library is a native C++ library that provides
 caching and hierarchical storage for embeddings.
