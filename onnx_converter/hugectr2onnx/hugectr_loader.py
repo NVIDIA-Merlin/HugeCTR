@@ -99,7 +99,8 @@ class LayerParams(object):
         self.weight_dims = []
         self.out_dim = 0
         self.axis = 1
-        self.max_sequence_len = 1
+        self.max_sequence_len_from = 1
+        self.max_sequence_len_to = 1
         self.num_attention_heads = 1
         self.transpose_b = True
         # MLP Layer
@@ -139,7 +140,7 @@ class HugeCTRLoader(object):
         self.__dimensions = {}
         self.__offset = 0
         self.__vocab_size_all_tables = 0
-        self.__key_to_indice_hash_all_tables = None
+        self.__key_to_indice_hash_all_tables = []
         for i in range(self.layers):
             layer_config = self.__layers_config[i]
             layer_type = layer_config["type"]
@@ -151,9 +152,9 @@ class HugeCTRLoader(object):
                     "max_vocabulary_size_global"
                 ]
                 self.__vocab_size_all_tables += max_vocab_size_global
-        self.__key_to_indice_hash_all_tables = np.zeros(
-            shape=(self.__vocab_size_all_tables,), dtype=np.int64
-        )
+                self.__key_to_indice_hash_all_tables.append(
+                    np.zeros(shape=(self.__vocab_size_all_tables,), dtype=np.int64)
+                )
 
     @property
     def key_to_indice_hash_all_tables(self):
@@ -232,12 +233,17 @@ class HugeCTRLoader(object):
                                 break
                             key = struct.unpack("q", key_buffer)[0]
                             values = struct.unpack(str(embedding_vec_size) + "f", vec_buffer)
-                            self.key_to_indice_hash_all_tables[key] = indice
+                            self.key_to_indice_hash_all_tables[self.__embedding_counter][
+                                key
+                            ] = indice
                             embedding_table[indice] = values
                             indice += 1
                     except BaseException as error:
                         print(error)
                 layer_weights_dict["embedding_table"] = embedding_table
+                layer_weights_dict["hash_table"] = self.key_to_indice_hash_all_tables[
+                    self.__embedding_counter
+                ]
                 self.__embedding_counter += 1
             else:
                 print("Skip sparse embedding layers in converted ONNX model")
@@ -317,8 +323,13 @@ class HugeCTRLoader(object):
             layer_params.elu_alpha = layer_config["elu_param"]["alpha"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
         elif layer_type == "SequenceMask":
-            layer_params.max_sequence_len = layer_config["max_sequence_len"]
-            self.__dimensions[layer_config["top"]] = (1, 1, layer_params.max_sequence_len)
+            layer_params.max_sequence_len_from = layer_config["max_sequence_len_from"]
+            layer_params.max_sequence_len_to = layer_config["max_sequence_len_to"]
+            self.__dimensions[layer_config["top"]] = (
+                1,
+                layer_params.max_sequence_len_from,
+                layer_params.max_sequence_len_to,
+            )
         elif layer_type == "FmOrder2":
             layer_params.out_dim = layer_config["out_dim"]
             self.__dimensions[layer_config["top"]] = layer_params.out_dim
@@ -392,26 +403,8 @@ class HugeCTRLoader(object):
             )
         elif layer_type == "MultiHeadAttention":
             layer_params.num_attention_heads = layer_config["num_attention_heads"]
-            layer_params.transpose_b = layer_config["transpose_b"]
-
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
-            dim2 = self.__dimensions[layer_params.bottom_names[1]]
-            if len(dim1) == 3:
-                if layer_params.transpose_b:
-                    self.__dimensions[layer_config["top"]] = (dim1[0], dim1[1], dim2[1])
-                else:
-                    self.__dimensions[layer_config["top"]] = (dim1[1], dim1[0] * dim2[2])
-            if len(dim1) == 2:
-                self.__dimensions[layer_config["top"][0]] = (
-                    layer_params.num_attention_heads,
-                    dim1[0],
-                    dim1[0],
-                )
-                self.__dimensions[layer_config["top"][1]] = (
-                    layer_params.num_attention_heads,
-                    dim1[0],
-                    (int)(dim1[1] / layer_params.num_attention_heads),
-                )
+            self.__dimensions[layer_config["top"]] = (dim1[0], dim1[1])
         elif layer_type == "MatrixMultiply":
             dim1 = self.__dimensions[layer_params.bottom_names[0]]
             dim2 = self.__dimensions[layer_params.bottom_names[1]]

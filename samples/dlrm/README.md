@@ -1,6 +1,6 @@
 # DLRM CTR SAMPLE #
 
-> **Deprecation Warning**: DLRM samples are based on the [one-hot RawAsync DataReader](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw) and HybridEmbedding, both of which were deprecated. Please check out the [multi-hot RawAsync DataReader]((https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw)) and [embedding collection](https://nvidia-merlin.github.io/HugeCTR/main/api/hugectr_layer_book.html#embedding-collection) for alternatives.
+> **Deprecation Note**: DLRM samples are based on the [one-hot RawAsync DataReader](https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw) and HybridEmbedding, both of which were deprecated. Please check out the [multi-hot RawAsync DataReader]((https://nvidia-merlin.github.io/HugeCTR/main/api/python_interface.html#raw)) and [embedding collection](https://nvidia-merlin.github.io/HugeCTR/main/api/hugectr_layer_book.html#embedding-collection) for alternatives.
 
 The purpose of this sample is to demonstrate how to build and train a [DLRM DCNv2 model](https://arxiv.org/abs/2008.13535) with HugeCTR.
 

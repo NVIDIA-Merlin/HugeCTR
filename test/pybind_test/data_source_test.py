@@ -144,7 +144,7 @@ model.add(
         layer_type=hugectr.Layer_t.Reshape,
         bottom_names=["sparse_embedding1"],
         top_names=["reshape1"],
-        leading_dim=416,
+        shape=[-1, 416],
     )
 )
 model.add(
@@ -152,7 +152,7 @@ model.add(
         layer_type=hugectr.Layer_t.Reshape,
         bottom_names=["sparse_embedding2"],
         top_names=["reshape_wide"],
-        leading_dim=2,
+        shape=[-1, 2],
     )
 )
 model.add(

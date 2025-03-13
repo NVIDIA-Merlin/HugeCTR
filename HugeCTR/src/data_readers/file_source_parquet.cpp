@@ -53,7 +53,9 @@ ParquetFileSource::ParquetFileSource(unsigned int worker_id, unsigned int stride
 }
 
 ParquetFileSource::~ParquetFileSource() {
-  cudaStreamDestroy(slice_stream_);
+  if (slice_stream_ != NULL) {
+    cudaStreamDestroy(slice_stream_);
+  }
   slice_stream_ = NULL;
   file_loader_->clean();
 }

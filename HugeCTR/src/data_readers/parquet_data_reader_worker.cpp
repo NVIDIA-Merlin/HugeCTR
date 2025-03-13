@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 
 #include <data_readers/metadata.hpp>
 #include <data_readers/parquet_data_reader_worker.hpp>

@@ -228,7 +228,14 @@ void generate_parquet_input_files(int num_files, int sample_per_file,
     long max_row_group_size = 5000;
     if (sample_per_file / 2l >= max_row_group_size) max_row_group_size = sample_per_file / 2;
     writer_args.set_row_group_size_rows(max_row_group_size);
-    cudf::io::write_parquet(writer_args);
+    try {
+      cudf::io::write_parquet(writer_args);
+    } catch (const cudf::logic_error& e) {
+      std::cerr << "cuDF error: " << e.what() << std::endl;
+      std::terminate();
+    } catch (...) {
+      std::terminate();
+    }
     // HCTR_LOG(INFO, WORLD, "cuDF bug write done\n");
   }
 
@@ -1279,6 +1286,7 @@ TEST(parquet, group_test_debug_strided_epoch) {
   int dev_id = 0;
   cudaGetDevice(&dev_id);
   HCTR_LOG(INFO, WORLD, "group_test_debug_strided_epoch 1 getCurrentDeviceId %d\n", dev_id);
+  data_reader_group_epoch_strided_batch_test_impl(1, 2, 2, {0}, 1);
   data_reader_group_epoch_strided_batch_test_impl(1, 2, 2, {0}, 1);
   data_reader_group_epoch_strided_batch_test_impl(3, 40, 3 * 10, {0, 2}, 1);
   cudaGetDevice(&dev_id);

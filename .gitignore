@@ -45,26 +45,11 @@ dlrm.json
 logs*
 archives/
 sparse_operation_kit/_skbuild
-hierarchical_parameter_server/_skbuild
 
-hierarchical_parameter_server/_skbuild
-hierarchical_parameter_server/dist/
-hierarchical_parameter_server/merlin_hps.egg-info/
 
 docs/source/sparse_operation_kit/
 docs/source/notebooks
-docs/source/hierarchical_parameter_server/notebooks
 docs/source/release_notes.md
-
-docs/source/hps_tf/notebooks
-docs/source/hps_trt/notebooks/
-docs/source/hps_torch/notebooks/
-hps_tf/_skbuild
-hps_tf/dist/
-hps_tf/merlin_hps.egg-info/
-hps_torch/_skbuild
-hps_torch/dist/
-hps_torch/merlin_hps.egg-info/
 .gitlab/
 ci/benchmark/
 ci/common/

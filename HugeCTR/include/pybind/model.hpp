@@ -24,9 +24,6 @@
 #include <embeddings/embedding_collection.hpp>
 #include <exchange_wgrad.hpp>
 #include <graph_wrapper.hpp>
-#include <hps/hier_parameter_server.hpp>
-#include <hps/kafka_message.hpp>
-#include <hps/message.hpp>
 #include <inference/preallocated_buffer2.hpp>
 #include <io/filesystem.hpp>
 #include <loss.hpp>
@@ -530,7 +527,6 @@ class Model final {
   OptParams opt_params_;
   std::shared_ptr<OptParamsPy> opt_params_py_;
   std::vector<std::shared_ptr<OptParamsPy>> embedding_opt_params_list_;
-  std::shared_ptr<MessageSinkBase<long long>> message_sink_;
   std::shared_ptr<LearningRateScheduler> lr_sch_;
   GpuLearningRateSchedulers gpu_lr_sches_;
 

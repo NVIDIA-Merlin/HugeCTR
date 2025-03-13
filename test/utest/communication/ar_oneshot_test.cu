@@ -244,6 +244,7 @@ struct arTest {
   void do_nccl_ar(int i) {
     size_t size = ar_sizes_[i];
     auto& device_list = resource_manager_->get_local_gpu_device_id_list();
+#pragma omp parallel for num_threads(num_gpus_)
     for (size_t g = 0; g < num_gpus_; g++) {
       const auto& local_gpu = resource_manager_->get_local_gpu(g);
       HCTR_LIB_THROW(cudaSetDevice(device_list[g]));

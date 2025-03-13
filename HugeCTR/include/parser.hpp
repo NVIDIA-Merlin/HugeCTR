@@ -39,7 +39,6 @@
 #include <functional>
 #include <gpu_learning_rate_scheduler.hpp>
 #include <gpu_resource.hpp>
-#include <hps/inference_utils.hpp>
 #include <io/hadoop_filesystem.hpp>
 #include <learning_rate_scheduler.hpp>
 #include <metrics.hpp>

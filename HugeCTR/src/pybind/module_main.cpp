@@ -16,12 +16,15 @@
 
 #include <pybind11/pybind11.h>
 
+#if defined(ENABLE_INFERENCE)
+#include <pybind/hps_wrapper.hpp>
+#endif
+
 #include <pybind/common_wrapper.hpp>
 #include <pybind/data_generator_wrapper.hpp>
 #include <pybind/data_reader_wrapper.hpp>
 #include <pybind/data_source_wrapper.hpp>
 #include <pybind/embedding_collection_wrapper.hpp>
-#include <pybind/hps_wrapper.hpp>
 #include <pybind/learning_rate_scheduler_wrapper.hpp>
 #include <pybind/model_wrapper.hpp>
 #include <pybind/optimizer_wrapper.hpp>
@@ -41,6 +44,5 @@ PYBIND11_MODULE(hugectr, m) {
   OptimizerPybind(m);
   ModelPybind(m);
   EmbeddingCollectionPybind(m);
-  HPSPybind(m);
   TrainingCallbackPybind(m);
 }

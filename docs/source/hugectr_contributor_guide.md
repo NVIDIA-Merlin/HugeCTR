@@ -95,16 +95,13 @@ To build HugeCTR Training Container from source, do the following:
 
 3. Build HugeCTR from scratch using one or any combination of the following options:
    - **SM**: You can use this option to build HugeCTR with a specific compute capability (DSM=90) or multiple compute capabilities (DSM="80;70"). The default compute capability
-     is 70, which uses the NVIDIA V100 GPU. For more information, refer to the [Compute Capability](hugectr_user_guide.md#compute-capability) table. 60 is not supported for inference deployments. For more information, refer to the [Quick Start](https://github.com/triton-inference-server/hugectr_backend#quick-start) for the HugeCTR backend of Triton Inference Server.
+     is 70, which uses the NVIDIA V100 GPU. For more information, refer to the [Compute Capability](hugectr_user_guide.md#compute-capability) table.
    - **CMAKE_BUILD_TYPE**: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks
      in a synchronous manner.
      average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by
      default.
    - **ENABLE_MULTINODES**: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to the [deep and cross network samples](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn) directory on GitHub.
-   - **ENABLE_INFERENCE**: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
-     will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
-     OFF by default. For building inference container, please refer to [Build HugeCTR Inference Container from Source](#build-hugectr-inference-container-from-source)
-   - **ENABLE_HDFS**: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissible values are `ON` and `OFF` *(default)*. Setting this option to `ON` leads to building all necessary Hadoop modules that are required for building so that it can connect to HDFS deployments.
+   - **ENABLE_HDFS**: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissible values are `ON` and `OFF` *(default)*. Setting this option to `ON` leads to installing all necessary Hadoop modules that are required for building so that it can connect to HDFS deployments.
    - **ENABLE_S3**: You can use this option to build HugeCTR together with Amazon AWS S3 SDK to enable S3 related functions. Permissible values are `ON` and `OFF` *(default)*. Setting this option to `ON` leads to building all necessary AWS SKKs and dependencies that are required for building AND running both HugeCTR and S3. 
 
    **Please note that setting DENABLE_HDFS=ON or DENABLE_S3=ON requires root permission. So before using these two options to do the customized building, make sure you use `-u root` when you run the docker container.**
@@ -136,26 +133,6 @@ To build HugeCTR Training Container from source, do the following:
    By default, HugeCTR is installed at /usr/local. However, you can use CMAKE_INSTALL_PREFIX to install HugeCTR to non-default location:
    ```shell
    $ cmake -DCMAKE_INSTALL_PREFIX=/opt/HugeCTR -DSM=70 ..
-   ```
-
-### Build HugeCTR Inference Container from Source
-To build HugeCTR inference container from source, do the following:
-
-1. Build the `hugectr:devel_inference` image using the steps outlined [here](#set-up-the-development-environment-with-merlin-containers). Remember that this instruction is only for the [Merlin CTR Dockerfile](https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr).
-
-
-2. Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:
-   ```shell
-   $ git clone https://github.com/NVIDIA/HugeCTR.git
-   $ cd HugeCTR
-   $ git submodule update --init --recursive
-   ```
-
-3. Here is an example of how you can build HugeCTR inference container using the build options:
-   ```shell
-   $ mkdir -p build && cd build
-   $ cmake -DCMAKE_BUILD_TYPE=Release -DSM="70;80" -DENABLE_INFERENCE=ON .. # Target is NVIDIA V100 / A100 with Inference mode ON.
-   $ make -j && make install
    ```
 
 ### Build Sparse Operation Kit (SOK) from Source
