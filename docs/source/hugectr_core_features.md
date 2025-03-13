@@ -105,6 +105,6 @@ For more information, see the Sparse Operation Kit [documentation](https://nvidi
 
 ## Hierarchical Parameter Server [Deprecated]
 
-> **Deprecation Note** HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.02. Please refer to prior version if you need such features.
+> **Deprecation Note** HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.03. Please refer to prior version if you need such features.
 
 HugeCTR Hierarchical Parameter Server (HPS), an industry-leading distributed recommendation inference framework,that combines a high-performance GPU embedding cache with an hierarchical storage architecture, to realize low-latency retrieval ofembeddings for online model inference tasks. Among other things, our HPS features (1) redundant hierarchical storage, (2) a novelGPU-enabled high-bandwidth cache to accelerate parallel embedding lookup, (3) online training support and (4) light-weight APIs forintegration into existing large-scale recommendation workflow.

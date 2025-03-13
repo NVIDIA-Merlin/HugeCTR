@@ -104,7 +104,7 @@ Here's a list of notebooks that you can run:
 The [multi-modal-data](./multi-modal-data/) series of notebooks demonstrate how to use of multi-modal data such as text and images for the task of movie recommendation.
 The notebooks use the Movielens-25M dataset.
 
-Notebooks on the Hierarchical Parameter Server (HPS) are deprecated since v25.02, please check out the version prior to v24.06.
+Notebooks on the Hierarchical Parameter Server (HPS) are deprecated since v25.03, please check out the version prior to v24.06.
 
 For Sparse Operation Kit notebooks, refer to the [sparse_operation_kit/notebooks/](https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/sparse_operation_kit/notebooks) directory of the repository or the [documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/index.html).
 

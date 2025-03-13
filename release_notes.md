@@ -1,5 +1,15 @@
 # Release Notes
 
+## What's New in Version 25.03
+
++ **Blackwell Supports:**
+  + Add support for `sm=100` architecture, enabling HugeCTR to run on Blackwell GPUs.
++ **Code Cleaning and Deprecation**
+  + 1. HugeCTR Hierarchical Parameter Server (HPS) 
+  + 2. Embedding Cache
+  + Above components have been deprecated since v25.03. Please refer to prior version if you need such features.
+
+
 ## What's New in Version 24.06
 + **Sparse Operation Kit (SOK) Updates:**
     + A new API `sok.incremental_dump` has been added, which allows users to dump newly added keys and values into a numpy array by specifying a time threshold. Currently it only supports `sok.DynamicVariable` that uses HKV as the backend.
