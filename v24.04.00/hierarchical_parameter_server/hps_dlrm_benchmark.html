@@ -32,8 +32,8 @@
 <body class="wy-body-for-nav">
   <div class="banner">
     <p class="banner">
-      After the HugeCTR <code>v23.08</code>, the offline inference  will be deprecated.
-      Check out our HPS plugins for TensorRT and TensorFlow as alternatives.</p>
+      Since the HugeCTR <code>v23.09</code>, the offline inference has been deprecated.
+      Since the HugeCTR <code>v24.06</code>, the HPS has been deprecated.
   </div>
 
   <div class="wy-grid-for-nav">
@@ -120,7 +120,7 @@
 <li><p><strong>DLRM with HPS Plugin for TensorFlow</strong>: In this DLRM SavedModel, <code class="docutils literal notranslate"><span class="pre">tf.nn.embedding_lookup</span></code> is replaced by <code class="docutils literal notranslate"><span class="pre">hps.LookupLayer</span></code> to perform embedding lookup and the MLP layers are kept unchanged. The deployment is on the Triton backend for TensorFlow.</p></li>
 <li><p><strong>DLRM with HPS Plugin for TensorRT</strong>: The HPS plugin layer is integrated into the built TensorRT engines, and the MLP layers are accelerated by TensorRT. The TensorRT engines are built with minimum batch size 1, optimum 1024 and maximum 131072. Both fp32 and fp16 modes are investigated. The deployment is on the Triton backend for TensorRT.</p></li>
 </ul>
-<p>The benchmark is conducted on the <code class="docutils literal notranslate"><span class="pre">A100-SXM4-80GB</span></code> GPU with one Triton model instance on it. The GPU embedding cache of HPS is turned on and the cache percentage is configured as <code class="docutils literal notranslate"><span class="pre">0.2</span></code>. For details about how to deploy TF models with HPS Plugin for TensorFlow and TRT engines with HPS Plugin for TensorRT on Triton, please refer to <a class="reference internal" href="../hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.html"><span class="std std-doc">hps_tensorflow_triton_deployment_demo.ipynb</span></a> and <a class="reference internal" href="../hps_trt/notebooks/demo_for_tf_trained_model.html"><span class="std std-doc">demo_for_tf_trained_model.ipynb</span></a>.</p>
+<p>The benchmark is conducted on the <code class="docutils literal notranslate"><span class="pre">A100-SXM4-80GB</span></code> GPU with one Triton model instance on it. The GPU embedding cache of HPS is turned on and the cache percentage is configured as <code class="docutils literal notranslate"><span class="pre">0.2</span></code>. For details about how to deploy TF models with HPS Plugin for TensorFlow and TRT engines with HPS Plugin for TensorRT on Triton, please refer to <a class="reference internal" href="#../hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb"><span class="xref myst">hps_tensorflow_triton_deployment_demo.ipynb</span></a> and <a class="reference internal" href="#../hps_trt/notebooks/demo_for_tf_trained_model.ipynb"><span class="xref myst">demo_for_tf_trained_model.ipynb</span></a>.</p>
 <p>After launching the Triton Inference Server, we send the same batch of inference data repeatedly using Triton Performance Analyzer. In this case, the embedding lookup is served by the GPU embedding cache of HPS and the best-case performance of HPS can be studied. The command and the sample data to measure the latency for a batch with one sample follows:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>perf_analyzer<span class="w"> </span>-m<span class="w"> </span><span class="si">${</span><span class="nv">MODEL_NAME</span><span class="si">}</span><span class="w"> </span>-u<span class="w"> </span>localhost:8000<span class="w"> </span>--input-data<span class="w"> </span><span class="m">1</span>.json<span class="w"> </span>--shape<span class="w"> </span>categorical_features:1,26<span class="w"> </span>--shape<span class="w"> </span>numerical_features:1,13
 </pre></div>
@@ -297,10 +297,6 @@ TensorRT<span class="w"> </span>version:<span class="w"> </span><span class="m">
       <dd><a href="../../v23.12.00/hierarchical_parameter_server/hps_dlrm_benchmark.html">v23.12.00</a></dd>
       <dd><a href="hps_dlrm_benchmark.html">v24.04.00</a></dd>
       <dd><a href="../../v24.06.00/hierarchical_parameter_server/hps_dlrm_benchmark.html">v24.06.00</a></dd>
-    </dl>
-    <dl>
-      <dt>Branches</dt>
-      <dd><a href="../../main/hierarchical_parameter_server/hps_dlrm_benchmark.html">main</a></dd>
     </dl>
   </div>
 </div><script>
