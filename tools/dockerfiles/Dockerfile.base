@@ -1,0 +1,168 @@
+# Copyright (c) 2021-2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+ARG DLFW_IMAGE=nvcr.io/nvidia/tensorflow:25.02-tf2-py3
+ARG FROM_IMAGE_NAME=nvcr.io/nvidia/pytorch:25.02-py3
+
+FROM ${DLFW_IMAGE} as dlfw
+FROM ${FROM_IMAGE_NAME}
+
+ARG HWLOC_VERSION=2.4.1
+ARG RELEASE=false
+ARG TARGETARCH
+
+
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+	libboost-serialization-dev \
+        libtbb-dev \
+        libaio-dev \
+        clang-format-14 \
+        #   Required to build Hadoop.
+        pkg-config \
+        libboost-date-time-dev \
+        libboost-program-options-dev \
+        libprotobuf-dev \
+        libprotoc-dev \
+        libfuse-dev \
+        libpmem-dev \
+        libsnappy-dev \
+        #   Required to run Hadoop.
+        openssh-server \
+        #   Required to build RocksDB.
+        libgflags-dev \
+        zlib1g-dev libbz2-dev libsnappy-dev liblz4-dev libzstd-dev \
+        #   Required to build RdKafka.
+        zlib1g-dev libzstd-dev \
+        libssl-dev libsasl2-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV PATH=/usr/local/bin:$PATH
+RUN ln -s /usr/lib/llvm-14/bin/clang-format /usr/bin/clang-format
+ENV JAVA_HOME=/usr/lib/jvm/default-java
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${JAVA_HOME}/lib:${JAVA_HOME}/lib/server
+
+# CUDA-Aware hwloc
+RUN cd /opt/hpcx/ompi/include/openmpi/opal/mca/hwloc/hwloc201 && rm -rfv hwloc201.h hwloc/include/hwloc.h
+RUN mkdir -p /var/tmp && wget -q -nc --no-check-certificate -P /var/tmp https://download.open-mpi.org/release/hwloc/v2.4/hwloc-${HWLOC_VERSION}.tar.gz && \
+    mkdir -p /var/tmp && tar -x -f /var/tmp/hwloc-${HWLOC_VERSION}.tar.gz -C /var/tmp && \
+    cd /var/tmp/hwloc-${HWLOC_VERSION} && \
+    ./configure CPPFLAGS="-I/usr/local/cuda/include/ -L/usr/local/cuda/lib64/" LDFLAGS="-L/usr/local/cuda/lib64" --enable-cuda && \
+    make -j$(nproc) && make install && \
+    rm -rf /var/tmp/hwloc-${HWLOC_VERSION} /var/tmp/hwloc-${HWLOC_VERSION}.tar.gz
+
+ENV CPATH=/usr/local/include:$CPATH
+ENV PATH=/opt/hpcx/ompi/bin:$PATH
+
+# Env variables for NCCL
+ENV NCCL_LAUNCH_MODE=PARALLEL
+
+# ENV variables for Sharp
+ENV SHARP_COLL_NUM_COLL_GROUP_RESOURCE_ALLOC_THRESHOLD=0 \
+    SHARP_COLL_LOCK_ON_COMM_INIT=1 \
+    SHARP_COLL_LOG_LEVEL=3 \
+    HCOLL_ENABLE_MCAST=0
+
+RUN ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64" || echo "x86_64") && \
+    ln -s /usr/lib/${ARCH}-linux-gnu/libibverbs.so.1.*.0 /usr/lib/${ARCH}-linux-gnu/libibverbs.so
+
+ENV PYTHON_VERSION=3.12
+RUN pip install --no-cache-dir --upgrade notebook ipython mpi4py onnxruntime
+RUN pip3 config set global.break-system-packages true
+RUN pip3 install --no-cache-dir ninja scikit-build
+# Install dependencies for tensorflow
+RUN pip install --no-cache-dir tensorflow tf_keras==2.17 \
+        && pip uninstall tensorflow keras -y
+
+COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python${PYTHON_VERSION}/dist-packages/tensorflow /usr/local/lib/python${PYTHON_VERSION}/dist-packages/tensorflow/
+COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python${PYTHON_VERSION}/dist-packages/tensorflow-*.dist-info /usr/local/lib/python${PYTHON_VERSION}/dist-packages/tensorflow.dist-info/
+COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python${PYTHON_VERSION}/dist-packages/keras /usr/local/lib/python${PYTHON_VERSION}/dist-packages/keras/
+COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python${PYTHON_VERSION}/dist-packages/keras-*.dist-info /usr/local/lib/python${PYTHON_VERSION}/dist-packages/keras.dist-info/
+COPY --chown=1000:1000 --from=dlfw /usr/local/lib/tensorflow/ /usr/local/lib/tensorflow/
+COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python${PYTHON_VERSION}/dist-packages/horovod /usr/local/lib/python${PYTHON_VERSION}/dist-packages/horovod/
+COPY --chown=1000:1000 --from=dlfw /usr/local/lib/python${PYTHON_VERSION}/dist-packages/horovod-*.dist-info /usr/local/lib/python${PYTHON_VERSION}/dist-packages/horovod.dist-info/
+COPY --chown=1000:1000 --from=dlfw /usr/local/bin/horovodrun /usr/local/bin/horovodrun
+
+# Create link for libparquet
+RUN ln -s /usr/local/lib/python${PYTHON_VERSION}/dist-packages/pyarrow/libparquet.so.* /usr/local/lib/python${PYTHON_VERSION}/dist-packages/pyarrow/libparquet.so
+
+# FIXME: Temporal workaround to make HugeCTR compile correctly
+#  for the latest PyT base image (following conda removal):
+#RUN pip3 uninstall -y tbb
+
+# Optional dependency: Build and install protocol buffers and Hadoop/HDFS.
+ARG INSTALL_HDFS=false
+# Env for HDFS
+ENV HADOOP_HOME=/opt/hadoop
+ENV PATH=${PATH}:${HADOOP_HOME}/bin:${HADOOP_HOME}/sbin \
+    HDFS_NAMENODE_USER=root \
+    HDFS_SECONDARYNAMENODE_USER=root \
+    HDFS_DATANODE_USER=root \
+    YARN_RESOURCEMANAGER_USER=root \
+    YARN_NODEMANAGER_USER=root \
+    # Tackles with ThreadReaper stack overflow issues: https://bugs.openjdk.java.net/browse/JDK-8153057
+    LIBHDFS_OPTS='-Djdk.lang.processReaperUseDefaultStackSize=true' \
+    # Tackles with JVM setting error signals that the UCX library checks (GitLab issue #425).
+    UCX_ERROR_SIGNALS='' \
+    CLASSPATH=${CLASSPATH}:\
+${HADOOP_HOME}/etc/hadoop/*:\
+${HADOOP_HOME}/share/hadoop/common/*:\
+${HADOOP_HOME}/share/hadoop/common/lib/*:\
+${HADOOP_HOME}/share/hadoop/hdfs/*:\
+${HADOOP_HOME}/share/hadoop/hdfs/lib/*:\
+${HADOOP_HOME}/share/hadoop/mapreduce/*:\
+${HADOOP_HOME}/share/hadoop/yarn/*:\
+${HADOOP_HOME}/share/hadoop/yarn/lib/*
+
+WORKDIR /workdir
+
+# HugeCTR
+ARG HUGECTR_HOME=/usr/local/hugectr
+RUN if [ "$RELEASE" = "true" ]; \
+    then \
+        git clone --recurse-submodules -b main https://github.com/NVIDIA-Merlin/HugeCTR.git /workdir && \
+        cd /workdir && \
+        git log -n 1 && \
+        mkdir build && cd build && \
+        if [[ "${INSTALL_HDFS}" == "false" ]]; then \
+            cmake -DCMAKE_BUILD_TYPE=Release -DSM="75;80;90;100" -DENABLE_MULTINODES=ON .. \
+        ; else \
+            cmake -DCMAKE_BUILD_TYPE=Release -DSM="75;80;90;100" -DENABLE_MULTINODES=ON -DENABLE_HDFS=ON .. \
+        ; fi && \
+        make -j$(nproc) && make install && \
+        chmod +x ${HUGECTR_HOME}/bin/* ${HUGECTR_HOME}/lib/*.so && \
+        cd ../onnx_converter && \
+        python setup.py install && \
+        pip --no-cache-dir install ninja tf2onnx && \
+        cd ../sparse_operation_kit && \
+        python setup.py install && \
+        chmod +x /usr/local/hugectr/bin/* && \
+        chmod +x /usr/local/hugectr/lib/* && \
+        ARCH=$([ "${TARGETARCH}" = "arm64" ] && echo "aarch64" || echo "x86_64") && \
+	    rm /usr/lib/${ARCH}-linux-gnu/libibverbs.so; \
+    else \
+      echo "Build container for development successfully!"; \
+    fi
+
+# Set envs for hugectr
+ENV PATH=${HUGECTR_HOME}/bin:$PATH \
+    CPATH=$CPATH:${HUGECTR_HOME}/include \
+    LD_LIBRARY_PATH=${HUGECTR_HOME}/lib:$LD_LIBRARY_PATH \
+    PYTHONPATH=${HUGECTR_HOME}/lib:$PYTHONPATH
+
+
+HEALTHCHECK NONE
+ENTRYPOINT []
+CMD ["/bin/bash"]
+

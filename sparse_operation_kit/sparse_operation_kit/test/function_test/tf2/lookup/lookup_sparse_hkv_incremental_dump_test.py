@@ -78,8 +78,14 @@ if __name__ == "__main__":
 
     # initialize optimizer
     optimizer = tf.optimizers.SGD(learning_rate=1.0, momentum=0.9)
-    # sok_optimizer = sok.SGD(lr=1.0)
-    sok_optimizer = sok.OptimizerWrapper(optimizer)
+
+    if sok.tf_version[0] == 2 and sok.tf_version[1] >= 17:
+        import tf_keras as tfk
+
+        optimizer_for_sok = tfk.optimizers.legacy.SGD(learning_rate=1.0)
+    else:
+        optimizer_for_sok = tf.optimizers.SGD(learning_rate=1.0)
+    sok_optimizer = sok.OptimizerWrapper(optimizer_for_sok)
 
     def step(params, indices):
         with tf.GradientTape() as tape:

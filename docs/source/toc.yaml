@@ -6,49 +6,6 @@ subtrees:
         title: Introduction
       - file: hugectr_core_features.md
         title: Core Features
-      - file: hierarchical_parameter_server/index.md
-        title: Hierarchical Parameter Server
-        entries:
-          - file: hierarchical_parameter_server/hps_database_backend.md
-            title: HPS Database Backend
-          - file: hierarchical_parameter_server/hps_tf_user_guide.md
-            title: HPS Plugin for TensorFlow
-            entries:
-              - file: hps_tf/notebooks/index.md
-                title: Notebooks
-                entries:
-                  - file: hps_tf/notebooks/hierarchical_parameter_server_demo.ipynb
-                  - file: hps_tf/notebooks/hps_multi_table_sparse_input_demo.ipynb
-                  - file: hps_tf/notebooks/hps_pretrained_model_training_demo.ipynb
-                  - file: hps_tf/notebooks/sok_to_hps_dlrm_demo.ipynb
-                  - file: hps_tf/notebooks/hps_tensorflow_triton_deployment_demo.ipynb
-                  - file: hps_tf/notebooks/hps_table_fusion_demo.ipynb
-              - file: hierarchical_parameter_server/hps_tf_api/index.rst
-                title: API Documentation
-          - file: hierarchical_parameter_server/hps_trt_user_guide.md
-            title: HPS Plugin for TensorRT
-            entries:
-              - file: hps_trt/notebooks/index.md
-                title: Notebooks
-                entries:
-                  - file: hps_trt/notebooks/demo_for_tf_trained_model.ipynb
-                  - file: hps_trt/notebooks/demo_for_pytorch_trained_model.ipynb
-                  - file: hps_trt/notebooks/demo_for_hugectr_trained_model.ipynb
-              - file: hierarchical_parameter_server/hps_trt_api/index.rst
-                title: API Documentation
-          - file: hierarchical_parameter_server/hps_torch_user_guide.md
-            title: HPS Plugin for Torch
-            entries:
-              - file: hps_torch/notebooks/index.md
-                title: Notebooks
-                entries:
-                  - file: hps_torch/notebooks/hps_torch_demo.ipynb
-              - file: hierarchical_parameter_server/hps_torch_api/index.rst
-                title: API Documentation                   
-          - file: hierarchical_parameter_server/hps_dlrm_benchmark.md
-            title: Benchmark HPS-integrated DLRM
-          - file: hierarchical_parameter_server/profiling_hps.md
-            title: Profiling HPS
       - file: sparse_operation_kit.md
         title: Sparse Operation Kit
       - file: performance.md
@@ -56,9 +13,6 @@ subtrees:
       - file: notebooks/index.md
         title: Example Notebooks
         entries:
-          - file: notebooks/continuous_training.ipynb
-          - file: notebooks/multi_gpu_offline_inference.ipynb
-          - file: notebooks/hps_demo.ipynb
           - file: notebooks/training_with_remote_filesystem.ipynb
           - file: notebooks/embedding_collection.ipynb
           - file: notebooks/hugectr_e2e_demo_with_nvtabular.ipynb
@@ -81,3 +35,5 @@ subtrees:
       - file: release_notes.md
       - file: hugectr_contributor_guide.md
         title: Contributing to HugeCTR
+      - file: hierarchical_parameter_server/index.md
+        title: Hierarchical Parameter Server [Deprecated]

@@ -15,7 +15,7 @@
  */
 #pragma once
 
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 
 #include <common.hpp>
 #include <cudf/copying.hpp>

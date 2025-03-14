@@ -32,14 +32,6 @@ if(CLANGFORMAT)
     ${PROJECT_SOURCE_DIR}/gpu_cache/include/*.cuh
     ${PROJECT_SOURCE_DIR}/gpu_cache/src/*.cpp
     ${PROJECT_SOURCE_DIR}/gpu_cache/src/*.cu
-    ${PROJECT_SOURCE_DIR}/hps_tf/*.hpp
-    ${PROJECT_SOURCE_DIR}/hps_tf/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_tf/*.cu
-    ${PROJECT_SOURCE_DIR}/hps_tf/*.cuh
-    ${PROJECT_SOURCE_DIR}/hps_trt/*.hpp
-    ${PROJECT_SOURCE_DIR}/hps_trt/*.cpp
-    ${PROJECT_SOURCE_DIR}/hps_trt/*.cu
-    ${PROJECT_SOURCE_DIR}/hps_trt/*.cuh
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.hpp
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cpp
     ${PROJECT_SOURCE_DIR}/HugeCTR/*.cu
@@ -65,50 +57,9 @@ endif()
 
 option(ENABLE_GCS "Enable GCS" OFF)
 
-# List of supported features.
-set(HCTR_SUPPORTED_FEATURES "")
-list(APPEND HCTR_SUPPORTED_FEATURES "redis")
-list(APPEND HCTR_SUPPORTED_FEATURES "rocks_db")
-
-# List of features enabled in this build configuration.
-set(HCTR_FEATURES "${HCTR_SUPPORTED_FEATURES}" CACHE STRING "Enabled optional features")
-list(REMOVE_DUPLICATES HCTR_FEATURES)
-string(TOLOWER "${HCTR_FEATURES}" HCTR_FEATURES)
-
-# Verify and print feature selection.
-message(STATUS "Enabled optional HugeCTR features:")
-foreach(HCTR_FEATURE ${HCTR_FEATURES})
-  message(STATUS "  ${HCTR_FEATURE}")
-  list(FIND HCTR_SUPPORTED_FEATURES "${HCTR_FEATURE}" HCTR_FEATURE_ENABLED)
-  if(${HCTR_FEATURE_ENABLED} EQUAL -1)
-    message(FATAL_ERROR "Unsupported feature \"${HCTR_FEATURE}\"! Supported features: ${HCTR_SUPPORTED_FEATURES}")
-  endif()
-endforeach()
 
 # Build dependencies.
 add_subdirectory(third_party)
-
-# Expand include path and library list accordingly, and toggle preprocessor flags.
-foreach(HCTR_FEATURE ${HCTR_FEATURES})
-  if(${HCTR_FEATURE} STREQUAL "redis")
-    include_directories(
-      ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src
-      ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/cxx17
-      ${PROJECT_SOURCE_DIR}/third_party/redis_pp/src/sw/redis++/tls
-    )
-    link_libraries(hiredis redis++)
-  elseif(${HCTR_FEATURE} STREQUAL "rocks_db")
-    include_directories(
-      ${PROJECT_SOURCE_DIR}/third_party/rocksdb/include
-    )
-    link_libraries(rocksdb-shared)
-  endif()
-
-  string(TOUPPER "${HCTR_FEATURE}" HCTR_FEATURE)
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DHCTR_USE_${HCTR_FEATURE}")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DHCTR_USE_${HCTR_FEATURE}")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DHCTR_USE_${HCTR_FEATURE}")
-endforeach()
 
 set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DSPDLOG_HEADER_ONLY -DSPDLOG_FMT_EXTERNAL -DFMT_HEADER_ONLY")
@@ -133,6 +84,10 @@ else()
   set(CUDART_LIB CUDA::cudart)
 endif()
 
+if(NOT DEFINED PYARROW_BASE_PATH)
+  set(PYARROW_BASE_PATH "/usr/local/lib/python3.12/dist-packages/pyarrow")
+endif()
+
 if (DISABLE_CUDF)
   message(STATUS "-- DISABLE_CUDF is ON")
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DDISABLE_CUDF")
@@ -154,14 +109,39 @@ else()
   add_compile_definitions(CUDF_VERSION_MINOR=${CUDF_VERSION_MINOR})
   message(STATUS "CUDF_VERSION is  ${CUDF_VERSION}")
 
-  find_package(Parquet REQUIRED CONFIG PATHS  /usr/lib/cmake/arrow/ /usr/lib/cmake/Parquet/ NO_DEFAULT_PATH)
-  if(Parquet_FOUND AND NOT ENABLE_HDFS AND NOT ENABLE_S3 AND NOT ENABLE_GCS)
-    message (STATUS "Arrow Parquet is found")
-    set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_ARROW_PARQUET")
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_ARROW_PARQUET")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_ARROW_PARQUET")
-  endif()
+  # find_package(Parquet REQUIRED CONFIG PATHS  /usr/lib/cmake/arrow/ /usr/lib/cmake/Parquet/ NO_DEFAULT_PATH)
+  # Find the Parquet library
+  find_library(PARQUET_LIB_PATH
+    NAMES libparquet.so
+    PATHS ${PYARROW_BASE_PATH}
+    NO_DEFAULT_PATH
+  )
 
+  # Find the Parquet include directory
+  find_path(PARQUET_INCLUDE_DIR
+    NAMES parquet/api/reader.h
+    PATHS ${PYARROW_BASE_PATH}/include
+    NO_DEFAULT_PATH
+  )
+  message (STATUS "PARQUET_LIBRARY: ${PARQUET_LIB_PATH}")
+  message (STATUS "PARQUET_INCLUDE_DIR: ${PARQUET_INCLUDE_DIR}")
+  if(NOT PARQUET_LIB_PATH OR NOT PARQUET_INCLUDE_DIR)
+    message(FATAL_ERROR "Parquet library or include directory not found")
+  else()
+    set(Parquet_FOUND ON)
+    add_library(parquet UNKNOWN IMPORTED)
+    set_target_properties(parquet PROPERTIES
+      IMPORTED_LOCATION "${PARQUET_LIB_PATH}"
+      INTERFACE_INCLUDE_DIRECTORIES "${PARQUET_INCLUDE_DIR}"
+    )
+
+    if(NOT ENABLE_HDFS AND NOT ENABLE_S3 AND NOT ENABLE_GCS)
+      message (STATUS "Arrow Parquet is found")
+      set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_ARROW_PARQUET")
+      set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_ARROW_PARQUET")
+      set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_ARROW_PARQUET")
+    endif()
+  endif()
 endif()
 
 option(SHARP_A2A "Enable SHARP All2All" OFF)
@@ -179,12 +159,6 @@ find_package(OpenMP REQUIRED)
 find_package(Threads)
 
 option(ENABLE_MULTINODES "Enable multi-nodes training" OFF)
-option(ENABLE_INFERENCE "Enable Inference" OFF)
-
-if(ENABLE_MULTINODES AND ENABLE_INFERENCE)
-  message(WARNING "Inference can be only enabled with the multi-node mode off. Set ENABLE_MULTINODES=OFF")
-  set(ENABLE_MULTINODES OFF)
-endif()
 
 if(ENABLE_MULTINODES)
   message(STATUS "Multi Node Enabled")
@@ -203,19 +177,10 @@ if (OPENMP_FOUND)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 endif()
 
-option(KEY_HIT_RATIO "Verbose mode of embedding training cache: print out the key hit ratio" OFF)
-if (KEY_HIT_RATIO)
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DKEY_HIT_RATIO")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DKEY_HIT_RATIO")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DKEY_HIT_RATIO")
-endif()
-
-if(ENABLE_INFERENCE)
-  add_definitions(-DLIBCUDACXX_VERSION)
-endif()
 
 foreach(arch_name ${SM})
-    if (arch_name STREQUAL 90 OR
+    if (arch_name STREQUAL 100 OR
+        arch_name STREQUAL 90 OR
         arch_name STREQUAL 80 OR
         arch_name STREQUAL 75 OR
         arch_name STREQUAL 70)
@@ -242,10 +207,6 @@ endif()
 
 message(STATUS "Target GPU architectures: ${CMAKE_CUDA_ARCHITECTURES}")
 
-option(ENABLE_PROFILER "Enable HPS profiler" OFF)
-if(ENABLE_PROFILER)
-add_definitions(-DBENCHMARK_HPS)
-endif()
 
 if (USE_HUGE_PAGES)
   set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DUSE_HUGE_PAGES")
@@ -289,7 +250,11 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/test
   ${PROJECT_SOURCE_DIR}/HugeCTR/include
   $ENV{CONDA_PREFIX}/include
-  $ENV{CONDA_PREFIX}/include/libcudf/libcudacxx
+
+  # below 2 serve as a WAR to use lower version of CCCL2.5 for RMM compatibility
+  # see https://github.com/rapidsai/cudf/issues/17961
+  /usr/include/libcudf/rapids/
+  /usr/include/libcudf/rapids/libcudacxx 
   ${CUDAToolkit_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp
   ${PROJECT_SOURCE_DIR}/third_party/cuml/cpp/include
@@ -342,10 +307,6 @@ link_directories(
 
 #setting python interface file install path
 install(DIRECTORY ${CMAKE_BINARY_DIR}/lib DESTINATION hugectr)
-#install inference header files
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference DESTINATION hugectr/include)
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/hps DESTINATION hugectr/include)
-install(DIRECTORY ${PROJECT_SOURCE_DIR}/HugeCTR/include/inference_benchmark DESTINATION hugectr/include)
 install(DIRECTORY ${CMAKE_BINARY_DIR}/bin DESTINATION hugectr)
 
 add_subdirectory(gpu_cache/src)
@@ -365,43 +326,36 @@ if(ENABLE_HDFS)
       COMMAND_ERROR_IS_FATAL ANY
     )
   endif()
-
-  # Hadoop.
-  # sudo apt install libboost-date-time-dev
-  # sudo apt install libboost-program-options-dev
-  # sudo apt install libprotobuf-dev
-  # sudo apt install libfuse-dev
-  # sudo apt install libprotoc-dev
-  FetchContent_Declare(hadoop
-    DOWNLOAD_COMMAND git clone
-      --branch rel/release-3.4.0
-      --depth 1
-      --progress https://github.com/apache/hadoop.git
-      "${CMAKE_BINARY_DIR}/_deps/hadoop-src"
+  execute_process(WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+    COMMAND /bin/bash ${PROJECT_SOURCE_DIR}/sbin/install-hadoop.sh
+    COMMAND_ERROR_IS_FATAL ANY
   )
-  FetchContent_Populate(hadoop)
-  set(hadoop_SOURCE_DIR "${hadoop_SOURCE_DIR}/hadoop-hdfs-project/hadoop-hdfs-native-client")
-  set(hadoop_BINARY_DIR "${hadoop_SOURCE_DIR}/target/hadoop-hdfs-native-client-3.4.0")
-  if(EXISTS ${hadoop_BINARY_DIR}/include/hdfs.h AND EXISTS ${hadoop_BINARY_DIR}/lib/native/libhdfs.a)
-    message(STATUS "Found hdfs library in ${hadoop_BINARY_DIR}")
-  else()
-    execute_process(WORKING_DIRECTORY "${hadoop_SOURCE_DIR}"
-      COMMAND mvn clean package
-        -Pdist,native
-        -DskipTests
-        -Dtar
-        -Dmaven.javadoc.skip=true
-        -Drequire.snappy
-        -Drequire.zstd
-        -Drequire.openssl
-        -Drequire.pmdk
-      COMMAND_ERROR_IS_FATAL ANY
-    )
-  endif()
-  set(FETCHCONTENT_QUIET ON)
+  set(HADOOP_INC_PATHS
+    /usr/include
+    /usr/local/include
+    /opt/hadoop/include
+  )
 
-  include_directories("${hadoop_BINARY_DIR}/include")
-  link_directories("${hadoop_BINARY_DIR}/lib/native")
+  set(HADOOP_LIB_PATHS
+    /lib
+    /lib64
+    /usr/lib
+    /usr/lib64
+    /usr/local/lib
+    /usr/local/lib64
+    /opt/hadoop/lib
+  )
+
+  find_path(HADOOP_INCLUDE_DIR NAMES hdfs.h PATHS ${HADOOP_INC_PATHS})
+  find_library(HADOOP_LIBRARIES NAMES hdfs PATHS ${HADOOP_LIB_PATHS})
+
+  include_directories("${HADOOP_INCLUDE_DIR}")
+  link_directories("${HADOOP_LIBRARIES}")
+  include(FindPackageHandleStandardArgs)
+  find_package_handle_standard_args(HADOOP DEFAULT_MSG HADOOP_INCLUDE_DIR HADOOP_LIBRARIES)
+  if(NOT HADOOP_FOUND)
+    message(FATAL_ERROR "Hadoop library not found, please install with cmd `bash ${CMAKE_CURRENT_LIST_DIR}/sbin/install-hadoop.sh`")
+  endif()
   
   set(ENABLE_HDFS ON)
 endif()
@@ -420,22 +374,10 @@ if(ENABLE_GCS)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_GCS")
 endif()
 
-option(ENABLE_INFERENCE "Enable Inference" OFF)
-if(ENABLE_INFERENCE)
-  set(CMAKE_C_FLAGS    "${CMAKE_C_FLAGS}    -DENABLE_INFERENCE")
-  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -DENABLE_INFERENCE")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DENABLE_INFERENCE")
-  add_subdirectory(HugeCTR/core23)
-  add_subdirectory(HugeCTR/src/hps)
-  add_subdirectory(HugeCTR/src/inference_benchmark)
-  add_subdirectory(test/utest/hps)
-else()
-  #setting binary files install path
-  add_subdirectory(HugeCTR/src)
-  add_subdirectory(HugeCTR/core23)
-  add_subdirectory(HugeCTR/embedding)
-  add_subdirectory(test/utest)
-  add_subdirectory(tools)
-  add_subdirectory(benchmarks)
-  add_subdirectory(test/embedding_cache_perf_test)
-endif()
+
+add_subdirectory(HugeCTR/src)
+add_subdirectory(HugeCTR/core23)
+add_subdirectory(HugeCTR/embedding)
+add_subdirectory(test/utest)
+add_subdirectory(tools)
+add_subdirectory(benchmarks)

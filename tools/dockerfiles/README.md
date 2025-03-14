@@ -1,3 +1,6 @@
 # Build HugeCTR Docker Containers
 
-From v3.4, we don't provide standalone containers for HugeCTR development. Instead you will be able to develop HugeCTR with Merlin containers. Please find the how-to [here](https://nvidia-merlin.github.io/HugeCTR/master/hugectr_contributor_guide.html).
+From 25.03, we provide a Dockerfile for building a base image in case you need a container to develop. You can build the develop image with command:
+```sh
+   docker build -t hugectr:devel -f tools/dockerfiles/Dockerfile.base .
+```

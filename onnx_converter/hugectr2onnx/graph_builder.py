@@ -72,27 +72,15 @@ class GraphBuilder(object):
                             label_name, TensorProto.FLOAT, [None, label_dim]
                         )
                     )
-
-            self.__key_to_indice_hash_all_tables = weights_dict["key_to_indice_hash_all_tables"]
-            key_to_indice_hash_all_tables = weights_dict["key_to_indice_hash_all_tables"]
-            key_to_indice_hash_all_tables_name = "key_to_indice_hash_all_tables"
-            self.__initializers.append(
-                helper.make_tensor(
-                    name=key_to_indice_hash_all_tables_name,
-                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[
-                        key_to_indice_hash_all_tables.dtype
-                    ],
-                    dims=key_to_indice_hash_all_tables.shape,
-                    vals=key_to_indice_hash_all_tables.flatten(),
-                )
-            )
         elif (
             layer_type == "DistributedSlotSparseEmbeddingHash"
             or layer_type == "LocalizedSlotSparseEmbeddingHash"
         ):
             if self.__convert_embeddding:
                 embedding_table = weights_dict["embedding_table"]
+                hash_table = weights_dict["hash_table"]
                 embedding_table_name = layer_params.top_names[0] + "_embedding_table"
+                hash_table_name = layer_params.top_names[0] + "_hash_table"
                 indice_name = layer_params.top_names[0] + "_indice"
                 embedding_feature_name = layer_params.top_names[0] + "_embedding_feature"
                 self.__initializers.append(
@@ -103,10 +91,18 @@ class GraphBuilder(object):
                         vals=embedding_table.flatten(),
                     )
                 )
+                self.__initializers.append(
+                    helper.make_tensor(
+                        name=hash_table_name,
+                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[hash_table.dtype],
+                        dims=hash_table.shape,
+                        vals=hash_table.flatten(),
+                    )
+                )
                 self.__nodes.append(
                     helper.make_node(
                         op_type="Gather",
-                        inputs=["key_to_indice_hash_all_tables", layer_params.bottom_names[0]],
+                        inputs=[hash_table_name, layer_params.bottom_names[0]],
                         outputs=[indice_name],
                         axis=0,
                     )
@@ -212,14 +208,13 @@ class GraphBuilder(object):
                 )
             )
         elif layer_type == "LayerNorm":
+            input_name = layer_params.bottom_names[0]
             gamma_name = layer_params.top_names[0] + "_gamma"
             beta_name = layer_params.top_names[0] + "_beta"
-            # running_mean_name = layer_params.top_names[0] + "_running_mean"
-            # running_variance_name = layer_params.top_names[0] + "_running_variance"
+            epsilon_name = layer_params.top_names[0] + "_epsilon"
             gamma = weights_dict[gamma_name]
             beta = weights_dict[beta_name]
-            # running_mean = weights_dict[running_mean_name]
-            # running_variance = weights_dict[running_variance_name]
+            epsilon = np.array([layer_params.eps], dtype=np.float32)
             self.__initializers.append(
                 helper.make_tensor(
                     name=gamma_name,
@@ -236,12 +231,94 @@ class GraphBuilder(object):
                     vals=beta.flatten(),
                 )
             )
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=epsilon_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[epsilon.dtype],
+                    dims=epsilon.shape,
+                    vals=epsilon.flatten(),
+                )
+            )
             self.__nodes.append(
                 helper.make_node(
-                    op_type="LayerNormalization",
-                    inputs=[layer_params.bottom_names[0], gamma_name, beta_name],
+                    op_type="ReduceMean",
+                    inputs=[input_name],
+                    outputs=[input_name + "_mean"],
+                    axes=[-1],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Sub",
+                    inputs=[input_name, input_name + "_mean"],
+                    outputs=[input_name + "_subtracted"],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Mul",
+                    inputs=[input_name + "_subtracted", input_name + "_subtracted"],
+                    outputs=[input_name + "_squared_diff"],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="ReduceMean",
+                    inputs=[input_name + "_squared_diff"],
+                    outputs=[input_name + "_variance"],
+                    axes=[-1],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Add",
+                    inputs=[input_name + "_variance", epsilon_name],
+                    outputs=[input_name + "_var_epsilon"],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Sqrt",
+                    inputs=[input_name + "_var_epsilon"],
+                    outputs=[input_name + "_std_dev"],
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Reciprocal",
+                    inputs=[input_name + "_std_dev"],
+                    outputs=[input_name + "_inv_std_dev"],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Sub",
+                    inputs=[input_name, input_name + "_mean"],
+                    outputs=[input_name + "_normalized"],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Mul",
+                    inputs=[input_name + "_normalized", input_name + "_inv_std_dev"],
+                    outputs=[input_name + "_scaled"],
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Mul",
+                    inputs=[input_name + "_scaled", gamma_name],
+                    outputs=[input_name + "_scaled_output"],
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Add",
+                    inputs=[input_name + "_scaled_output", beta_name],
                     outputs=layer_params.top_names,
-                    epsilon=layer_params.eps,
                 )
             )
 
@@ -286,59 +363,107 @@ class GraphBuilder(object):
                 )
             )
         elif layer_type == "SequenceMask":
-            len_expand_shape = np.array([1, layer_params.max_sequence_len], dtype=np.int64)
-            len_expand_shape_name = layer_params.top_names[0] + "_len_expand_shape"
-            len_expand_name = layer_params.top_names[0] + "_len_expand"
+            sequence_lens_from_name = layer_params.bottom_names[0]
+            sequence_lens_to_name = layer_params.bottom_names[1]
+            range_from_values = np.arange(layer_params.max_sequence_len_from).astype(np.float32)
+            range_to_values = np.arange(layer_params.max_sequence_len_to).astype(np.float32)
+            range_from_name = layer_params.top_names[0] + "_range_from"
+            range_to_name = layer_params.top_names[0] + "_range_to"
+            mask_from_name = layer_params.top_names[0] + "_mask_from"
+            mask_to_name = layer_params.top_names[0] + "_mask_to"
+            mask_from_unsqueezed_name = layer_params.top_names[0] + "_mask_from_unsqueezed"
+            mask_to_unsqueezed_name = layer_params.top_names[0] + "_mask_to_unsqueezed"
+            mask_from_unsqueezed_int_name = layer_params.top_names[0] + "_mask_from_unsqueezed_int"
+            mask_to_unsqueezed_int_name = layer_params.top_names[0] + "_mask_to_unsqueezed_int"
+            mask_int_name = layer_params.top_names[0] + "_mask_int"
+            mask_int_unsqueezed_name = layer_params.top_names[0] + "_mask_int_unsqueezed"
 
-            new_shape = np.array([-1, 1, 1, layer_params.max_sequence_len], dtype=np.int64)
-            new_shape_name = layer_params.top_names[0] + "_len_reshape"
-            input_expand_reshape_name = layer_params.top_names[0] + "_len_expand_reshape"
-
-            maxlen = np.array([layer_params.max_sequence_len], dtype=np.float32)
-            maxlen_name = layer_params.top_names[0] + "_maxlen_value"
-            self.__initializers.append(
-                helper.make_tensor(
-                    name=new_shape_name,
-                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[new_shape.dtype],
-                    dims=new_shape.shape,
-                    vals=new_shape.flatten(),
-                )
-            )
-            self.__initializers.append(
-                helper.make_tensor(
-                    name=len_expand_shape_name,
-                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[new_shape.dtype],
-                    dims=len_expand_shape.shape,
-                    vals=len_expand_shape.flatten(),
-                )
-            )
             self.__nodes.append(
                 helper.make_node(
-                    op_type="Expand",
-                    inputs=[layer_params.bottom_names[0], len_expand_shape_name],
-                    outputs=[len_expand_name],
+                    op_type="Constant",
+                    inputs=[],
+                    outputs=[range_from_name],
+                    value=numpy_helper.from_array(range_from_values),
                 )
             )
+
             self.__nodes.append(
                 helper.make_node(
-                    op_type="Reshape",
-                    inputs=[len_expand_name, new_shape_name],
-                    outputs=[input_expand_reshape_name],
-                )
-            )
-            self.__initializers.append(
-                helper.make_tensor(
-                    name=maxlen_name,
-                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[maxlen.dtype],
-                    dims=maxlen.shape,
-                    vals=maxlen.flatten(),
+                    op_type="Constant",
+                    inputs=[],
+                    outputs=[range_to_name],
+                    value=numpy_helper.from_array(range_to_values),
                 )
             )
             self.__nodes.append(
                 helper.make_node(
                     op_type="Less",
-                    inputs=[input_expand_reshape_name, maxlen_name],
+                    inputs=[range_from_name, sequence_lens_from_name],
+                    outputs=[mask_from_name],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Less",
+                    inputs=[range_to_name, sequence_lens_to_name],
+                    outputs=[mask_to_name],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Unsqueeze",
+                    inputs=[mask_from_name],
+                    outputs=[mask_from_unsqueezed_name],
+                    axes=[2],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Unsqueeze",
+                    inputs=[mask_to_name],
+                    outputs=[mask_to_unsqueezed_name],
+                    axes=[1],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Cast",
+                    inputs=[mask_from_unsqueezed_name],
+                    outputs=[mask_from_unsqueezed_int_name],
+                    to=TensorProto.INT32,
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Cast",
+                    inputs=[mask_to_unsqueezed_name],
+                    outputs=[mask_to_unsqueezed_int_name],
+                    to=TensorProto.INT32,
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Mul",
+                    inputs=[mask_from_unsqueezed_int_name, mask_to_unsqueezed_int_name],
+                    outputs=[mask_int_name],
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Unsqueeze",
+                    inputs=[mask_int_name],
+                    outputs=[mask_int_unsqueezed_name],
+                    axes=[1],
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Cast",
+                    inputs=[mask_int_unsqueezed_name],
                     outputs=layer_params.top_names,
+                    to=TensorProto.BOOL,
                 )
             )
         elif layer_type == "FmOrder2":
@@ -729,134 +854,208 @@ class GraphBuilder(object):
         elif layer_type == "MultiHeadAttention":
             query_name = layer_params.bottom_names[0]
             key_name = layer_params.bottom_names[1]
-            head_num = layer_params.num_attention_heads
+            value_name = layer_params.bottom_names[2]
+            sequence_mask_name = layer_params.bottom_names[3]
+            output_name = layer_params.top_names[0]
+
             dims = dimensions[query_name]
+            head_num = layer_params.num_attention_heads
+            seq_len = dims[0]
             key_transpose_name = key_name + "_transpose"
             query_transpose_name = query_name + "_transpose"
-            if len(dims) == 2:
-                value_name = layer_params.bottom_names[2]
-                shape_name = layer_params.bottom_names[0] + "_4d_shape"
-                shape = np.array([-1, dims[0], head_num, dims[1] / head_num], dtype=np.int64)
-                query_reshape = layer_params.bottom_names[0] + "_4d"
-                key_reshape = layer_params.bottom_names[1] + "_4d"
-                value_reshape = layer_params.bottom_names[2] + "_4d"
-                self.__initializers.append(
-                    helper.make_tensor(
-                        name=shape_name,
-                        data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[shape.dtype],
-                        dims=shape.shape,
-                        vals=shape.flatten(),
-                    )
+            value_transpose_name = value_name + "_transpose"
+            raw_score_prediv_name = "raw_score_prediv"
+            raw_score_name = output_name + "_raw_score"
+            shape_name = output_name + "_qkv_4d_shape"
+            shape = np.array([-1, dims[0], head_num, dims[1] / head_num], dtype=np.int64)
+            sqrtdk_name = output_name + "_sqrtdk"
+            sqrtdk = np.array([np.sqrt(dims[1] / head_num)], dtype=np.float32)
+            query_reshape = layer_params.bottom_names[0] + "_4d"
+            key_reshape = layer_params.bottom_names[1] + "_4d"
+            value_reshape = layer_params.bottom_names[2] + "_4d"
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=shape_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[shape.dtype],
+                    dims=shape.shape,
+                    vals=shape.flatten(),
                 )
-                self.__nodes.append(
-                    helper.make_node(
-                        op_type="Reshape", inputs=[query_name, shape_name], outputs=[query_reshape]
-                    )
+            )
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=sqrtdk_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[sqrtdk.dtype],
+                    dims=sqrtdk.shape,
+                    vals=sqrtdk.flatten(),
                 )
-                self.__nodes.append(
-                    helper.make_node(
-                        op_type="Reshape", inputs=[key_name, shape_name], outputs=[key_reshape]
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Reshape", inputs=[query_name, shape_name], outputs=[query_reshape]
                 )
-                self.__nodes.append(
-                    helper.make_node(
-                        op_type="Reshape",
-                        inputs=[value_name, shape_name],
-                        outputs=[value_reshape],
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Reshape", inputs=[key_name, shape_name], outputs=[key_reshape]
                 )
-                self.__nodes.append(
-                    helper.make_node(
-                        op_type="Transpose",
-                        inputs=[query_reshape],
-                        outputs=[query_transpose_name],
-                        perm=[0, 2, 1, 3],
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Reshape",
+                    inputs=[value_name, shape_name],
+                    outputs=[value_reshape],
                 )
-                self.__nodes.append(
-                    helper.make_node(
-                        op_type="Transpose",
-                        inputs=[key_reshape],
-                        outputs=[key_transpose_name],
-                        perm=[0, 2, 3, 1],
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Transpose",
+                    inputs=[query_reshape],
+                    outputs=[query_transpose_name],
+                    perm=[0, 2, 1, 3],
                 )
-                self.__nodes.append(
-                    helper.make_node(
-                        op_type="Transpose",
-                        inputs=[value_reshape],
-                        outputs=[layer_params.top_names[1]],
-                        perm=[0, 2, 1, 3],
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Transpose",
+                    inputs=[key_reshape],
+                    outputs=[key_transpose_name],
+                    perm=[0, 2, 3, 1],
                 )
-                self.__nodes.append(
-                    helper.make_node(
-                        op_type="MatMul",
-                        inputs=[query_transpose_name, key_transpose_name],
-                        outputs=[layer_params.top_names[0]],
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Transpose",
+                    inputs=[value_reshape],
+                    outputs=[value_transpose_name],
+                    perm=[0, 2, 1, 3],
                 )
-                self.__outputs.append(
-                    helper.make_tensor_value_info(
-                        layer_params.top_names[0],
-                        TensorProto.FLOAT,
-                        [None, head_num, dims[0], dims[0]],
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="MatMul",
+                    inputs=[query_transpose_name, key_transpose_name],
+                    outputs=[raw_score_prediv_name],
                 )
-            elif len(dims) == 3:
-                key_transpose_name_4d = key_name + "_transpose4d"
-                if layer_params.transpose_b:
-                    self.__nodes.append(
-                        helper.make_node(
-                            op_type="Transpose",
-                            inputs=[key_name],
-                            outputs=[key_transpose_name_4d],
-                            perm=[0, 1, 3, 2],
-                        )
-                    )
-                    self.__nodes.append(
-                        helper.make_node(
-                            op_type="MatMul",
-                            inputs=[query_name, key_transpose_name_4d],
-                            outputs=layer_params.top_names,
-                        )
-                    )
-                else:
-                    value_name = layer_params.top_names[0] + "_4d"
-                    dims = dimensions[layer_params.top_names[0]]
-                    transpose_name = layer_params.top_names[0] + "_transposed_4d"
-                    shape_name = layer_params.top_names[0] + "_3d_shape"
-                    shape = np.array([-1, dims[0], dims[1]], dtype=np.int64)
-                    self.__initializers.append(
-                        helper.make_tensor(
-                            name=shape_name,
-                            data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[shape.dtype],
-                            dims=shape.shape,
-                            vals=shape.flatten(),
-                        )
-                    )
-                    self.__nodes.append(
-                        helper.make_node(
-                            op_type="MatMul",
-                            inputs=[query_name, key_name],
-                            outputs=[value_name],
-                        )
-                    )
-                    self.__nodes.append(
-                        helper.make_node(
-                            op_type="Transpose",
-                            inputs=[value_name],
-                            outputs=[transpose_name],
-                            perm=[0, 2, 1, 3],
-                        )
-                    )
-                    self.__nodes.append(
-                        helper.make_node(
-                            op_type="Reshape",
-                            inputs=[transpose_name, shape_name],
-                            outputs=layer_params.top_names,
-                        )
-                    )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Div",
+                    inputs=[raw_score_prediv_name, sqrtdk_name],
+                    outputs=[raw_score_name],
+                )
+            )
+
+            masked_not_name = sequence_mask_name + "_not"
+            masked_not_float_name = sequence_mask_name + "_not_float"
+            neg_infinity = np.array([-10000.0], dtype=np.float32)
+            neg_infinity_name = sequence_mask_name + "_neg_infinity"
+            masked_not_float_mul_neg_infinity_name = (
+                sequence_mask_name + "_not_float_mul_neg_infinity"
+            )
+            modified_raw_score_name = raw_score_name + "_modified"
+            modified_raw_score_row_max_name = raw_score_name + "_modified_rowmax"
+            modified_raw_score_stable_name = raw_score_name + "_modified_stable"
+            softmax_score_name = raw_score_name + "_softmax"
+
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=neg_infinity_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[neg_infinity.dtype],
+                    dims=neg_infinity.shape,
+                    vals=neg_infinity.flatten(),
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Not",
+                    inputs=[sequence_mask_name],
+                    outputs=[masked_not_name],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Cast",
+                    inputs=[masked_not_name],
+                    outputs=[masked_not_float_name],
+                    to=onnx.TensorProto.FLOAT,
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Mul",
+                    inputs=[masked_not_float_name, neg_infinity_name],
+                    outputs=[masked_not_float_mul_neg_infinity_name],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Add",
+                    inputs=[raw_score_name, masked_not_float_mul_neg_infinity_name],
+                    outputs=[modified_raw_score_name],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="ReduceMax",
+                    inputs=[modified_raw_score_name],
+                    outputs=[modified_raw_score_row_max_name],
+                    axes=[-1],
+                    keepdims=1,
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Sub",
+                    inputs=[modified_raw_score_name, modified_raw_score_row_max_name],
+                    outputs=[modified_raw_score_stable_name],
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Softmax",
+                    inputs=[modified_raw_score_stable_name],
+                    outputs=[softmax_score_name],
+                    axis=-1,
+                )
+            )
+
+            atten_output_init_name = output_name + "_init"
+            atten_output_transpose_name = output_name + "_transpose"
+            atten_output_shape_name = output_name + "_3d_shape"
+            atten_output_shape = np.array([-1, dims[0], dims[1]], dtype=np.int64)
+            self.__initializers.append(
+                helper.make_tensor(
+                    name=atten_output_shape_name,
+                    data_type=onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[atten_output_shape.dtype],
+                    dims=atten_output_shape.shape,
+                    vals=atten_output_shape.flatten(),
+                )
+            )
+
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="MatMul",
+                    inputs=[softmax_score_name, value_transpose_name],
+                    outputs=[atten_output_init_name],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Transpose",
+                    inputs=[atten_output_init_name],
+                    outputs=[atten_output_transpose_name],
+                    perm=[0, 2, 1, 3],
+                )
+            )
+            self.__nodes.append(
+                helper.make_node(
+                    op_type="Reshape",
+                    inputs=[atten_output_transpose_name, atten_output_shape_name],
+                    outputs=layer_params.top_names,
+                )
+            )
         elif layer_type == "Interaction":
             slot_num = dimensions[layer_params.bottom_names[1]][0]
             vec_size = dimensions[layer_params.bottom_names[1]][1]
@@ -1374,9 +1573,10 @@ class GraphBuilder(object):
                 )
                 self.__nodes.append(
                     helper.make_node(
-                        op_type="CastLike",
-                        inputs=[masked_not_name, padding_name],
+                        op_type="Cast",
+                        inputs=[masked_not_name],
                         outputs=[float_masked_not_name],
+                        to=onnx.TensorProto.FLOAT,
                     )
                 )
                 self.__nodes.append(
@@ -1500,11 +1700,6 @@ class GraphBuilder(object):
         self.__counter += 1
 
     def create_graph(self, name="hugectr_graph"):
-        # Finalize key to indice hash
-        key_to_indice_tensor = numpy_helper.from_array(
-            self.__key_to_indice_hash_all_tables, "key_to_indice_hash_all_tables"
-        )
-        self.__initializers[0].CopyFrom(key_to_indice_tensor)
         # Create the graph (GraphProto)
         self.__graph_def = helper.make_graph(
             self.__nodes, name, self.__inputs, self.__outputs, self.__initializers

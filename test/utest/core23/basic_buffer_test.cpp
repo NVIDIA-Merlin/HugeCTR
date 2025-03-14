@@ -62,7 +62,7 @@ void single_buffer_test_impl(BufferParams buffer_params, AllocatorParams allocat
   std::uniform_int_distribution<int64_t> uniform_dist1(1, 1024);
 
   // A Buffer is created
-  auto buffer = GetBuffer(buffer_params, device, std::move(GetAllocator(allocator_params, device)));
+  auto buffer = GetBuffer(buffer_params, device, GetAllocator(allocator_params, device));
 
   // Pass 1. Check if the Buffer is subscribable
   EXPECT_TRUE(buffer->subscribable());

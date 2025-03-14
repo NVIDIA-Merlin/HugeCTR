@@ -15,7 +15,6 @@
  */
 
 #include <gtest/gtest.h>
-#include <test/prims/test_utils.h>
 #include <utest/prims/matrix_vector_op.h>
 
 #include <linalg/matrix_vector_op.cuh>
@@ -24,6 +23,42 @@
 
 namespace MLCommon {
 namespace LinAlg {
+//! we intentionally avoid using third_party/cuml/cpp/test/prims/test_utils.h
+//! because its misuse of shared_ptr of array. We define used util here
+// CompareApprox
+template <typename T>
+struct CompareApprox {
+  CompareApprox(T eps_) : eps(eps_) {}
+  bool operator()(const T &a, const T &b) const {
+    T diff = abs(a - b);
+    T m = std::max(abs(a), abs(b));
+    T ratio = diff >= eps ? diff / m : diff;
+
+    return (ratio <= eps);
+  }
+
+ private:
+  T eps;
+};
+// match
+template <typename T, typename L>
+::testing::AssertionResult devArrMatch(const T *expected, const T *actual, size_t size,
+                                       L eq_compare, cudaStream_t stream = 0) {
+  std::shared_ptr<T[]> exp_h(new T[size]);
+  std::shared_ptr<T[]> act_h(new T[size]);
+  updateHost<T>(exp_h.get(), expected, size, stream);
+  updateHost<T>(act_h.get(), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  for (size_t i(0); i < size; ++i) {
+    auto exp = exp_h.get()[i];
+    auto act = act_h.get()[i];
+    if (!eq_compare(exp, act)) {
+      return ::testing::AssertionFailure()
+             << "actual=" << act << " != expected=" << exp << " @" << i;
+    }
+  }
+  return ::testing::AssertionSuccess();
+}
 
 template <typename T, typename IdxType = int>
 struct MatVecOpInputs {

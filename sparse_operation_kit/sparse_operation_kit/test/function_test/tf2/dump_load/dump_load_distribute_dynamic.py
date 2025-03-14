@@ -39,14 +39,26 @@ if __name__ == "__main__":
     iters = 100
     initial_vals = [13, 17]
 
-    optimizers = [
-        tf.optimizers.SGD(learning_rate=1.0),
-        tf.optimizers.SGD(learning_rate=1.0, momentum=0.9),
-        tf.optimizers.Adamax(learning_rate=1.0, beta_1=0.9, beta_2=0.999),
-        tf.optimizers.Adadelta(learning_rate=1.0),
-        tf.optimizers.Adagrad(learning_rate=1.0),
-        tf.optimizers.Ftrl(learning_rate=1.0),
-    ]
+    if sok.tf_version[0] == 2 and sok.tf_version[1] >= 17:
+        import tf_keras as tfk
+
+        optimizers = [
+            tfk.optimizers.legacy.SGD(learning_rate=1.0),
+            tfk.optimizers.legacy.SGD(learning_rate=1.0, momentum=0.9),
+            tfk.optimizers.legacy.Adamax(learning_rate=1.0, beta_1=0.9, beta_2=0.999),
+            tfk.optimizers.legacy.Adadelta(learning_rate=1.0),
+            tfk.optimizers.legacy.Adagrad(learning_rate=1.0),
+            tfk.optimizers.legacy.Ftrl(learning_rate=1.0),
+        ]
+    else:
+        optimizers = [
+            tf.optimizers.SGD(learning_rate=1.0),
+            tf.optimizers.SGD(learning_rate=1.0, momentum=0.9),
+            tf.optimizers.Adamax(learning_rate=1.0, beta_1=0.9, beta_2=0.999),
+            tf.optimizers.Adadelta(learning_rate=1.0),
+            tf.optimizers.Adagrad(learning_rate=1.0),
+            tf.optimizers.Ftrl(learning_rate=1.0),
+        ]
 
     def step(params, indices):
         with tf.GradientTape() as tape:

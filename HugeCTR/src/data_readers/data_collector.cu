@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 
 #include <common.hpp>
 #include <core23/tensor_operations.hpp>

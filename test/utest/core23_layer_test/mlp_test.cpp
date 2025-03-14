@@ -17,7 +17,7 @@
 #include <cublas_v2.h>
 #include <cuda_profiler_api.h>
 #include <gtest/gtest.h>
-#include <nvToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 
 #include <HugeCTR/include/network_buffer_channels.hpp>
 #include <cfloat>
@@ -171,16 +171,16 @@ void set_l2_policy(const cudaStream_t& stream, T* ptr, int num_bytes) {
 
 template <typename T>
 struct Param {
-  std::vector<std::shared_ptr<T>> h_kernel;
-  std::vector<std::shared_ptr<T>> h_kernel_grad;
-  std::vector<std::shared_ptr<T>> h_bias_grad;
-  std::vector<std::shared_ptr<T>> h_bias;
-  std::vector<std::shared_ptr<T>> h_bottom;
-  std::vector<std::shared_ptr<T>> h_bottom_grad;
-  std::vector<std::shared_ptr<T>> h_middle;
-  std::vector<std::shared_ptr<T>> h_middle_grad;
-  std::vector<std::shared_ptr<T>> h_top;
-  std::vector<std::shared_ptr<T>> h_top_grad;
+  std::vector<std::shared_ptr<T[]>> h_kernel;
+  std::vector<std::shared_ptr<T[]>> h_kernel_grad;
+  std::vector<std::shared_ptr<T[]>> h_bias_grad;
+  std::vector<std::shared_ptr<T[]>> h_bias;
+  std::vector<std::shared_ptr<T[]>> h_bottom;
+  std::vector<std::shared_ptr<T[]>> h_bottom_grad;
+  std::vector<std::shared_ptr<T[]>> h_middle;
+  std::vector<std::shared_ptr<T[]>> h_middle_grad;
+  std::vector<std::shared_ptr<T[]>> h_top;
+  std::vector<std::shared_ptr<T[]>> h_top_grad;
 };
 
 std::vector<std::unique_ptr<Layer>> layers;
@@ -196,10 +196,10 @@ static void init_data_cpu(Param<T>& p, int* input_dims, int* output_dims, int n_
   p.h_bias.resize(n_layers);
 
   for (int i = 0; i < n_layers; i++) {
-    p.h_kernel[i] = std::shared_ptr<T>(new T[input_dims[i] * output_dims[i]]);
-    p.h_kernel_grad[i] = std::shared_ptr<T>(new T[input_dims[i] * output_dims[i]]);
-    p.h_bias_grad[i] = std::shared_ptr<T>(new T[output_dims[i]]);
-    p.h_bias[i] = std::shared_ptr<T>(new T[output_dims[i]]);
+    p.h_kernel[i] = std::shared_ptr<T[]>(new T[input_dims[i] * output_dims[i]]);
+    p.h_kernel_grad[i] = std::shared_ptr<T[]>(new T[input_dims[i] * output_dims[i]]);
+    p.h_bias_grad[i] = std::shared_ptr<T[]>(new T[output_dims[i]]);
+    p.h_bias[i] = std::shared_ptr<T[]>(new T[output_dims[i]]);
     fill_data(p.h_kernel[i].get(), input_dims[i] * output_dims[i]);
     fill_data(p.h_kernel_grad[i].get(), input_dims[i] * output_dims[i]);
     fill_data(p.h_bias_grad[i].get(), output_dims[i]);
@@ -214,36 +214,38 @@ static void init_data_cpu(Param<T>& p, int* input_dims, int* output_dims, int n_
   p.h_top_grad.resize(n_layers);
 
   // Forward
-  p.h_bottom[0] = std::shared_ptr<T>(new T[batch_size * input_dims[0]]);
-  p.h_middle[0] = std::shared_ptr<T>(new T[batch_size * output_dims[0]]);
-  p.h_top[0] = std::shared_ptr<T>(new T[batch_size * output_dims[0]]);
+  p.h_bottom[0] = std::shared_ptr<T[]>(new T[batch_size * input_dims[0]]);
+  p.h_middle[0] = std::shared_ptr<T[]>(new T[batch_size * output_dims[0]]);
+  p.h_top[0] = std::shared_ptr<T[]>(new T[batch_size * output_dims[0]]);
   fill_data(p.h_bottom[0].get(), batch_size * input_dims[0]);
   fill_data(p.h_middle[0].get(), batch_size * output_dims[0]);
   fill_data(p.h_top[0].get(), batch_size * output_dims[0]);
 
   for (int i = 1; i < n_layers; i++) {
     p.h_bottom[i] = p.h_top[i - 1];
-    p.h_middle[i] = std::shared_ptr<T>(new T[batch_size * output_dims[i]]);
+    p.h_middle[i] = std::shared_ptr<T[]>(new T[batch_size * output_dims[i]]);
     int tmp_dim = output_dims[i];
     if (i < n_layers - 1 && input_dims[i + 1] > tmp_dim) {
       tmp_dim = input_dims[i + 1];
     }
-    p.h_top[i] = std::shared_ptr<T>(new T[batch_size * tmp_dim]);
+    p.h_top[i] = std::shared_ptr<T[]>(new T[batch_size * tmp_dim]);
     fill_data(p.h_middle[i].get(), batch_size * output_dims[i]);
     fill_data(p.h_top[i].get(), batch_size * tmp_dim);
   }
   // Backward
-  p.h_bottom_grad[n_layers - 1] = std::shared_ptr<T>(new T[batch_size * input_dims[n_layers - 1]]);
-  p.h_middle_grad[n_layers - 1] = std::shared_ptr<T>(new T[batch_size * output_dims[n_layers - 1]]);
-  p.h_top_grad[n_layers - 1] = std::shared_ptr<T>(new T[batch_size * output_dims[n_layers - 1]]);
+  p.h_bottom_grad[n_layers - 1] =
+      std::shared_ptr<T[]>(new T[batch_size * input_dims[n_layers - 1]]);
+  p.h_middle_grad[n_layers - 1] =
+      std::shared_ptr<T[]>(new T[batch_size * output_dims[n_layers - 1]]);
+  p.h_top_grad[n_layers - 1] = std::shared_ptr<T[]>(new T[batch_size * output_dims[n_layers - 1]]);
   fill_data(p.h_top_grad[n_layers - 1].get(), batch_size * output_dims[n_layers - 1]);
   fill_data(p.h_middle_grad[n_layers - 1].get(), batch_size * output_dims[n_layers - 1]);
   fill_data(p.h_bottom_grad[n_layers - 1].get(), batch_size * input_dims[n_layers - 1]);
 
   for (int i = n_layers - 2; i >= 0; i--) {
     p.h_top_grad[i] = p.h_bottom_grad[i + 1];
-    p.h_middle_grad[i] = std::shared_ptr<T>(new T[batch_size * output_dims[i]]);
-    p.h_bottom_grad[i] = std::shared_ptr<T>(new T[batch_size * input_dims[i]]);
+    p.h_middle_grad[i] = std::shared_ptr<T[]>(new T[batch_size * output_dims[i]]);
+    p.h_bottom_grad[i] = std::shared_ptr<T[]>(new T[batch_size * input_dims[i]]);
     fill_data(p.h_middle_grad[i].get(), batch_size * output_dims[i]);
     fill_data(p.h_bottom_grad[i].get(), batch_size * input_dims[i]);
   }

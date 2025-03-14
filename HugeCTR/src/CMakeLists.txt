@@ -31,7 +31,7 @@ if(NOT pybind11_sources_POPULATED)
   add_subdirectory(
     ${pybind11_sources_SOURCE_DIR}
     ${pybind11_sources_BINARY_DIR}
-    )
+  )
 endif()
 
 file(
@@ -44,7 +44,7 @@ file(
     ../embedding_storage/*.cu
     ../../third_party/dynamic_embedding_table/*.cpp
     ../../third_party/dynamic_embedding_table/*.cu
-    )
+)
 
 list(REMOVE_ITEM huge_ctr_src "pybind/module_main.cpp")
 list(REMOVE_ITEM huge_ctr_src "inference_benchmark/metrics.cpp")
@@ -60,8 +60,8 @@ endif()
 
 add_library(huge_ctr_shared SHARED ${huge_ctr_src})
 target_link_libraries(huge_ctr_shared PUBLIC hugectr_core23 embedding)
-target_link_libraries(huge_ctr_shared PUBLIC CUDA::cuda_driver ${CUDART_LIB} CUDA::cublasLt CUDA::cublas CUDA::curand CUDA::nvml CUDA::nvToolsExt cudnn nccl)
-target_link_libraries(huge_ctr_shared PUBLIC ${CMAKE_THREAD_LIBS_INIT} numa stdc++fs tbb rdkafka)
+target_link_libraries(huge_ctr_shared PUBLIC CUDA::cuda_driver ${CUDART_LIB} CUDA::cublasLt CUDA::cublas CUDA::curand CUDA::nvml cudnn nccl)
+target_link_libraries(huge_ctr_shared PUBLIC ${CMAKE_THREAD_LIBS_INIT} numa stdc++fs tbb)
 target_link_libraries(huge_ctr_shared PRIVATE aio)
 target_link_libraries(huge_ctr_shared PRIVATE nlohmann_json::nlohmann_json)
 target_link_libraries(huge_ctr_shared PUBLIC gpu_cache)

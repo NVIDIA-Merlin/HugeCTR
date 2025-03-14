@@ -30,11 +30,7 @@ HugeCTR supports a variety of features, including the following:
 * [Optimized GPU workflow](performance.md)
 * [Multi-node training](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html#multi-node-training)
 * [Mixed precision training](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html#mixed-precision-training)
-* [Embedding training cache](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html#embedding-training-cache)
-* [GPU embedding cache](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#enabling-the-gpu-embedding-cache)
-* [GPU / CPU memory sharing mechanism across various inference instances](https://github.com/triton-inference-server/hugectr_backend/blob/main/docs/architecture.md#hugectr-backend-framework)
 * [HugeCTR to ONNX Converter](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html#hugectr-to-onnx-converter)
-* [Hierarchical Parameter Server](https://nvidia-merlin.github.io/HugeCTR/main/hugectr_core_features.html#hierarchical-parameter-server)
 * [Sparse Operation Kit](https://github.com/NVIDIA-Merlin/HugeCTR/tree/main/sparse_operation_kit)
 
 
@@ -43,9 +39,14 @@ To learn about our latest enhancements, refer to our [release notes](release_not
 ## Getting Started ##
 If you'd like to quickly train a model using the Python interface, do the following:
 
-1. Start a NGC container with your local host directory (/your/host/dir mounted) by running the following command:
+1. Build the HugeCTR Docker image:
+   From version 25.03, HugeCTR only provides the Dockerfile source, and users need to build the image by themselves. To build the hugectr image, use the Dockerfile located at `tools/dockerfiles/Dockerfile.base` with the following command:
+   ```sh
+   docker build --build-arg RELEASE=true -t hugectr:release -f tools/dockerfiles/Dockerfile.base .
+
+2. Start the container with your local host directory (/your/host/dir mounted) by running the following command:
    ```
-   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) nvcr.io/nvidia/merlin/merlin-hugectr:24.06
+   docker run --gpus=all --rm -it --cap-add SYS_NICE -v /your/host/dir:/your/container/dir -w /your/container/dir -it -u $(id -u):$(id -g) hugectr:release
    ```
 
    **NOTE**: The **/your/host/dir** directory is just as visible as the **/your/container/dir** directory. The **/your/host/dir** directory is also your starting directory.
@@ -55,7 +56,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
    -shm-size=1g -ulimit memlock=-1
    ```
 
-2. Write a simple Python script to generate a synthetic dataset:
+3. Write a simple Python script to generate a synthetic dataset:
    ```
    # dcn_parquet_generate.py
    import hugectr
@@ -164,7 +165,6 @@ For more information, refer to the [HugeCTR User Guide](https://nvidia-merlin.gi
 ## HugeCTR SDK ##
 We're able to support external developers who can't use HugeCTR directly by exporting important HugeCTR components using:
 * Sparse Operation Kit [directory](sparse_operation_kit) | [documentation](https://nvidia-merlin.github.io/HugeCTR/sparse_operation_kit/master/): a python package wrapped with GPU accelerated operations dedicated for sparse training/inference cases.
-* [GPU Embedding Cache](gpu_cache): embedding cache available on the GPU memory designed for CTR inference workload.
 
 ## Support and Feedback ##
 If you encounter any issues or have questions, go to [https://github.com/NVIDIA/HugeCTR/issues](https://github.com/NVIDIA/HugeCTR/issues) and submit an issue so that we can provide you with the necessary resolutions and answers. To further advance the HugeCTR Roadmap, we encourage you to share all the details regarding your recommender system pipeline using this [survey](https://developer.nvidia.com/merlin-devzone-survey).
@@ -179,6 +179,8 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 |[NVIDIA HugeCTR](https://developer.nvidia.com/nvidia-merlin/hugectr)|
 
 ### Publications  ###
+
+*Shijie Liu, Nan Zheng, Hui Kang, Xavier Simmons, Junjie Zhang, Matthias Langer, Wenjing Zhu, Minseok Lee, and Zehuan Wang*. "[Embedding Optimization for Training Large-scale Deep Learning Recommendation Systems with EMBark](https://dl.acm.org/doi/abs/10.1145/3640457.3688111)." In Proceedings of the 18th ACM Conference on Recommender Systems, pp. 622-632. 2024.
 
 *Yingcan Wei, Matthias Langer, Fan Yu, Minseok Lee, Jie Liu, Ji Shi and Zehuan Wang*, "[A GPU-specialized Inference Parameter Server for Large-Scale Deep Recommendation Models](https://dl.acm.org/doi/10.1145/3523227.3546765)," Proceedings of the 16th ACM Conference on Recommender Systems, pp. 408-419, 2022.
 
@@ -206,6 +208,10 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 ### Blogs ###
 |Conference / Website|Title|Date|Authors|Language|
 |--------------------|-----|----|-------|--------|
+|NVIDIA Devblog|[Boost Large-Scale Recommendation System Training Embedding Using EMBark](https://developer.nvidia.com/blog/boost-large-scale-recommendation-system-training-embedding-using-embark/)|Nov. 2024|Shijie Liu|English|
+|Wechat Blog|[RecSys'24：使用 EMBark 进行大规模推荐系统训练 Embedding 加速](https://mp.weixin.qq.com/s/qpIoVSnePgYZd2X1BSoVyA)|Nov. 2024|Shijie Liu|中文|
+|Wechat Blog|[利用 NVIDIA Merlin HierarchicalKV 实现唯品会在搜推广场景中的 GPU 推理实践](https://mp.weixin.qq.com/s/02032v2bORzcKsNCPEVwrA)|Apr. 2024|Haidong Rong, Zehuan Wang|中文|
+|Wechat Blog|[NVIDIA Merlin 助力陌陌推荐业务实现高性能训练优化](https://mp.weixin.qq.com/s/6bTOIiG9FI0XjvuIuTT5mw)|Nov. 2023|Hui Kang|中文|
 |Wechat Blog|[Merlin HugeCTR 分级参数服务器系列之三：集成到TensorFlow](https://mp.weixin.qq.com/s/sFmJXZ53Qj4J7iGkzGvQbw)|Nov. 2022|Kingsley Liu|中文|
 |NVIDIA Devblog|[Scaling Recommendation System Inference with Merlin Hierarchical Parameter Server/使用 Merlin 分层参数服务器扩展推荐系统推理](https://developer.nvidia.com/zh-cn/blog/scaling-recommendation-system-inference-with-merlin-hierarchical-parameter-server/)|August 2022|Shashank Verma, Wenwen Gao, Yingcan Wei, Matthias Langer, Jerry Shi, Fan Yu, Kingsley Liu, Minseok Lee|English/中文|
 |NVIDIA Devblog|[Merlin HugeCTR Sparse Operation Kit 系列之二](https://developer.nvidia.cn/zh-cn/blog/merlin-hugectr-sparse-operation-kit-series-2/)|June 2022|Kunlun Li|中文|
@@ -221,3 +227,10 @@ With HugeCTR being an open source project, we welcome contributions from the gen
 |medium.com|[Scaling and Accelerating large Deep Learning Recommender Systems — HugeCTR Series Part 1](https://medium.com/nvidia-merlin/scaling-and-accelerating-large-deep-learning-recommender-systems-hugectr-series-part-1-c19577acfe9d)|May 2021|Minseok Lee|English|
 |IRS 2020|[Merlin: A GPU Accelerated Recommendation Framework](https://irsworkshop.github.io/2020/publications/paper_21_Oldridge_Merlin.pdf)|Aug 2020|Even Oldridge etc.|English|
 |NVIDIA Devblog|[Introducing NVIDIA Merlin HugeCTR: A Training Framework Dedicated to Recommender Systems](https://developer.nvidia.com/blog/introducing-merlin-hugectr-training-framework-dedicated-to-recommender-systems/)|July 2020|Minseok Lee and Joey Wang|English|
+
+## Deprecation Note
+
+- HugeCTR Hierarchical Parameter Server (HPS) 
+- Embedding Cache
+
+Above components have been deprecated since v25.03. Please refer to prior version if you need such features.

@@ -14,7 +14,11 @@
 #
 
 cmake_minimum_required(VERSION 3.20)
-if(NOT DISABLE_CUDF)
-    add_subdirectory(raw_script)
-    add_subdirectory(dlrm_script)
-endif()
+file(GLOB resource_manager_test_src
+resource_manager_test.cpp
+)
+
+add_executable(resource_manager_test ${resource_manager_test_src})
+target_compile_features(resource_manager_test PUBLIC cxx_std_17)
+target_link_libraries(resource_manager_test PUBLIC huge_ctr_shared gtest gtest_main)
+target_link_libraries(resource_manager_test PUBLIC /usr/local/cuda/lib64/stubs/libcuda.so)
