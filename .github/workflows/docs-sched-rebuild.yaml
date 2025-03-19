@@ -14,7 +14,7 @@ jobs:
       image: nvcr.io/nvidia/merlin/merlin-tensorflow:nightly
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
@@ -41,7 +41,7 @@ jobs:
           find docs/build -name .doctrees -prune -exec rm -rf {} \;
           find docs/build -name .buildinfo -exec rm {} \;
       - name: Upload HTML
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: html-build-artifact
           path: docs/build/html
@@ -53,7 +53,7 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           ref: "gh-pages"
       - name: Initialize Git configuration
@@ -61,7 +61,7 @@ jobs:
           git config user.name docs-sched-rebuild
           git config user.email do-not-send-@github.com
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: html-build-artifact
       - name: Copy HTML directories
