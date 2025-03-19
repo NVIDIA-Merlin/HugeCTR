@@ -25,14 +25,15 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Hierarchical Parameter Server [Deprecated]" href="hierarchical_parameter_server/index.html" />
     <link rel="prev" title="Release Notes" href="release_notes.html" /> 
 </head>
 
 <body class="wy-body-for-nav">
   <div class="banner">
     <p class="banner">
-      After the HugeCTR <code>v23.08</code>, the offline inference  will be deprecated.
-      Check out our HPS plugins for TensorRT and TensorFlow as alternatives.</p>
+      Since the HugeCTR <code>v23.09</code>, the offline inference has been deprecated.
+      Since the HugeCTR <code>v24.06</code>, the HPS has been deprecated.
   </div>
 
   <div class="wy-grid-for-nav">
@@ -57,7 +58,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hugectr_core_features.html">Core Features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="sparse_operation_kit.html">Sparse Operation Kit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="notebooks/index.html">Example Notebooks</a></li>
@@ -66,6 +66,7 @@
 <li class="toctree-l1"><a class="reference internal" href="additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="release_notes.html">Release Notes</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Contributing to HugeCTR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hierarchical_parameter_server/index.html">Hierarchical Parameter Server [Deprecated]</a></li>
 </ul>
 
         </div>
@@ -101,8 +102,7 @@
 <ul>
 <li><p><a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers" id="id4">Set Up the Development Environment With Merlin Containers</a></p></li>
 <li><p><a class="reference internal" href="#build-hugectr-training-container-from-source" id="id5">Build HugeCTR Training Container from Source</a></p></li>
-<li><p><a class="reference internal" href="#build-hugectr-inference-container-from-source" id="id6">Build HugeCTR Inference Container from Source</a></p></li>
-<li><p><a class="reference internal" href="#build-sparse-operation-kit-sok-from-source" id="id7">Build Sparse Operation Kit (SOK) from Source</a></p></li>
+<li><p><a class="reference internal" href="#build-sparse-operation-kit-sok-from-source" id="id6">Build Sparse Operation Kit (SOK) from Source</a></p></li>
 </ul>
 </li>
 </ul>
@@ -187,16 +187,13 @@ $<span class="w"> </span>git<span class="w"> </span>submodule<span class="w"> </
 <li><p>Build HugeCTR from scratch using one or any combination of the following options:</p>
 <ul class="simple">
 <li><p><strong>SM</strong>: You can use this option to build HugeCTR with a specific compute capability (DSM=90) or multiple compute capabilities (DSM=”80;70”). The default compute capability
-is 70, which uses the NVIDIA V100 GPU. For more information, refer to the <a class="reference internal" href="hugectr_user_guide.html#compute-capability"><span class="std std-ref">Compute Capability</span></a> table. 60 is not supported for inference deployments. For more information, refer to the <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend#quick-start">Quick Start</a> for the HugeCTR backend of Triton Inference Server.</p></li>
+is 70, which uses the NVIDIA V100 GPU. For more information, refer to the <a class="reference internal" href="hugectr_user_guide.html#compute-capability"><span class="std std-ref">Compute Capability</span></a> table.</p></li>
 <li><p><strong>CMAKE_BUILD_TYPE</strong>: You can use this option to build HugeCTR with Debug or Release. When using Debug to build, HugeCTR will print more verbose logs and execute GPU tasks
 in a synchronous manner.
 average of eval_batches results. Only one thread and chunk will be used in the data reader. Performance will be lower when in validation mode. This option is set to OFF by
 default.</p></li>
 <li><p><strong>ENABLE_MULTINODES</strong>: You can use this option to build HugeCTR with multiple nodes. This option is set to OFF by default. For more information, refer to the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples/dcn">deep and cross network samples</a> directory on GitHub.</p></li>
-<li><p><strong>ENABLE_INFERENCE</strong>: You can use this option to build HugeCTR in inference mode, which was designed for the inference framework. In this mode, an inference shared library
-will be built for the HugeCTR Backend. Only interfaces that support the HugeCTR Backend can be used. Therefore, you can’t train models in this mode. This option is set to
-OFF by default. For building inference container, please refer to <a class="reference internal" href="#build-hugectr-inference-container-from-source">Build HugeCTR Inference Container from Source</a></p></li>
-<li><p><strong>ENABLE_HDFS</strong>: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissible values are <code class="docutils literal notranslate"><span class="pre">ON</span></code> and <code class="docutils literal notranslate"><span class="pre">OFF</span></code> <em>(default)</em>. Setting this option to <code class="docutils literal notranslate"><span class="pre">ON</span></code> leads to building all necessary Hadoop modules that are required for building so that it can connect to HDFS deployments.</p></li>
+<li><p><strong>ENABLE_HDFS</strong>: You can use this option to build HugeCTR together with HDFS to enable HDFS related functions. Permissible values are <code class="docutils literal notranslate"><span class="pre">ON</span></code> and <code class="docutils literal notranslate"><span class="pre">OFF</span></code> <em>(default)</em>. Setting this option to <code class="docutils literal notranslate"><span class="pre">ON</span></code> leads to installing all necessary Hadoop modules that are required for building so that it can connect to HDFS deployments.</p></li>
 <li><p><strong>ENABLE_S3</strong>: You can use this option to build HugeCTR together with Amazon AWS S3 SDK to enable S3 related functions. Permissible values are <code class="docutils literal notranslate"><span class="pre">ON</span></code> and <code class="docutils literal notranslate"><span class="pre">OFF</span></code> <em>(default)</em>. Setting this option to <code class="docutils literal notranslate"><span class="pre">ON</span></code> leads to building all necessary AWS SKKs and dependencies that are required for building AND running both HugeCTR and S3.</p></li>
 </ul>
 <p><strong>Please note that setting DENABLE_HDFS=ON or DENABLE_S3=ON requires root permission. So before using these two options to do the customized building, make sure you use <code class="docutils literal notranslate"><span class="pre">-u</span> <span class="pre">root</span></code> when you run the docker container.</strong></p>
@@ -223,27 +220,6 @@ $<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><
 </div>
 <p>By default, HugeCTR is installed at /usr/local. However, you can use CMAKE_INSTALL_PREFIX to install HugeCTR to non-default location:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_INSTALL_PREFIX<span class="o">=</span>/opt/HugeCTR<span class="w"> </span>-DSM<span class="o">=</span><span class="m">70</span><span class="w"> </span>..
-</pre></div>
-</div>
-</li>
-</ol>
-</section>
-<section id="build-hugectr-inference-container-from-source">
-<h3>Build HugeCTR Inference Container from Source<a class="headerlink" href="#build-hugectr-inference-container-from-source" title="Permalink to this heading"></a></h3>
-<p>To build HugeCTR inference container from source, do the following:</p>
-<ol class="arabic">
-<li><p>Build the <code class="docutils literal notranslate"><span class="pre">hugectr:devel_inference</span></code> image using the steps outlined <a class="reference internal" href="#set-up-the-development-environment-with-merlin-containers">here</a>. Remember that this instruction is only for the <a class="reference external" href="https://github.com/NVIDIA-Merlin/Merlin/blob/main/docker/dockerfile.ctr">Merlin CTR Dockerfile</a>.</p></li>
-<li><p>Download the HugeCTR repository and the third-party modules that it relies on by running the following commands:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/NVIDIA/HugeCTR.git
-$<span class="w"> </span><span class="nb">cd</span><span class="w"> </span>HugeCTR
-$<span class="w"> </span>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
-</pre></div>
-</div>
-</li>
-<li><p>Here is an example of how you can build HugeCTR inference container using the build options:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$<span class="w"> </span>mkdir<span class="w"> </span>-p<span class="w"> </span>build<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>build
-$<span class="w"> </span>cmake<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>-DSM<span class="o">=</span><span class="s2">&quot;70;80&quot;</span><span class="w"> </span>-DENABLE_INFERENCE<span class="o">=</span>ON<span class="w"> </span>..<span class="w"> </span><span class="c1"># Target is NVIDIA V100 / A100 with Inference mode ON.</span>
-$<span class="w"> </span>make<span class="w"> </span>-j<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>make<span class="w"> </span>install
 </pre></div>
 </div>
 </li>
@@ -276,6 +252,7 @@ $<span class="w"> </span>python<span class="w"> </span>setup.py<span class="w"> 
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="release_notes.html" class="btn btn-neutral float-left" title="Release Notes" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hierarchical_parameter_server/index.html" class="btn btn-neutral float-right" title="Hierarchical Parameter Server [Deprecated]" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
@@ -304,12 +281,12 @@ $<span class="w"> </span>python<span class="w"> </span>setup.py<span class="w"> 
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../v23.06.01/hugectr_contributor_guide.html">v23.06.01</a></dd>
       <dd><a href="../v23.08.00/hugectr_contributor_guide.html">v23.08.00</a></dd>
       <dd><a href="../v23.09.00/hugectr_contributor_guide.html">v23.09.00</a></dd>
       <dd><a href="../v23.12.00/hugectr_contributor_guide.html">v23.12.00</a></dd>
       <dd><a href="../v24.04.00/hugectr_contributor_guide.html">v24.04.00</a></dd>
       <dd><a href="../v24.06.00/hugectr_contributor_guide.html">v24.06.00</a></dd>
+      <dd><a href="../v25.03.00/hugectr_contributor_guide.html">v25.03.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>

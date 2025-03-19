@@ -34,8 +34,8 @@
 <body class="wy-body-for-nav">
   <div class="banner">
     <p class="banner">
-      After the HugeCTR <code>v23.08</code>, the offline inference  will be deprecated.
-      Check out our HPS plugins for TensorRT and TensorFlow as alternatives.</p>
+      Since the HugeCTR <code>v23.09</code>, the offline inference has been deprecated.
+      Since the HugeCTR <code>v24.06</code>, the HPS has been deprecated.
   </div>
 
   <div class="wy-grid-for-nav">
@@ -60,7 +60,6 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_user_guide.html">Introduction</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_core_features.html">Core Features</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../sparse_operation_kit.html">Sparse Operation Kit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../performance.html">Performance</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../notebooks/index.html">Example Notebooks</a></li>
@@ -73,6 +72,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../additional_resources.html">Additional Resources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../release_notes.html">Release Notes</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../hugectr_contributor_guide.html">Contributing to HugeCTR</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hierarchical_parameter_server/index.html">Hierarchical Parameter Server [Deprecated]</a></li>
 </ul>
 
         </div>
@@ -103,50 +103,47 @@
 <h1>HugeCTR Python Interface<a class="headerlink" href="#hugectr-python-interface" title="Permalink to this heading"></a></h1>
 <nav class="contents local" id="contents">
 <ul class="simple">
-<li><p><a class="reference internal" href="#about-the-hugectr-python-interface" id="id4">About the HugeCTR Python Interface</a></p></li>
-<li><p><a class="reference internal" href="#high-level-training-api" id="id5">High-level Training API</a></p>
+<li><p><a class="reference internal" href="#about-the-hugectr-python-interface" id="id3">About the HugeCTR Python Interface</a></p></li>
+<li><p><a class="reference internal" href="#high-level-training-api" id="id4">High-level Training API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#solver" id="id6">Solver</a></p></li>
-<li><p><a class="reference internal" href="#asyncparam" id="id7">AsyncParam</a></p></li>
-<li><p><a class="reference internal" href="#hybridembeddingparam" id="id8">HybridEmbeddingParam</a></p></li>
-<li><p><a class="reference internal" href="#datareaderparams" id="id9">DataReaderParams</a></p></li>
-<li><p><a class="reference internal" href="#dataset-formats" id="id10">Dataset formats</a></p></li>
-<li><p><a class="reference internal" href="#optparamspy" id="id11">OptParamsPy</a></p></li>
+<li><p><a class="reference internal" href="#solver" id="id5">Solver</a></p></li>
+<li><p><a class="reference internal" href="#asyncparam" id="id6">AsyncParam</a></p></li>
+<li><p><a class="reference internal" href="#hybridembeddingparam" id="id7">HybridEmbeddingParam</a></p></li>
+<li><p><a class="reference internal" href="#datareaderparams" id="id8">DataReaderParams</a></p></li>
+<li><p><a class="reference internal" href="#dataset-formats" id="id9">Dataset formats</a></p></li>
+<li><p><a class="reference internal" href="#optparamspy" id="id10">OptParamsPy</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#layers" id="id12">Layers</a></p>
+<li><p><a class="reference internal" href="#layers" id="id11">Layers</a></p>
 <ul>
-<li><p><a class="reference internal" href="#model" id="id13">Model</a></p></li>
+<li><p><a class="reference internal" href="#model" id="id12">Model</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#low-level-training-api" id="id14">Low-level Training API</a></p>
+<li><p><a class="reference internal" href="#low-level-training-api" id="id13">Low-level Training API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#learningratescheduler" id="id15">LearningRateScheduler</a></p></li>
-<li><p><a class="reference internal" href="#datareader" id="id16">DataReader</a></p></li>
-<li><p><a class="reference internal" href="#id2" id="id17">Model</a></p></li>
+<li><p><a class="reference internal" href="#learningratescheduler" id="id14">LearningRateScheduler</a></p></li>
+<li><p><a class="reference internal" href="#datareader" id="id15">DataReader</a></p></li>
+<li><p><a class="reference internal" href="#id2" id="id16">Model</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#inference-api" id="id18">Inference API</a></p>
+<li><p><a class="reference internal" href="#data-generator-api" id="id17">Data Generator API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#inferenceparams" id="id19">InferenceParams</a></p></li>
-<li><p><a class="reference internal" href="#inferencemodel" id="id20">InferenceModel</a></p></li>
+<li><p><a class="reference internal" href="#datageneratorparams-class" id="id18">DataGeneratorParams class</a></p></li>
+<li><p><a class="reference internal" href="#datagenerator" id="id19">DataGenerator</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference internal" href="#data-generator-api" id="id21">Data Generator API</a></p>
+<li><p><a class="reference internal" href="#data-source-api" id="id20">Data Source API</a></p>
 <ul>
-<li><p><a class="reference internal" href="#datageneratorparams-class" id="id22">DataGeneratorParams class</a></p></li>
-<li><p><a class="reference internal" href="#datagenerator" id="id23">DataGenerator</a></p></li>
-</ul>
-</li>
-<li><p><a class="reference internal" href="#data-source-api" id="id24">Data Source API</a></p>
-<ul>
-<li><p><a class="reference internal" href="#datasourceparams-class" id="id25">DataSourceParams class</a></p></li>
+<li><p><a class="reference internal" href="#datasourceparams-class" id="id21">DataSourceParams class</a></p></li>
 </ul>
 </li>
 </ul>
 </nav>
 <section id="about-the-hugectr-python-interface">
 <h2>About the HugeCTR Python Interface<a class="headerlink" href="#about-the-hugectr-python-interface" title="Permalink to this heading"></a></h2>
+<blockquote>
+<div><p><strong>Deprecation Note</strong> HugeCTR Hierarchical Parameter Server (HPS) has been deprecated since v25.03. Please refer to prior version if you need such features.</p>
+</div></blockquote>
 <p>As a recommendation system domain specific framework, HugeCTR has a set of high level abstracted Python Interface which includes training API and inference API. Users only need to focus on algorithm design, the training and inference jobs can be automatically deployed on the specific hardware topology in the optimized manner. From version 3.1, users can complete the process of training and inference without manually writing JSON configuration files. All supported functionalities have been wrapped into high-level Python APIs. Meanwhile, the low-level training API is maintained for users who want to have precise control of each training iteration and each evaluation step. Still, the high-level training API is friendly to users who are already familiar with other deep learning frameworks like Keras and it is worthwhile to switch to it from low-level training API. Please refer to <a class="reference internal" href="#../notebooks/hugectr_criteo.ipynb"><span class="xref myst">HugeCTR Python Interface Notebook</span></a> to get familiar with the workflow of HugeCTR training and inference. Meanwhile we have a lot of samples for demonstration in the <a class="reference external" href="https://github.com/NVIDIA-Merlin/HugeCTR/tree/master/samples"><code class="docutils literal notranslate"><span class="pre">samples</span></code></a> directory of the HugeCTR repository.</p>
 </section>
 <section id="high-level-training-api">
@@ -306,9 +303,6 @@ Conversely, hybrid embedding does not improve performance on a single-machine an
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> specifies the parameters related to the data reader. HugeCTR currently supports three dataset formats, i.e., <a class="reference internal" href="#raw">Raw</a> and <a class="reference internal" href="#parquet">Parquet</a>. An <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">Model</span></code> instance.</p>
 <p><strong>Arguments</strong></p>
-<blockquote>
-<div><p><strong>Deprecation Warning</strong>: Norm and Raw data reader will be deprecated in a future release. Please check out the Parquet and RawAsync for alternatives.</p>
-</div></blockquote>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: The type of the data reader which should be consistent with the dataset format.
 Specify one of the following types:</p>
@@ -320,9 +314,8 @@ Specify one of the following types:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: List[str] or String, the training dataset source.
 For Norm or Parquet dataset, specify the file list of training data, such as <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">&quot;file_list.txt&quot;</span></code>.
 For Raw dataset, specify a single training file, such as <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">&quot;train_data.bin&quot;</span></code>.
-When using the embedding training cache, you can specify several file lists, such as <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code>.
 This argument has no default value and you must specify a value.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">keyset</span></code>: List[str] or String, the keyset files.
+<li><p><code class="docutils literal notranslate"><span class="pre">keyset</span></code>: <strong>[Deprecated]</strong> List[str] or String, the keyset files.
 This argument is only valid when you use the embedding training cache.
 The value should correspond to the value for the <code class="docutils literal notranslate"><span class="pre">source</span></code> argument.
 For example, you can specify <code class="docutils literal notranslate"><span class="pre">source</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.txt&quot;,</span> <span class="pre">&quot;file_list.2.txt&quot;]</span></code> and <code class="docutils literal notranslate"><span class="pre">keyset</span> <span class="pre">=</span> <span class="pre">[&quot;file_list.1.keyset&quot;,</span> <span class="pre">&quot;file_list.2.keyset&quot;]</span></code>
@@ -367,7 +360,7 @@ The default value is an empty list.</p>
 <h3>Dataset formats<a class="headerlink" href="#dataset-formats" title="Permalink to this heading"></a></h3>
 <p>We support the following dataset formats within our <code class="docutils literal notranslate"><span class="pre">DataReaderParams</span></code>.</p>
 <blockquote>
-<div><p><strong>Deprecation Warning</strong>: Norm format will be deprecated in a future release. Please check out the Parquet and Raw for alternatives.</p>
+<div><p><strong>Deprecation Note</strong>: Norm format will be deprecated in a future release. Please check out the Parquet and Raw for alternatives.</p>
 </div></blockquote>
 <ul class="simple">
 <li><p><a class="reference internal" href="#raw">Raw</a></p></li>
@@ -707,8 +700,8 @@ It allows the users to construct their model flexibly without the JSON configura
 <li><p><code class="docutils literal notranslate"><span class="pre">max_iter</span></code>: Integer, the maximum iteration of non-epoch mode training. It will be ignored if <code class="docutils literal notranslate"><span class="pre">repeat_dataset</span></code> is <code class="docutils literal notranslate"><span class="pre">False</span></code>. The default value is 2000.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">display</span></code>: Integer, the interval of iterations at which the training loss will be displayed. The default value is 200.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">eval_interval</span></code>: Integer, the interval of iterations at which the evaluation will be executed. The default value is 1000.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">snapshot</span></code>: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is 10000.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">snapshot_prefix</span></code>: String, the prefix of the file names for the saved model weights and optimizer states. This argument is invalid when embedding training cache is being used, which means no model parameters will be saved. The default value is <code class="docutils literal notranslate"><span class="pre">''</span></code>. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be <code class="docutils literal notranslate"><span class="pre">hdfs://localhost:9000/dir/to/model</span></code>. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official <a class="reference external" href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html">documentation</a>. For GCS, both URI (<code class="docutils literal notranslate"><span class="pre">gs://bucket/object</span></code>) and URL (<code class="docutils literal notranslate"><span class="pre">https://https://storage.googleapis.com/bucket/object</span></code>) are supported.
+<li><p><code class="docutils literal notranslate"><span class="pre">snapshot</span></code>: Integer, the interval of iterations at which the snapshot model weights and optimizer states will be saved to files. The default value is 10000.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">snapshot_prefix</span></code>: String, the prefix of the file names for the saved model weights and optimizer states. The default value is <code class="docutils literal notranslate"><span class="pre">''</span></code>. Remote file systems(HDFS, S3, and GCS) are also supported. For example, for HDFS, the prefix can be <code class="docutils literal notranslate"><span class="pre">hdfs://localhost:9000/dir/to/model</span></code>. For S3, the prefix should be either virtual-hosted-style or path-style and contains the region information. For examples, take a look at the AWS official <a class="reference external" href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-bucket-intro.html">documentation</a>. For GCS, both URI (<code class="docutils literal notranslate"><span class="pre">gs://bucket/object</span></code>) and URL (<code class="docutils literal notranslate"><span class="pre">https://https://storage.googleapis.com/bucket/object</span></code>) are supported.
 <strong>Please note that dumping models to remote file system when enabled MPI is not supported yet.</strong></p></li>
 </ul>
 </section>
@@ -1050,7 +1043,7 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">save_params_to_files</span><span class="p">()</span>
 </pre></div>
 </div>
-<p>This method save the model parameters to files. If Embedding Training Cache is utilized, this method will save sparse weights, dense weights and dense optimizer states. Otherwise, this method will save sparse weights, sparse optimizer states, dense weights and dense optimizer states.</p>
+<p>This method save the model parameters to files: sparse weights, sparse optimizer states, dense weights and dense optimizer states.</p>
 <p>The stored sparse model can be used for both the later training and inference cases. Each sparse model will be dumped as a separate folder that contains two files (<code class="docutils literal notranslate"><span class="pre">key</span></code>, <code class="docutils literal notranslate"><span class="pre">emb_vector</span></code>) for the DistributedSlotEmbedding or three files (<code class="docutils literal notranslate"><span class="pre">key</span></code>, <code class="docutils literal notranslate"><span class="pre">slot_id</span></code>, <code class="docutils literal notranslate"><span class="pre">emb_vector</span></code>) for the LocalizedSlotEmbedding. Details of these files are:</p>
 <ul class="simple">
 <li><p><code class="docutils literal notranslate"><span class="pre">key</span></code>: The unique keys appeared in the training data. All keys are stored in <code class="docutils literal notranslate"><span class="pre">long</span> <span class="pre">long</span></code> format, and HugeCTR will handle the datatype conversion internally for the case when <code class="docutils literal notranslate"><span class="pre">i64_input_key</span> <span class="pre">=</span> <span class="pre">False</span></code>.</p></li>
@@ -1106,113 +1099,6 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
 <span class="n">sparse_embedding1_train_flow</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Tensor_t</span><span class="o">.</span><span class="n">Train</span><span class="p">)</span> 
 <span class="c1"># Return a numpy array of (1024, 1024)</span>
 <span class="n">fc1_evaluate_flow</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;fc1&quot;</span><span class="p">,</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">Tensor_t</span><span class="o">.</span><span class="n">Evaluate</span><span class="p">)</span>
-</pre></div>
-</div>
-</section>
-</section>
-</section>
-<section id="inference-api">
-<h2>Inference API<a class="headerlink" href="#inference-api" title="Permalink to this heading"></a></h2>
-<blockquote>
-<div><p><strong>Deprecation Warning</strong>: the offline inference based on <code class="docutils literal notranslate"><span class="pre">InferenceSession</span></code> and <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> will be deprecated in a future release. Please check out the <a class="reference external" href="https://nvidia-merlin.github.io/HugeCTR/main/hierarchical_parameter_server/index.html">Hierarchical Parameter Server</a> for alternatives based on TensorFlow and TensorRT.</p>
-</div></blockquote>
-<p>For HugeCTR inference API, the core data structures are <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> and <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code>. They are designed and implemented for the purpose of multi-GPU offline inference. Please refer to <a class="reference external" href="https://github.com/triton-inference-server/hugectr_backend">HugeCTR Backend</a> if online inference with Triton is needed.</p>
-<p>Please <strong>NOTE</strong> that Inference API requires a configuration JSON file of the model graph, which can derived from the <code class="docutils literal notranslate"><span class="pre">Model.graph_to_json()</span></code> method. Besides, <code class="docutils literal notranslate"><span class="pre">model_name</span></code> within <code class="docutils literal notranslate"><span class="pre">CreateSolver</span></code> should be specified during training in order to correctly dump the JSON file.</p>
-<section id="inferenceparams">
-<h3>InferenceParams<a class="headerlink" href="#inferenceparams" title="Permalink to this heading"></a></h3>
-<section id="inferenceparams-class">
-<h4>InferenceParams class<a class="headerlink" href="#inferenceparams-class" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceParams</span><span class="p">()</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> specifies the parameters related to the inference. An <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> instance is required to initialize the <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> instance.</p>
-<p>Refer to the <a class="reference internal" href="../hierarchical_parameter_server/hps_database_backend.html#configuration"><span class="std std-ref">HPS Configuration</span></a> documentation for the parameters.</p>
-</section>
-</section>
-<section id="inferencemodel">
-<h3>InferenceModel<a class="headerlink" href="#inferencemodel" title="Permalink to this heading"></a></h3>
-<section id="inferencemodel-class">
-<h4>InferenceModel class<a class="headerlink" href="#inferencemodel-class" title="Permalink to this heading"></a></h4>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>hugectr.inference.InferenceModel<span class="o">()</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> is a collection of inference sessions deployed on multiple GPUs, which can leverage <a class="reference internal" href="../hierarchical_parameter_server/hps_database_backend.html"><span class="std std-doc">Hierarchical Parameter Server Database Backend</span></a> and enable concurrent execution. The construction of <code class="docutils literal notranslate"><span class="pre">InferenceModel</span></code> requires a model configuration file and an <code class="docutils literal notranslate"><span class="pre">InferenceParams</span></code> instance.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">model_config_path</span></code>: String, the inference model configuration file (which can be derived from <code class="docutils literal notranslate"><span class="pre">Model.graph_to_json</span></code>). There is NO default value and it should be specified by users.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">inference_params</span></code>: InferenceParams, the InferenceParams object. There is NO default value and it should be specified by users.</p></li>
-</ul>
-</section>
-<hr class="docutils" />
-<section id="predict-method">
-<h4>predict method<a class="headerlink" href="#predict-method" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">predict</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">predict</span></code> method of InferenceModel makes predictions based on the dataset of Norm or Parquet format. It will return the 2-D numpy array of the shape <code class="docutils literal notranslate"><span class="pre">(max_batchsize*num_batches,</span> <span class="pre">label_dim)</span></code>, whose order is consistent with the sample order in the dataset. If <code class="docutils literal notranslate"><span class="pre">max_batchsize*num_batches</span></code> is greater than the total number of samples in the dataset, it will loop over the dataset. For example, there are totally 40000 samples in the dataset, <code class="docutils literal notranslate"><span class="pre">max_batchsize</span></code> equals 4096, <code class="docutils literal notranslate"><span class="pre">num_batches</span></code> equals 10 and <code class="docutils literal notranslate"><span class="pre">label_dim</span></code> equals 2. The returned array will be of the shape <code class="docutils literal notranslate"><span class="pre">(40960,</span> <span class="pre">2)</span></code>, of which first 40000 rows should be desired results and the last 960 rows correspond to the first 960 samples in the dataset.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">num_batches</span></code>: Integer, the number of prediction batches.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: String, the source of prediction dataset. It should be the file list for Norm or Parquet format data.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t</span></code>, the data reader type. We support <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">check_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t</span></code>, the check type for the data source. We currently support <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Sum</span></code> and <code class="docutils literal notranslate"><span class="pre">hugectr.Check_t.Non</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference internal" href="#datasourceparams-class"><span class="std std-ref">DataSourceParams()</span></a>, specify the configurations of the data sources(Local, HDFS, or others) for data reading.</p></li>
-</ul>
-</section>
-<hr class="docutils" />
-<section id="evaluate-method">
-<h4>evaluate method<a class="headerlink" href="#evaluate-method" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">evaluate</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>The <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> method of InferenceModel does evaluations based on the dataset of Norm or Parquet format. It requires that the dataset contains the label field. This method returns the AUC value for the specified evaluation batches.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">num_batches</span></code>: Integer, the number of evaluation batches.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">source</span></code>: String, the source of evaluation dataset. It should be the file list for Norm or Parquet format data.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_reader_type</span></code>: <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t</span></code>, the data reader type. We support <code class="docutils literal notranslate"><span class="pre">hugectr.DataReaderType_t.Parquet</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">slot_size_array</span></code>: List[int], the cardinality array of input features. It should be consistent with that of the sparse input. We requires this argument for Parquet format data. The default value is an empty list, which is suitable for Norm format data.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">data_source_params</span></code>: <a class="reference internal" href="#datasourceparams-class"><span class="std std-ref">DataSourceParams()</span></a>, specify the configurations of the data sources(Local, HDFS, or others) for data reading.</p></li>
-</ul>
-</section>
-<hr class="docutils" />
-<section id="id3">
-<h4>check_out_tensor method<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">()</span>
-</pre></div>
-</div>
-<p>This method check out the tensor values for the latest inference iteration. The tensor values will be returned via a numpy array that has the same dimensions as the tensor. The data type of returned numpy array will always be float32, while the data type of the tensor can be float32 or float16 depending on <code class="docutils literal notranslate"><span class="pre">use_mixed_precision</span></code>. This method can be helpful for debugging and verifying the correctness, given that the values of intermediate tensors can be easily checked out.</p>
-<p><strong>Arguments</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">tensor_name</span></code>: String, the name of the tensor that needs to be checked out. It should be within the tensor names of the graph JSON file that is used to create the InferenceModel object.</p></li>
-</ul>
-<p>Example:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model_config</span> <span class="o">=</span> <span class="s2">&quot;dcn.json&quot;</span>
-<span class="n">inference_params</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceParams</span><span class="p">(</span>
-    <span class="n">model_name</span> <span class="o">=</span> <span class="s2">&quot;dcn&quot;</span><span class="p">,</span>
-    <span class="n">max_batchsize</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
-    <span class="n">hit_rate_threshold</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-    <span class="n">dense_model_file</span> <span class="o">=</span> <span class="s2">&quot;dcn_dense_1000.model&quot;</span><span class="p">,</span>
-    <span class="n">sparse_model_files</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;dcn0_sparse_1000.model&quot;</span><span class="p">],</span>
-    <span class="n">deployed_devices</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span>
-    <span class="n">use_gpu_embedding_cache</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">cache_size_percentage</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-    <span class="n">i64_input_key</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">use_mixed_precision</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-    <span class="n">use_cuda_graph</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-    <span class="n">number_of_worker_buffers_in_pool</span> <span class="o">=</span> <span class="mi">16</span>
-<span class="p">)</span>
-<span class="n">inference_model</span> <span class="o">=</span> <span class="n">hugectr</span><span class="o">.</span><span class="n">inference</span><span class="o">.</span><span class="n">InferenceModel</span><span class="p">(</span><span class="n">model_config</span><span class="p">,</span> <span class="n">inference_params</span><span class="p">)</span>
-<span class="n">pred</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span>
-    <span class="mi">1</span><span class="p">,</span>
-    <span class="n">EVAL_SOURCE</span><span class="p">,</span>
-    <span class="n">hugectr</span><span class="o">.</span><span class="n">DataReaderType_t</span><span class="o">.</span><span class="n">Parquet</span><span class="p">,</span>
-    <span class="n">hugectr</span><span class="o">.</span><span class="n">Check_t</span><span class="o">.</span><span class="n">Non</span><span class="p">,</span>
-    <span class="n">SLOT_SIZE_ARRAY</span>
-<span class="p">)</span>
-<span class="c1"># Return a numpy array of (16, 26, 16), assuming slot_num is 26, embed_vec_size is 16</span>
-<span class="n">sparse_embedding1_inference_flow</span> <span class="o">=</span> <span class="n">inference_model</span><span class="o">.</span><span class="n">check_out_tensor</span><span class="p">(</span><span class="s2">&quot;sparse_embedding1&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -1323,12 +1209,12 @@ Refer to <a class="reference internal" href="#hugectr_core_features.md#sgd-optim
   <div class="rst-other-versions">
     <dl>
       <dt>Tags</dt>
-      <dd><a href="../../v23.06.01/api/python_interface.html">v23.06.01</a></dd>
       <dd><a href="../../v23.08.00/api/python_interface.html">v23.08.00</a></dd>
       <dd><a href="../../v23.09.00/api/python_interface.html">v23.09.00</a></dd>
       <dd><a href="../../v23.12.00/api/python_interface.html">v23.12.00</a></dd>
       <dd><a href="../../v24.04.00/api/python_interface.html">v24.04.00</a></dd>
       <dd><a href="../../v24.06.00/api/python_interface.html">v24.06.00</a></dd>
+      <dd><a href="../../v25.03.00/api/python_interface.html">v25.03.00</a></dd>
     </dl>
     <dl>
       <dt>Branches</dt>
