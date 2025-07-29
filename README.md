@@ -98,7 +98,7 @@ If you'd like to quickly train a model using the Python interface, do the follow
    reader = hugectr.DataReaderParams(data_reader_type = hugectr.DataReaderType_t.Parquet,
                                     source = ["./dcn_parquet/file_list.txt"],
                                     eval_source = "./dcn_parquet/file_list_test.txt",
-                                    check_type = hugectr.Check_t.Non
+                                    check_type = hugectr.Check_t.Non,
                                     slot_size_array = [39884, 39043, 17289, 7420, 20263, 3, 7120, 1543, 39884, 39043, 17289, 7420, 
                                                       20263, 3, 7120, 1543, 63, 63, 39884, 39043, 17289, 7420, 20263, 3, 7120, 1543 ])
    optimizer = hugectr.CreateOptimizer(optimizer_type = hugectr.Optimizer_t.Adam,
