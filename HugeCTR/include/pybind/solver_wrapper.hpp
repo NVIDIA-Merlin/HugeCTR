@@ -146,7 +146,7 @@ void SolverPybind(pybind11::module& m) {
         pybind11::arg("all_reduce_algo") = AllReduceAlgo::NCCL,
         pybind11::arg("grouped_all_reduce") = false,
         pybind11::arg("num_iterations_statistics") = 20, pybind11::arg("perf_logging") = false,
-        pybind11::arg("drop_incomplete_batch") = true, pybind11::arg("kafka_brockers") = "",
+        pybind11::arg("drop_incomplete_batch") = true, pybind11::arg("kafka_brokers") = "",
         pybind11::arg("training_callbacks") = std::vector<std::shared_ptr<TrainingCallback>>());
 }
 
