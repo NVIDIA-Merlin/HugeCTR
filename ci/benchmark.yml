@@ -1,3 +1,0 @@
-include:
-  - local: /ci/benchmark/sok/ci.yml
-  - local: /ci/benchmark/train_benchmark/ci.yml
