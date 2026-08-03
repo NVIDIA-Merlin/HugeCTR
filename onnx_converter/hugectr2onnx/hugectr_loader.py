@@ -16,8 +16,14 @@
 
 import os
 import struct
+import sys
 import numpy as np
 import json
+
+FLOAT_BYTES = 4
+INT64_BYTES = 8
+DEFAULT_MAX_TENSOR_BYTES = 8 * 1024 * 1024 * 1024
+MAX_TENSOR_BYTES_ENV = "HUGECTR2ONNX_MAX_TENSOR_BYTES"
 
 ONNX_LAYER_TYPES = {
     "Add",
@@ -128,12 +134,16 @@ class HugeCTRLoader(object):
         self.__convert_embeddding = convert_embedding
         self.__sparse_models = sparse_models
         self.__ntp_file = ntp_file
-        self.__layers_config = json.load(open(graph_config, "rb"))["layers"]
+        self.__max_tensor_bytes = self.__load_max_tensor_bytes()
+        self.__dense_model_size = None
+        with open(graph_config, "rb") as file:
+            self.__layers_config = json.load(file)["layers"]
         self.__layers = len(self.__layers_config)
         self.__index = 0
         self.__embedding_counter = 0
         if self.__ntp_file != None and len(self.__ntp_file) > 0:
-            self.__ntp_config = json.load(open(self.__ntp_file, "rb"))["layers"]
+            with open(self.__ntp_file, "rb") as file:
+                self.__ntp_config = json.load(file)["layers"]
         else:
             self.__ntp_config = None
         self.__ntp_counter = 0
@@ -141,6 +151,7 @@ class HugeCTRLoader(object):
         self.__offset = 0
         self.__vocab_size_all_tables = 0
         self.__key_to_indice_hash_all_tables = []
+        self.__key_to_indice_hash_table_sizes = []
         for i in range(self.layers):
             layer_config = self.__layers_config[i]
             layer_type = layer_config["type"]
@@ -151,10 +162,129 @@ class HugeCTRLoader(object):
                 max_vocab_size_global = layer_config["sparse_embedding_hparam"][
                     "max_vocabulary_size_global"
                 ]
-                self.__vocab_size_all_tables += max_vocab_size_global
-                self.__key_to_indice_hash_all_tables.append(
-                    np.zeros(shape=(self.__vocab_size_all_tables,), dtype=np.int64)
+                max_vocab_size_global = self.__require_positive_int(
+                    max_vocab_size_global,
+                    "sparse_embedding_hparam.max_vocabulary_size_global",
                 )
+                self.__vocab_size_all_tables = self.__checked_sum(
+                    "total sparse vocabulary size",
+                    self.__vocab_size_all_tables,
+                    max_vocab_size_global,
+                )
+                self.__key_to_indice_hash_table_sizes.append(self.__vocab_size_all_tables)
+
+    @staticmethod
+    def __load_max_tensor_bytes():
+        max_tensor_bytes = os.environ.get(MAX_TENSOR_BYTES_ENV)
+        if max_tensor_bytes is None:
+            return DEFAULT_MAX_TENSOR_BYTES
+        try:
+            max_tensor_bytes = int(max_tensor_bytes)
+        except ValueError as error:
+            raise ValueError(
+                MAX_TENSOR_BYTES_ENV + " must be a positive integer byte count"
+            ) from error
+        if max_tensor_bytes <= 0:
+            raise ValueError(MAX_TENSOR_BYTES_ENV + " must be a positive integer byte count")
+        return max_tensor_bytes
+
+    @staticmethod
+    def __require_non_negative_int(value, name):
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
+            raise ValueError("{} must be a non-negative integer, got {!r}".format(name, value))
+        value = int(value)
+        if value < 0:
+            raise ValueError("{} must be a non-negative integer, got {!r}".format(name, value))
+        return value
+
+    @staticmethod
+    def __require_positive_int(value, name):
+        value = HugeCTRLoader.__require_non_negative_int(value, name)
+        if value == 0:
+            raise ValueError("{} must be a positive integer, got 0".format(name))
+        return value
+
+    def __checked_sum(self, name, *values):
+        total = 0
+        for value in values:
+            total += self.__require_non_negative_int(value, name)
+            if total > sys.maxsize:
+                raise ValueError("{} is too large".format(name))
+        return total
+
+    def __checked_product(self, name, *values):
+        product = 1
+        for value in values:
+            product *= self.__require_positive_int(value, name)
+            if product > sys.maxsize:
+                raise ValueError("{} is too large".format(name))
+        return product
+
+    def __validate_tensor_bytes(self, byte_count, name):
+        byte_count = self.__require_positive_int(byte_count, name + " byte count")
+        if byte_count > self.__max_tensor_bytes:
+            raise ValueError(
+                "{} requires {} bytes, exceeding {}={} bytes".format(
+                    name, byte_count, MAX_TENSOR_BYTES_ENV, self.__max_tensor_bytes
+                )
+            )
+        return byte_count
+
+    @staticmethod
+    def __get_file_size(path, name):
+        try:
+            return os.path.getsize(path)
+        except OSError as error:
+            raise ValueError("Unable to read {} size from {}: {}".format(name, path, error)) from error
+
+    def __get_dense_model_size(self):
+        if self.__dense_model_size is None:
+            self.__dense_model_size = self.__get_file_size(self.__dense_model, "dense model")
+        return self.__dense_model_size
+
+    def __read_dense_model_bytes(self, layer_type, layer_bytes):
+        layer_bytes = self.__validate_tensor_bytes(layer_bytes, layer_type + " weights")
+        dense_model_size = self.__get_dense_model_size()
+        if self.__offset > dense_model_size:
+            raise ValueError(
+                "{} layer starts at offset {} beyond dense model size {} for {}".format(
+                    layer_type, self.__offset, dense_model_size, self.__dense_model
+                )
+            )
+        remaining_bytes = dense_model_size - self.__offset
+        if layer_bytes > remaining_bytes:
+            raise ValueError(
+                "{} layer requires {} bytes from dense model {} at offset {}, "
+                "but only {} bytes remain".format(
+                    layer_type,
+                    layer_bytes,
+                    self.__dense_model,
+                    self.__offset,
+                    remaining_bytes,
+                )
+            )
+        with open(self.__dense_model, "rb") as file:
+            file.seek(self.__offset, 0)
+            buffer = file.read(layer_bytes)
+        if len(buffer) != layer_bytes:
+            raise ValueError(
+                "{} layer expected {} bytes from dense model {}, got {}".format(
+                    layer_type, layer_bytes, self.__dense_model, len(buffer)
+                )
+            )
+        return buffer
+
+    def __unpack_floats(self, buffer, offset, count, name):
+        count = self.__require_positive_int(count, name + " count")
+        byte_count = self.__checked_product(name + " byte size", count, FLOAT_BYTES)
+        end = self.__checked_sum(name + " buffer range", offset, byte_count)
+        if end > len(buffer):
+            raise ValueError(
+                "{} requires {} bytes at offset {}, but buffer has {} bytes".format(
+                    name, byte_count, offset, len(buffer)
+                )
+            )
+        return struct.unpack_from(str(count) + "f", buffer, offset)
 
     @property
     def key_to_indice_hash_all_tables(self):
@@ -202,7 +332,10 @@ class HugeCTRLoader(object):
             layer_type == "DistributedSlotSparseEmbeddingHash"
             or layer_type == "LocalizedSlotSparseEmbeddingHash"
         ):
-            embedding_vec_size = layer_config["sparse_embedding_hparam"]["embedding_vec_size"]
+            embedding_vec_size = self.__require_positive_int(
+                layer_config["sparse_embedding_hparam"]["embedding_vec_size"],
+                "sparse_embedding_hparam.embedding_vec_size",
+            )
             self.__dimensions[layer_config["top"]] = (
                 self.__dimensions[layer_config["bottom"]][0],
                 embedding_vec_size,
@@ -214,36 +347,99 @@ class HugeCTRLoader(object):
                 max_vocab_size_global = layer_config["sparse_embedding_hparam"][
                     "max_vocabulary_size_global"
                 ]
-                # indice 0 is reserved for default values of non-exisiting keys
-                embedding_table = np.zeros(
-                    shape=(max_vocab_size_global + 1, embedding_vec_size), dtype=np.float32
+                max_vocab_size_global = self.__require_positive_int(
+                    max_vocab_size_global,
+                    "sparse_embedding_hparam.max_vocabulary_size_global",
                 )
-                with open(
-                    self.__sparse_models[self.__embedding_counter] + "/key", "rb"
-                ) as key_file, open(
-                    self.__sparse_models[self.__embedding_counter] + "/emb_vector", "rb"
-                ) as vec_file:
-                    try:
-                        # indice 0 is reserved for default values of non-exisiting keys
-                        indice = 1
-                        while True:
-                            key_buffer = key_file.read(8)
-                            vec_buffer = vec_file.read(4 * embedding_vec_size)
-                            if len(key_buffer) == 0 or len(vec_buffer) == 0:
-                                break
-                            key = struct.unpack("q", key_buffer)[0]
-                            values = struct.unpack(str(embedding_vec_size) + "f", vec_buffer)
-                            self.key_to_indice_hash_all_tables[self.__embedding_counter][
-                                key
-                            ] = indice
-                            embedding_table[indice] = values
-                            indice += 1
-                    except BaseException as error:
-                        print(error)
-                layer_weights_dict["embedding_table"] = embedding_table
-                layer_weights_dict["hash_table"] = self.key_to_indice_hash_all_tables[
+                key_path = os.path.join(
+                    self.__sparse_models[self.__embedding_counter], "key"
+                )
+                vec_path = os.path.join(
+                    self.__sparse_models[self.__embedding_counter], "emb_vector"
+                )
+                vector_bytes = self.__checked_product(
+                    "sparse embedding vector byte size", embedding_vec_size, FLOAT_BYTES
+                )
+                self.__validate_tensor_bytes(vector_bytes, "sparse embedding vector")
+                key_file_size = self.__get_file_size(key_path, "sparse embedding key file")
+                vec_file_size = self.__get_file_size(vec_path, "sparse embedding vector file")
+                if key_file_size % INT64_BYTES != 0:
+                    raise ValueError(
+                        "Sparse embedding key file {} size {} is not aligned to {} bytes".format(
+                            key_path, key_file_size, INT64_BYTES
+                        )
+                    )
+                if vec_file_size % vector_bytes != 0:
+                    raise ValueError(
+                        "Sparse embedding vector file {} size {} is not aligned to "
+                        "embedding vector size {} bytes".format(
+                            vec_path, vec_file_size, vector_bytes
+                        )
+                    )
+                key_count = key_file_size // INT64_BYTES
+                vector_count = vec_file_size // vector_bytes
+                if key_count != vector_count:
+                    raise ValueError(
+                        "Sparse embedding key/vector row count mismatch for {} and {}: "
+                        "{} keys vs {} vectors".format(
+                            key_path, vec_path, key_count, vector_count
+                        )
+                    )
+                if vector_count > max_vocab_size_global:
+                    raise ValueError(
+                        "Sparse embedding vector count {} exceeds max_vocabulary_size_global "
+                        "{}".format(vector_count, max_vocab_size_global)
+                    )
+                embedding_rows = self.__checked_sum(
+                    "sparse embedding table rows", vector_count, 1
+                )
+                embedding_table_bytes = self.__checked_product(
+                    "sparse embedding table byte size",
+                    embedding_rows,
+                    embedding_vec_size,
+                    FLOAT_BYTES,
+                )
+                self.__validate_tensor_bytes(embedding_table_bytes, "sparse embedding table")
+                hash_table_size = self.__key_to_indice_hash_table_sizes[
                     self.__embedding_counter
                 ]
+                hash_table_bytes = self.__checked_product(
+                    "sparse embedding hash table byte size",
+                    hash_table_size,
+                    np.dtype(np.int64).itemsize,
+                )
+                self.__validate_tensor_bytes(hash_table_bytes, "sparse embedding hash table")
+                # indice 0 is reserved for default values of non-exisiting keys
+                embedding_table = np.zeros(
+                    shape=(embedding_rows, embedding_vec_size), dtype=np.float32
+                )
+                hash_table = np.zeros(shape=(hash_table_size,), dtype=np.int64)
+                with open(key_path, "rb") as key_file, open(vec_path, "rb") as vec_file:
+                    # indice 0 is reserved for default values of non-exisiting keys
+                    for indice in range(1, vector_count + 1):
+                        key_buffer = key_file.read(INT64_BYTES)
+                        vec_buffer = vec_file.read(vector_bytes)
+                        if len(key_buffer) != INT64_BYTES or len(vec_buffer) != vector_bytes:
+                            raise ValueError(
+                                "Sparse embedding files changed while reading {} and {}".format(
+                                    key_path, vec_path
+                                )
+                            )
+                        key = struct.unpack("q", key_buffer)[0]
+                        if key < 0 or key >= hash_table_size:
+                            raise ValueError(
+                                "Sparse embedding key {} is outside hash table range [0, {})".format(
+                                    key, hash_table_size
+                                )
+                            )
+                        values = self.__unpack_floats(
+                            vec_buffer, 0, embedding_vec_size, "sparse embedding vector"
+                        )
+                        hash_table[key] = indice
+                        embedding_table[indice] = values
+                self.__key_to_indice_hash_all_tables.append(hash_table)
+                layer_weights_dict["embedding_table"] = embedding_table
+                layer_weights_dict["hash_table"] = hash_table
                 self.__embedding_counter += 1
             else:
                 print("Skip sparse embedding layers in converted ONNX model")
@@ -253,15 +449,19 @@ class HugeCTRLoader(object):
             layer_params.factor = layer_config["bn_param"]["factor"]
             layer_params.eps = layer_config["bn_param"]["eps"]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
-            in_feature = self.__dimensions[layer_config["bottom"]]
-            layer_bytes = in_feature * 4 * 2
-            with open(self.__dense_model, "rb") as file:
-                file.seek(self.__offset, 0)
-                buffer = file.read(layer_bytes)
-                gamma = struct.unpack(str(in_feature) + "f", buffer[: in_feature * 4])
-                beta = struct.unpack(str(in_feature) + "f", buffer[in_feature * 4 :])
-                gamma = np.reshape(np.float32(gamma), newshape=(in_feature,))
-                beta = np.reshape(np.float32(beta), newshape=(in_feature,))
+            in_feature = self.__require_positive_int(
+                self.__dimensions[layer_config["bottom"]], "BatchNorm input feature"
+            )
+            layer_bytes = self.__checked_product(
+                "BatchNorm weights byte size", in_feature, FLOAT_BYTES, 2
+            )
+            buffer = self.__read_dense_model_bytes(layer_type, layer_bytes)
+            gamma = self.__unpack_floats(buffer, 0, in_feature, "BatchNorm gamma")
+            beta = self.__unpack_floats(
+                buffer, in_feature * FLOAT_BYTES, in_feature, "BatchNorm beta"
+            )
+            gamma = np.reshape(np.float32(gamma), newshape=(in_feature,))
+            beta = np.reshape(np.float32(beta), newshape=(in_feature,))
             self.__offset += layer_bytes
             ntp_config = self.__ntp_config[self.__ntp_counter]
             running_mean = np.array(ntp_config["mean"], dtype=np.float32)
@@ -275,15 +475,19 @@ class HugeCTRLoader(object):
             layer_params.eps = layer_config["ln_param"]["eps"]
             dim_in = self.__dimensions[layer_config["bottom"]]
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
-            in_feature = dim_in[len(dim_in) - 1]
-            layer_bytes = in_feature * 4 * 2
-            with open(self.__dense_model, "rb") as file:
-                file.seek(self.__offset, 0)
-                buffer = file.read(layer_bytes)
-                gamma = struct.unpack(str(in_feature) + "f", buffer[: in_feature * 4])
-                beta = struct.unpack(str(in_feature) + "f", buffer[in_feature * 4 :])
-                gamma = np.reshape(np.float32(gamma), newshape=(in_feature,))
-                beta = np.reshape(np.float32(beta), newshape=(in_feature,))
+            in_feature = self.__require_positive_int(
+                dim_in[len(dim_in) - 1], "LayerNorm input feature"
+            )
+            layer_bytes = self.__checked_product(
+                "LayerNorm weights byte size", in_feature, FLOAT_BYTES, 2
+            )
+            buffer = self.__read_dense_model_bytes(layer_type, layer_bytes)
+            gamma = self.__unpack_floats(buffer, 0, in_feature, "LayerNorm gamma")
+            beta = self.__unpack_floats(
+                buffer, in_feature * FLOAT_BYTES, in_feature, "LayerNorm beta"
+            )
+            gamma = np.reshape(np.float32(gamma), newshape=(in_feature,))
+            beta = np.reshape(np.float32(beta), newshape=(in_feature,))
             self.__offset += layer_bytes
             # ntp_config = self.__ntp_config[self.__ntp_counter]
             # running_mean = np.array(ntp_config["mean"], dtype = np.float32)
@@ -334,27 +538,35 @@ class HugeCTRLoader(object):
             layer_params.out_dim = layer_config["out_dim"]
             self.__dimensions[layer_config["top"]] = layer_params.out_dim
         elif layer_type == "InnerProduct" or layer_type == "FusedInnerProduct":
-            layer_params.num_output = layer_config["fc_param"]["num_output"]
+            layer_params.num_output = self.__require_positive_int(
+                layer_config["fc_param"]["num_output"], layer_type + " num_output"
+            )
             dim = self.__dimensions[layer_config["bottom"]]
             if isinstance(dim, tuple):
                 seq_len = dim[0]
-                hidden_in = dim[1]
+                hidden_in = self.__require_positive_int(dim[1], layer_type + " input feature")
                 self.__dimensions[layer_config["top"]] = (seq_len, layer_params.num_output)
                 in_feature = hidden_in
             else:
                 self.__dimensions[layer_config["top"]] = layer_params.num_output
-                in_feature = self.__dimensions[layer_config["bottom"]]
-            out_feature = layer_params.num_output
-            layer_bytes = (in_feature * out_feature + 1 * out_feature) * 4
-            with open(self.__dense_model, "rb") as file:
-                file.seek(self.__offset, 0)
-                buffer = file.read(layer_bytes)
-                weight = struct.unpack(
-                    str(in_feature * out_feature) + "f", buffer[: in_feature * out_feature * 4]
+                in_feature = self.__require_positive_int(
+                    self.__dimensions[layer_config["bottom"]], layer_type + " input feature"
                 )
-                bias = struct.unpack(str(out_feature) + "f", buffer[in_feature * out_feature * 4 :])
-                weight = np.reshape(np.float32(weight), newshape=(in_feature, out_feature))
-                bias = np.reshape(np.float32(bias), newshape=(1, out_feature))
+            out_feature = layer_params.num_output
+            weight_count = self.__checked_product(
+                layer_type + " weight count", in_feature, out_feature
+            )
+            param_count = self.__checked_sum(layer_type + " parameter count", weight_count, out_feature)
+            layer_bytes = self.__checked_product(
+                layer_type + " weights byte size", param_count, FLOAT_BYTES
+            )
+            buffer = self.__read_dense_model_bytes(layer_type, layer_bytes)
+            weight = self.__unpack_floats(buffer, 0, weight_count, layer_type + " weight")
+            bias = self.__unpack_floats(
+                buffer, weight_count * FLOAT_BYTES, out_feature, layer_type + " bias"
+            )
+            weight = np.reshape(np.float32(weight), newshape=(in_feature, out_feature))
+            bias = np.reshape(np.float32(bias), newshape=(1, out_feature))
             self.__offset += layer_bytes
             layer_weights_dict[layer_config["top"] + "_weight"] = weight
             layer_weights_dict[layer_config["top"] + "_bias"] = bias
@@ -370,22 +582,37 @@ class HugeCTRLoader(object):
             if "biases" in layer_config["mlp_param"]:
                 layer_params.biases = layer_config["mlp_param"]["biases"]
             for i in range(len(layer_params.num_outputs)):
-                in_feature = self.__dimensions[layer_config["bottom"]]
+                in_feature = self.__require_positive_int(
+                    self.__dimensions[layer_config["bottom"]],
+                    "MLP layer {} input feature".format(i),
+                )
                 if i != 0:
-                    in_feature = layer_params.num_outputs[i - 1]
-                out_feature = layer_params.num_outputs[i]
-                layer_bytes = (in_feature * out_feature + 1 * out_feature) * 4
-                with open(self.__dense_model, "rb") as file:
-                    file.seek(self.__offset, 0)
-                    buffer = file.read(layer_bytes)
-                    weight = struct.unpack(
-                        str(in_feature * out_feature) + "f", buffer[: in_feature * out_feature * 4]
+                    in_feature = self.__require_positive_int(
+                        layer_params.num_outputs[i - 1],
+                        "MLP layer {} input feature".format(i),
                     )
-                    bias = struct.unpack(
-                        str(out_feature) + "f", buffer[in_feature * out_feature * 4 :]
-                    )
-                    weight = np.reshape(np.float32(weight), newshape=(in_feature, out_feature))
-                    bias = np.reshape(np.float32(bias), newshape=(1, out_feature))
+                out_feature = self.__require_positive_int(
+                    layer_params.num_outputs[i], "MLP layer {} output feature".format(i)
+                )
+                weight_count = self.__checked_product(
+                    "MLP layer {} weight count".format(i), in_feature, out_feature
+                )
+                param_count = self.__checked_sum(
+                    "MLP layer {} parameter count".format(i), weight_count, out_feature
+                )
+                layer_bytes = self.__checked_product(
+                    "MLP layer {} weights byte size".format(i), param_count, FLOAT_BYTES
+                )
+                buffer = self.__read_dense_model_bytes(layer_type, layer_bytes)
+                weight = self.__unpack_floats(buffer, 0, weight_count, "MLP layer {} weight".format(i))
+                bias = self.__unpack_floats(
+                    buffer,
+                    weight_count * FLOAT_BYTES,
+                    out_feature,
+                    "MLP layer {} bias".format(i),
+                )
+                weight = np.reshape(np.float32(weight), newshape=(in_feature, out_feature))
+                bias = np.reshape(np.float32(bias), newshape=(1, out_feature))
                 self.__offset += layer_bytes
                 layer_weights_dict[layer_config["top"] + str(i) + "_weight"] = weight
                 layer_weights_dict[layer_config["top"] + str(i) + "_bias"] = bias
@@ -415,28 +642,39 @@ class HugeCTRLoader(object):
             else:
                 self.__dimensions[layer_config["top"]] = dim2[1]
         elif layer_type == "MultiCross":
-            layer_params.num_layers = layer_config["mc_param"]["num_layers"]
+            layer_params.num_layers = self.__require_positive_int(
+                layer_config["mc_param"]["num_layers"], "MultiCross num_layers"
+            )
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"]]
             num_layers = layer_params.num_layers
-            in_feature = self.__dimensions[layer_config["bottom"]]
-            layer_bytes = in_feature * 2 * num_layers * 4
-            with open(self.__dense_model, "rb") as file:
-                file.seek(self.__offset, 0)
-                buffer = file.read(layer_bytes)
-                weights = []
-                biases = []
-                each_layer_bytes = layer_bytes // num_layers
-                for i in range(num_layers):
-                    weight = struct.unpack(
-                        str(in_feature) + "f",
-                        buffer[i * each_layer_bytes : i * each_layer_bytes + in_feature * 4],
-                    )
-                    bias = struct.unpack(
-                        str(in_feature) + "f",
-                        buffer[i * each_layer_bytes + in_feature * 4 : (i + 1) * each_layer_bytes],
-                    )
-                    weights.append(np.reshape(np.float32(weight), newshape=(len(weight), 1)))
-                    biases.append(np.reshape(np.float32(bias), newshape=(1, len(bias))))
+            in_feature = self.__require_positive_int(
+                self.__dimensions[layer_config["bottom"]], "MultiCross input feature"
+            )
+            param_count = self.__checked_product(
+                "MultiCross parameter count", in_feature, 2, num_layers
+            )
+            layer_bytes = self.__checked_product(
+                "MultiCross weights byte size", param_count, FLOAT_BYTES
+            )
+            buffer = self.__read_dense_model_bytes(layer_type, layer_bytes)
+            weights = []
+            biases = []
+            each_layer_bytes = self.__checked_product(
+                "MultiCross layer byte size", in_feature, 2, FLOAT_BYTES
+            )
+            for i in range(num_layers):
+                layer_offset = i * each_layer_bytes
+                weight = self.__unpack_floats(
+                    buffer, layer_offset, in_feature, "MultiCross layer {} weight".format(i)
+                )
+                bias = self.__unpack_floats(
+                    buffer,
+                    layer_offset + in_feature * FLOAT_BYTES,
+                    in_feature,
+                    "MultiCross layer {} bias".format(i),
+                )
+                weights.append(np.reshape(np.float32(weight), newshape=(len(weight), 1)))
+                biases.append(np.reshape(np.float32(bias), newshape=(1, len(bias))))
             self.__offset += layer_bytes
             layer_weights_dict[layer_config["top"] + "_weights"] = weights
             layer_weights_dict[layer_config["top"] + "_biases"] = biases
@@ -526,19 +764,24 @@ class HugeCTRLoader(object):
             self.__dimensions[layer_config["top"]] = self.__dimensions[layer_config["bottom"][0]]
         elif layer_type == "WeightMultiply":
             layer_params.weight_dims = layer_config["weight_dims"]
-            self.__dimensions[layer_config["top"]] = (
-                layer_params.weight_dims[0] * layer_params.weight_dims[1]
+            if len(layer_params.weight_dims) != 2:
+                raise ValueError("WeightMultiply weight_dims must contain exactly two integers")
+            slot_num = self.__require_positive_int(
+                layer_params.weight_dims[0], "WeightMultiply slot_num"
             )
-            slot_num = layer_params.weight_dims[0]
-            vec_size = layer_params.weight_dims[1]
-            layer_bytes = slot_num * vec_size * 4
-            with open(self.__dense_model, "rb") as file:
-                file.seek(self.__offset, 0)
-                buffer = file.read(layer_bytes)
-                weight = struct.unpack(
-                    str(slot_num * vec_size) + "f", buffer[: slot_num * vec_size * 4]
-                )
-                weight = np.reshape(np.float32(weight), newshape=(slot_num, vec_size))
+            vec_size = self.__require_positive_int(
+                layer_params.weight_dims[1], "WeightMultiply vec_size"
+            )
+            self.__dimensions[layer_config["top"]] = slot_num * vec_size
+            weight_count = self.__checked_product(
+                "WeightMultiply weight count", slot_num, vec_size
+            )
+            layer_bytes = self.__checked_product(
+                "WeightMultiply weights byte size", weight_count, FLOAT_BYTES
+            )
+            buffer = self.__read_dense_model_bytes(layer_type, layer_bytes)
+            weight = self.__unpack_floats(buffer, 0, weight_count, "WeightMultiply weight")
+            weight = np.reshape(np.float32(weight), newshape=(slot_num, vec_size))
             self.__offset += layer_bytes
             layer_weights_dict[layer_config["top"] + "_weight"] = weight
         elif layer_type == "BinaryCrossEntropyLoss":
