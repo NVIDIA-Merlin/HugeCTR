@@ -75,7 +75,7 @@ std::shared_ptr<VariableBase<KeyType, ValueType>> VariableFactory::create(
     int device_id = -1;  ///< The ID of device.
     auto device_id_it = config_json.find("device_id");
     if (device_id_it != config_json.end()) {
-      device_id = block_size_it->get<int>();
+      device_id = device_id_it->get<int>();
     }
     bool io_by_cpu = false;  ///< The flag indicating if the CPU handles IO.
     auto io_by_cpu_it = config_json.find("io_by_cpu");
@@ -85,7 +85,7 @@ std::shared_ptr<VariableBase<KeyType, ValueType>> VariableFactory::create(
     std::string evict_strategy = "kLru";
     auto evict_strategy_it = config_json.find("evict_strategy");
     if (evict_strategy_it != config_json.end()) {
-      evict_strategy = io_by_cpu_it->get<std::string>();
+      evict_strategy = evict_strategy_it->get<std::string>();
     }
     // When we encounter a feature that is not already in our model, we only add it to
     // the model with probability p.
